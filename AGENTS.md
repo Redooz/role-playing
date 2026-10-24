@@ -25,6 +25,17 @@ The repo has no application code yet. It is at milestone **M0** (build the eval 
 - Use OpenRouter for Jev and eval models. A ChatGPT subscription does not work at runtime.
 - Live speech-to-text is Azure `MAI-Transcribe-2-Streaming`.
 
+## Code layout
+
+- Each action gets its own folder: `features/<verb>-<noun>/`.
+- Files in order: `<action>.controller.ts` → `<action>.handler.ts` → `<action>.usecase.ts` → `<action>.mapper.ts` (only if needed) → `<action>.adapter.ts`.
+- Never add `*.service.ts` or a `services/` folder.
+- Use cases are plain code with the business rules. No HTTP, LiveKit, database, or provider imports.
+- Controllers only translate requests. Handlers check identity and input, then call one use case.
+- Depend inward: controller → handler → use case → port. Adapters implement ports and are wired at the app edge.
+- Libraries (`session-core`, `turn-arbiter`, `routing-policy`, `eval-engine`) expose functions and ports. They do not get controllers or handlers.
+- One use case per action. Shared logic is a plain function, not a service.
+
 ## Rules that are easy to get wrong
 
 - **Evals decide.** If an eval gets worse, fix the feature. Never lower a threshold or widen a gate to make a change pass.
