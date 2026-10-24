@@ -1,0 +1,27 @@
+# Dependencies / build
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Logs
+*.log
+logs/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Documentation lives in Obsidian, not in git
+docs/
+
+# Eval run artifacts (results are per-run; baselines and a curated index are committed)
+evals/.cache/
+evals/results/*
+!evals/results/.gitkeep
+!evals/results/index.md
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
