@@ -35,13 +35,6 @@ The repo has no application code yet. It is at milestone **M0** (build the eval 
 - **No secret in the repo.** API keys stay in the environment (they are loaded from `~/.bashrc`). Never put keys in files, logs, or traces.
 - **No raw audio saved by default.** Saving audio needs a separate opt-in from the user.
 
-## How to write and talk
-
-- Use plain English and normal software words. No jargon, buzzwords, or filler.
-- Keep sentences short. If a simple word works, use it.
-- Explain a term the first time it is needed. Do not assume the reader knows it.
-- This rule is about messages, plans, and docs. Code still uses normal naming and style.
-
 ## Working style
 
 - Keep changes small and tied to one milestone.
