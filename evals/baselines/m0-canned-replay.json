@@ -1,0 +1,444 @@
+{
+  "schemaVersion": "1.0.0",
+  "runId": "m0-canned-replay",
+  "suite": "m0-canned-replay",
+  "manifestHash": "76cec20fd3e280d49fb2865a0b43ac5bf09334ce8a801fd80394f85b0f4b51be",
+  "manifest": {
+    "schemaVersion": "1.0.0",
+    "run": {
+      "runId": "m0-canned-replay",
+      "suite": "m0-canned-replay",
+      "description": "Gate G1: replay every synthetic EN/FR fixture twice with the canned provider and require byte-identical normalized traces."
+    },
+    "fixtures": {
+      "dataset": "synthetic-workplace",
+      "version": "v1",
+      "languages": ["en", "fr"],
+      "splits": ["calibration", "holdout"]
+    },
+    "seeds": {
+      "master": 20261025,
+      "algorithm": "mulberry32"
+    },
+    "scorer": {
+      "id": "deterministic-invariants",
+      "version": "1.0.0"
+    },
+    "rubric": {
+      "version": "m0-harness-v1"
+    },
+    "limits": {
+      "repetitions": 2,
+      "maxFailureRate": 0
+    },
+    "target": {
+      "metric": "replay.deterministic_rate",
+      "direction": "increase",
+      "minimumDetectableEffect": 0
+    },
+    "guardrails": [
+      {
+        "metric": "trace.schema_valid_rate",
+        "direction": "increase",
+        "tolerance": 0
+      },
+      {
+        "metric": "trace.content_class_rate",
+        "direction": "increase",
+        "tolerance": 0
+      },
+      {
+        "metric": "trace.guard_violations",
+        "direction": "decrease",
+        "tolerance": 0
+      },
+      {
+        "metric": "run.failure_rate",
+        "direction": "decrease",
+        "tolerance": 0
+      }
+    ],
+    "invariants": [
+      "trace.schema_valid",
+      "trace.guard_clean",
+      "trace.seq_monotonic",
+      "trace.content_class"
+    ],
+    "provider": {
+      "mode": "canned",
+      "label": "m0-fixture-persona-v1",
+      "allowLive": false
+    },
+    "baseline": {
+      "runId": "m0-canned-replay-bootstrap",
+      "metrics": {
+        "replay.deterministic_rate": 1,
+        "trace.schema_valid_rate": 1,
+        "trace.content_class_rate": 1,
+        "trace.guard_violations": 0,
+        "run.failure_rate": 0
+      }
+    }
+  },
+  "verdict": {
+    "status": "accepted",
+    "target": {
+      "kind": "target",
+      "metric": "replay.deterministic_rate",
+      "direction": "increase",
+      "baseline": 1,
+      "value": 1,
+      "delta": 0,
+      "improvement": 0,
+      "required": 0,
+      "status": "pass",
+      "reason": "target metric \"replay.deterministic_rate\" improved by 0 (required 0)"
+    },
+    "guardrails": [
+      {
+        "kind": "guardrail",
+        "metric": "trace.schema_valid_rate",
+        "direction": "increase",
+        "baseline": 1,
+        "value": 1,
+        "delta": 0,
+        "improvement": 0,
+        "required": 0,
+        "status": "pass",
+        "reason": "guardrail \"trace.schema_valid_rate\" held"
+      },
+      {
+        "kind": "guardrail",
+        "metric": "trace.content_class_rate",
+        "direction": "increase",
+        "baseline": 1,
+        "value": 1,
+        "delta": 0,
+        "improvement": 0,
+        "required": 0,
+        "status": "pass",
+        "reason": "guardrail \"trace.content_class_rate\" held"
+      },
+      {
+        "kind": "guardrail",
+        "metric": "trace.guard_violations",
+        "direction": "decrease",
+        "baseline": 0,
+        "value": 0,
+        "delta": 0,
+        "improvement": 0,
+        "required": 0,
+        "status": "pass",
+        "reason": "guardrail \"trace.guard_violations\" held"
+      },
+      {
+        "kind": "guardrail",
+        "metric": "run.failure_rate",
+        "direction": "decrease",
+        "baseline": 0,
+        "value": 0,
+        "delta": 0,
+        "improvement": 0,
+        "required": 0,
+        "status": "pass",
+        "reason": "guardrail \"run.failure_rate\" held"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "trace.schema_valid",
+        "ok": true,
+        "detail": "12/12 completed traces parse against the trace schema"
+      },
+      {
+        "id": "trace.guard_clean",
+        "ok": true,
+        "detail": "0 §3.2 guard violation(s) across completed traces"
+      },
+      {
+        "id": "trace.seq_monotonic",
+        "ok": true,
+        "detail": "every completed trace has strictly increasing seq"
+      },
+      {
+        "id": "trace.content_class",
+        "ok": true,
+        "detail": "every text-bearing record is restricted and operational records are contentFree"
+      }
+    ],
+    "reasons": [
+      "target \"replay.deterministic_rate\" improved by 0 (required 0), 4 guardrail(s) held and all invariants passed"
+    ],
+    "providerOutages": 0
+  },
+  "metrics": {
+    "replay.deterministic_rate": 1,
+    "trace.guard_violations": 0,
+    "trace.schema_valid_rate": 1,
+    "trace.content_class_rate": 1,
+    "run.failure_rate": 0
+  },
+  "invariants": [
+    {
+      "id": "trace.schema_valid",
+      "ok": true,
+      "detail": "12/12 completed traces parse against the trace schema"
+    },
+    {
+      "id": "trace.guard_clean",
+      "ok": true,
+      "detail": "0 §3.2 guard violation(s) across completed traces"
+    },
+    {
+      "id": "trace.seq_monotonic",
+      "ok": true,
+      "detail": "every completed trace has strictly increasing seq"
+    },
+    {
+      "id": "trace.content_class",
+      "ok": true,
+      "detail": "every text-bearing record is restricted and operational records are contentFree"
+    }
+  ],
+  "repetitions": [
+    {
+      "repetition": 0,
+      "fixtureId": "fr-b2-refuser-reunion-003",
+      "lang": "fr",
+      "ok": true,
+      "records": 29,
+      "traceSha256": "640a491c80be82f0a806ff5197b89172d30db2661317340fc3aba548b7dd5dd7",
+      "tracePath": "traces/rep-0/fr/fr-b2-refuser-reunion-003.jsonl",
+      "simDurationMs": 1980,
+      "providerOutage": false
+    },
+    {
+      "repetition": 0,
+      "fixtureId": "fr-b2-point-matin-002",
+      "lang": "fr",
+      "ok": true,
+      "records": 28,
+      "traceSha256": "f4a6ac3bb57f8195a5733a0e098c3eedbdc2a7f20d821bdcbeac1270d5a2947a",
+      "tracePath": "traces/rep-0/fr/fr-b2-point-matin-002.jsonl",
+      "simDurationMs": 1960,
+      "providerOutage": false
+    },
+    {
+      "repetition": 0,
+      "fixtureId": "fr-b1-rapport-delai-001",
+      "lang": "fr",
+      "ok": true,
+      "records": 28,
+      "traceSha256": "7c117769d8c1aeb7226dcac87d0d97a09aeb6998033f9aa2aba8c52f631a56bb",
+      "tracePath": "traces/rep-0/fr/fr-b1-rapport-delai-001.jsonl",
+      "simDurationMs": 1960,
+      "providerOutage": false
+    },
+    {
+      "repetition": 0,
+      "fixtureId": "en-b2-standup-clarify-002",
+      "lang": "en",
+      "ok": true,
+      "records": 28,
+      "traceSha256": "ba2f62d12db8673a885e6ac2336e24ad947db634c6ae589a031d745bedd33d14",
+      "tracePath": "traces/rep-0/en/en-b2-standup-clarify-002.jsonl",
+      "simDurationMs": 1960,
+      "providerOutage": false
+    },
+    {
+      "repetition": 0,
+      "fixtureId": "en-b2-decline-meeting-003",
+      "lang": "en",
+      "ok": true,
+      "records": 29,
+      "traceSha256": "f2f6c952a8e7b1fc3c833e2837bea68f1abf6808709c51788c9ec3e7af5f7b35",
+      "tracePath": "traces/rep-0/en/en-b2-decline-meeting-003.jsonl",
+      "simDurationMs": 1980,
+      "providerOutage": false
+    },
+    {
+      "repetition": 0,
+      "fixtureId": "en-b1-report-deadline-001",
+      "lang": "en",
+      "ok": true,
+      "records": 29,
+      "traceSha256": "ee4efcc0b9b1fa51b57d315a2ded431648474529c50f310935a95d0b9987f11d",
+      "tracePath": "traces/rep-0/en/en-b1-report-deadline-001.jsonl",
+      "simDurationMs": 1980,
+      "providerOutage": false
+    },
+    {
+      "repetition": 1,
+      "fixtureId": "fr-b2-refuser-reunion-003",
+      "lang": "fr",
+      "ok": true,
+      "records": 29,
+      "traceSha256": "640a491c80be82f0a806ff5197b89172d30db2661317340fc3aba548b7dd5dd7",
+      "tracePath": "traces/rep-1/fr/fr-b2-refuser-reunion-003.jsonl",
+      "simDurationMs": 1980,
+      "providerOutage": false
+    },
+    {
+      "repetition": 1,
+      "fixtureId": "fr-b2-point-matin-002",
+      "lang": "fr",
+      "ok": true,
+      "records": 28,
+      "traceSha256": "f4a6ac3bb57f8195a5733a0e098c3eedbdc2a7f20d821bdcbeac1270d5a2947a",
+      "tracePath": "traces/rep-1/fr/fr-b2-point-matin-002.jsonl",
+      "simDurationMs": 1960,
+      "providerOutage": false
+    },
+    {
+      "repetition": 1,
+      "fixtureId": "fr-b1-rapport-delai-001",
+      "lang": "fr",
+      "ok": true,
+      "records": 28,
+      "traceSha256": "7c117769d8c1aeb7226dcac87d0d97a09aeb6998033f9aa2aba8c52f631a56bb",
+      "tracePath": "traces/rep-1/fr/fr-b1-rapport-delai-001.jsonl",
+      "simDurationMs": 1960,
+      "providerOutage": false
+    },
+    {
+      "repetition": 1,
+      "fixtureId": "en-b2-standup-clarify-002",
+      "lang": "en",
+      "ok": true,
+      "records": 28,
+      "traceSha256": "ba2f62d12db8673a885e6ac2336e24ad947db634c6ae589a031d745bedd33d14",
+      "tracePath": "traces/rep-1/en/en-b2-standup-clarify-002.jsonl",
+      "simDurationMs": 1960,
+      "providerOutage": false
+    },
+    {
+      "repetition": 1,
+      "fixtureId": "en-b2-decline-meeting-003",
+      "lang": "en",
+      "ok": true,
+      "records": 29,
+      "traceSha256": "f2f6c952a8e7b1fc3c833e2837bea68f1abf6808709c51788c9ec3e7af5f7b35",
+      "tracePath": "traces/rep-1/en/en-b2-decline-meeting-003.jsonl",
+      "simDurationMs": 1980,
+      "providerOutage": false
+    },
+    {
+      "repetition": 1,
+      "fixtureId": "en-b1-report-deadline-001",
+      "lang": "en",
+      "ok": true,
+      "records": 29,
+      "traceSha256": "ee4efcc0b9b1fa51b57d315a2ded431648474529c50f310935a95d0b9987f11d",
+      "tracePath": "traces/rep-1/en/en-b1-report-deadline-001.jsonl",
+      "simDurationMs": 1980,
+      "providerOutage": false
+    }
+  ],
+  "traces": [
+    {
+      "fixtureId": "fr-b2-refuser-reunion-003",
+      "lang": "fr",
+      "repetition": 0,
+      "path": "traces/rep-0/fr/fr-b2-refuser-reunion-003.jsonl",
+      "sha256": "640a491c80be82f0a806ff5197b89172d30db2661317340fc3aba548b7dd5dd7"
+    },
+    {
+      "fixtureId": "fr-b2-point-matin-002",
+      "lang": "fr",
+      "repetition": 0,
+      "path": "traces/rep-0/fr/fr-b2-point-matin-002.jsonl",
+      "sha256": "f4a6ac3bb57f8195a5733a0e098c3eedbdc2a7f20d821bdcbeac1270d5a2947a"
+    },
+    {
+      "fixtureId": "fr-b1-rapport-delai-001",
+      "lang": "fr",
+      "repetition": 0,
+      "path": "traces/rep-0/fr/fr-b1-rapport-delai-001.jsonl",
+      "sha256": "7c117769d8c1aeb7226dcac87d0d97a09aeb6998033f9aa2aba8c52f631a56bb"
+    },
+    {
+      "fixtureId": "en-b2-standup-clarify-002",
+      "lang": "en",
+      "repetition": 0,
+      "path": "traces/rep-0/en/en-b2-standup-clarify-002.jsonl",
+      "sha256": "ba2f62d12db8673a885e6ac2336e24ad947db634c6ae589a031d745bedd33d14"
+    },
+    {
+      "fixtureId": "en-b2-decline-meeting-003",
+      "lang": "en",
+      "repetition": 0,
+      "path": "traces/rep-0/en/en-b2-decline-meeting-003.jsonl",
+      "sha256": "f2f6c952a8e7b1fc3c833e2837bea68f1abf6808709c51788c9ec3e7af5f7b35"
+    },
+    {
+      "fixtureId": "en-b1-report-deadline-001",
+      "lang": "en",
+      "repetition": 0,
+      "path": "traces/rep-0/en/en-b1-report-deadline-001.jsonl",
+      "sha256": "ee4efcc0b9b1fa51b57d315a2ded431648474529c50f310935a95d0b9987f11d"
+    },
+    {
+      "fixtureId": "fr-b2-refuser-reunion-003",
+      "lang": "fr",
+      "repetition": 1,
+      "path": "traces/rep-1/fr/fr-b2-refuser-reunion-003.jsonl",
+      "sha256": "640a491c80be82f0a806ff5197b89172d30db2661317340fc3aba548b7dd5dd7"
+    },
+    {
+      "fixtureId": "fr-b2-point-matin-002",
+      "lang": "fr",
+      "repetition": 1,
+      "path": "traces/rep-1/fr/fr-b2-point-matin-002.jsonl",
+      "sha256": "f4a6ac3bb57f8195a5733a0e098c3eedbdc2a7f20d821bdcbeac1270d5a2947a"
+    },
+    {
+      "fixtureId": "fr-b1-rapport-delai-001",
+      "lang": "fr",
+      "repetition": 1,
+      "path": "traces/rep-1/fr/fr-b1-rapport-delai-001.jsonl",
+      "sha256": "7c117769d8c1aeb7226dcac87d0d97a09aeb6998033f9aa2aba8c52f631a56bb"
+    },
+    {
+      "fixtureId": "en-b2-standup-clarify-002",
+      "lang": "en",
+      "repetition": 1,
+      "path": "traces/rep-1/en/en-b2-standup-clarify-002.jsonl",
+      "sha256": "ba2f62d12db8673a885e6ac2336e24ad947db634c6ae589a031d745bedd33d14"
+    },
+    {
+      "fixtureId": "en-b2-decline-meeting-003",
+      "lang": "en",
+      "repetition": 1,
+      "path": "traces/rep-1/en/en-b2-decline-meeting-003.jsonl",
+      "sha256": "f2f6c952a8e7b1fc3c833e2837bea68f1abf6808709c51788c9ec3e7af5f7b35"
+    },
+    {
+      "fixtureId": "en-b1-report-deadline-001",
+      "lang": "en",
+      "repetition": 1,
+      "path": "traces/rep-1/en/en-b1-report-deadline-001.jsonl",
+      "sha256": "ee4efcc0b9b1fa51b57d315a2ded431648474529c50f310935a95d0b9987f11d"
+    }
+  ],
+  "summary": {
+    "requestedRepetitions": 2,
+    "attempts": 2,
+    "completed": 2,
+    "failed": 0,
+    "failureRate": 0,
+    "executions": 12,
+    "failedExecutions": 0
+  },
+  "versions": {
+    "codeSha": "010566b66e5aea0631030d5c2a1b9fa3eea42a0c",
+    "traceSchemaVersion": "1.0.0",
+    "fixtureDataset": "synthetic-workplace",
+    "fixtureVersion": "v1",
+    "scorerId": "deterministic-invariants",
+    "scorerVersion": "1.0.0",
+    "rubricVersion": "m0-harness-v1",
+    "seed": 20261025
+  },
+  "startedAt": "2026-10-25T18:08:59.530Z",
+  "finishedAt": "2026-10-25T18:08:59.547Z"
+}
