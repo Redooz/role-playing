@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "lang": {
+      "type": "string",
+      "enum": ["en", "fr"]
+    },
+    "domain": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scenarioType": {
+      "type": "string",
+      "minLength": 1
+    },
+    "cefrBand": {
+      "type": "string",
+      "enum": ["A1", "A2", "B1", "B2", "C1", "C2"]
+    },
+    "speakerId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "split": {
+      "type": "string",
+      "enum": ["calibration", "holdout"]
+    },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": ["synthetic", "recorded"]
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        },
+        "collectedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+        }
+      },
+      "required": ["source"],
+      "additionalProperties": false
+    },
+    "consentScope": {
+      "type": "string",
+      "minLength": 1
+    },
+    "annotationVersions": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "content": {
+      "type": "object",
+      "properties": {
+        "scenarioBrief": {
+          "type": "string",
+          "minLength": 1
+        },
+        "turns": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "type": "string",
+                "enum": ["user", "persona"]
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": ["role", "text"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["turns"],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "id",
+    "lang",
+    "domain",
+    "scenarioType",
+    "cefrBand",
+    "speakerId",
+    "split",
+    "provenance",
+    "consentScope",
+    "annotationVersions",
+    "content"
+  ],
+  "additionalProperties": false
+}

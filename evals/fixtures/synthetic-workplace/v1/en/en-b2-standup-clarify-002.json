@@ -1,0 +1,42 @@
+{
+  "id": "en-b2-standup-clarify-002",
+  "lang": "en",
+  "domain": "workplace",
+  "scenarioType": "clarify-task-in-standup",
+  "cefrBand": "B2",
+  "speakerId": "syn-en-cal-02",
+  "split": "calibration",
+  "provenance": {
+    "source": "synthetic"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "rubric": "v1",
+    "annotationGuideline": "v1"
+  },
+  "content": {
+    "scenarioBrief": "During a daily stand-up, the learner clarifies what updating the dashboard means before committing to the task.",
+    "turns": [
+      {
+        "role": "persona",
+        "text": "Quick stand-up. You are up. What are you picking up today?"
+      },
+      {
+        "role": "user",
+        "text": "I can take the dashboard task, but I want to make sure I understand the scope. Does updating the dashboard mean the layout or the underlying data?"
+      },
+      {
+        "role": "persona",
+        "text": "Good question. The data source changed, so the charts need to show the new fields."
+      },
+      {
+        "role": "user",
+        "text": "Understood. So it is the data mapping, not a redesign. I will start with the field list and confirm it with you before I change anything."
+      },
+      {
+        "role": "persona",
+        "text": "Perfect. Send me the field list by lunch and we are aligned."
+      }
+    ]
+  }
+}

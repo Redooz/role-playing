@@ -1,0 +1,42 @@
+{
+  "id": "fr-b2-point-matin-002",
+  "lang": "fr",
+  "domain": "workplace",
+  "scenarioType": "clarify-task-in-standup",
+  "cefrBand": "B2",
+  "speakerId": "syn-fr-cal-02",
+  "split": "calibration",
+  "provenance": {
+    "source": "synthetic"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "rubric": "v1",
+    "annotationGuideline": "v1"
+  },
+  "content": {
+    "scenarioBrief": "Lors d'un point du matin, l'apprenant clarifie le périmètre de la tâche « mettre à jour le tableau de bord » avant de s'engager.",
+    "turns": [
+      {
+        "role": "persona",
+        "text": "On commence le point du matin. À toi."
+      },
+      {
+        "role": "user",
+        "text": "Je peux prendre la tâche du tableau de bord, mais je voudrais vérifier le périmètre. Quand vous dites « mettre à jour le tableau de bord », est-ce la présentation ou les données ?"
+      },
+      {
+        "role": "persona",
+        "text": "Bonne question. La source de données a changé, donc les graphiques doivent refléter les nouveaux champs."
+      },
+      {
+        "role": "user",
+        "text": "D'accord, il s'agit donc de la correspondance des données, pas d'une refonte. Je commence par la liste des champs et je vous la montre avant de modifier quoi que ce soit."
+      },
+      {
+        "role": "persona",
+        "text": "Parfait. Envoie-moi la liste avant midi et nous serons alignés."
+      }
+    ]
+  }
+}

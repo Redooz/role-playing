@@ -1,0 +1,44 @@
+{
+  "id": "golden-en-v1-report-deadline-001",
+  "lang": "en",
+  "split": "calibration",
+  "fixtureId": "en-b1-report-deadline-001",
+  "routingLabels": {
+    "intent": "request-deadline-extension",
+    "expectedPersonaId": "persona-manager",
+    "acceptablePersonaIds": ["persona-manager"]
+  },
+  "dimensionScores": {
+    "task_completion": {
+      "score": 4,
+      "rationale": "States what is missing and proposes a concrete first draft date."
+    },
+    "clarity": {
+      "score": 4,
+      "rationale": "The request and the proposed plan are easy to follow."
+    },
+    "politeness": {
+      "score": 4,
+      "rationale": "Direct but respectful; no blaming of other teams."
+    },
+    "language_accuracy": {
+      "score": 3,
+      "rationale": "One tense slip ('I am a bit worried' instead of a softer conditional)."
+    }
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 1,
+      "textRef": "Could I have two more days to finish the analysis?",
+      "dimension": "clarity"
+    },
+    {
+      "turnIndex": 3,
+      "textRef": "If I send the first draft on Monday, would that be acceptable?",
+      "dimension": "task_completion"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Draft label set from a single annotator pass. annotatorAgreement has not been measured, so this entry is not stable ground truth."
+}

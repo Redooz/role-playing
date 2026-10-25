@@ -1,0 +1,42 @@
+{
+  "id": "en-b1-report-deadline-001",
+  "lang": "en",
+  "domain": "workplace",
+  "scenarioType": "request-deadline-extension",
+  "cefrBand": "B1",
+  "speakerId": "syn-en-cal-01",
+  "split": "calibration",
+  "provenance": {
+    "source": "synthetic"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "rubric": "v1",
+    "annotationGuideline": "v1"
+  },
+  "content": {
+    "scenarioBrief": "A junior analyst asks their manager for a two-day extension on a quarterly report that is due on Friday.",
+    "turns": [
+      {
+        "role": "persona",
+        "text": "Morning. Before we start, how is the quarterly report coming along?"
+      },
+      {
+        "role": "user",
+        "text": "It is going well, but I am a bit worried about the time. Could I have two more days to finish the analysis?"
+      },
+      {
+        "role": "persona",
+        "text": "Two days is more than I expected. What is still missing?"
+      },
+      {
+        "role": "user",
+        "text": "I need to check the figures from the sales team and write the summary. If I send the first draft on Monday, would that be acceptable?"
+      },
+      {
+        "role": "persona",
+        "text": "That works if you send me the headline numbers on Friday. Let us agree on that."
+      }
+    ]
+  }
+}

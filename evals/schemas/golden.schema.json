@@ -1,0 +1,179 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "lang": {
+      "type": "string",
+      "enum": ["en", "fr"]
+    },
+    "split": {
+      "type": "string",
+      "enum": ["calibration", "holdout"]
+    },
+    "fixtureId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "routingLabels": {
+      "type": "object",
+      "properties": {
+        "intent": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expectedPersonaId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "acceptablePersonaIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": ["intent", "expectedPersonaId"],
+      "additionalProperties": false
+    },
+    "dimensionScores": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "score": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": ["score"],
+        "additionalProperties": false
+      }
+    },
+    "evidenceSpans": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "turnIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "textRef": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dimension": {
+            "type": "string",
+            "minLength": 1
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": ["turnIndex", "textRef"],
+        "additionalProperties": false
+      }
+    },
+    "pairwisePreferences": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "opponentId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "preference": {
+            "type": "string",
+            "enum": ["self", "opponent", "tie"]
+          },
+          "presentationOrder": {
+            "type": "string",
+            "enum": ["self-first", "opponent-first"]
+          },
+          "blinded": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": ["opponentId", "preference", "presentationOrder", "blinded"],
+        "additionalProperties": false
+      }
+    },
+    "annotatorAgreement": {
+      "type": "object",
+      "properties": {
+        "annotators": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "metric": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1
+        },
+        "measuredAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": ["annotators", "metric", "value"],
+      "additionalProperties": false
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "stable", "retired"]
+    },
+    "notes": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "id",
+    "lang",
+    "split",
+    "routingLabels",
+    "dimensionScores",
+    "evidenceSpans",
+    "pairwisePreferences",
+    "status"
+  ],
+  "additionalProperties": false
+}
