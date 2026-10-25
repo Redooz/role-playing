@@ -1,0 +1,58 @@
+name: opencode review
+
+# Automated PR review by the OpenCode GitHub integration, using the
+# `opencode-agent` GitHub App for the comment/push token and OpenRouter for
+# inference (DeepSeek V4.1 Flash). See AGENTS.md for the review criteria.
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+
+concurrency:
+  group: opencode-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  # The App token is obtained by exchanging this OIDC token, so the workflow
+  # does not need pull-requests: write itself.
+  id-token: write
+
+jobs:
+  review:
+    name: review
+    # Drafts are skipped, and forks are skipped on purpose: their pull_request
+    # payload is untrusted and secrets are not available to them anyway.
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Run OpenCode
+        uses: anomalyco/opencode/github@latest
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        with:
+          model: openrouter/deepseek/deepseek-v4.1-flash
+          prompt: |
+            Review this pull request as a senior engineer on a TypeScript monorepo.
+
+            Read AGENTS.md first and hold the change to its rules. In particular:
+            - Evals decide: flag any change that weakens a gate, threshold, fixture
+              rule or pre-registered manifest.
+            - Models judge, code decides: counting, maths, dates and hard limits
+              must stay in normal code.
+            - A failed model call must never become a "no", a zero or a pass.
+            - No secret in the repository, no raw audio saved by default, and no
+              behaviour-affecting code before its milestone.
+            - Tests live next to the file under test with a `.spec.ts` name.
+
+            Report only actionable findings: bugs, correctness, security, data
+            loss, broken determinism, or a violated rule. Give file:line and a
+            concrete fix. Do not restate the diff, do not praise, and do not
+            modify files.
