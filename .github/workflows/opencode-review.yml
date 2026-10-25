@@ -37,7 +37,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 1
-          persist-credentials: false
+          # The action runs `git fetch` and `git checkout` for the PR branch in
+          # token mode, so it needs the checkout credential. The token is
+          # contents:read, so it can read but never push.
+          persist-credentials: true
 
       # Written outside the worktree on purpose: a dirty worktree makes the
       # action commit and push, and a review must never change the branch.
@@ -49,20 +52,6 @@ jobs:
             -H "Accept: application/vnd.github.raw" \
             "repos/${GITHUB_REPOSITORY}/contents/AGENTS.md?ref=${{ github.event.pull_request.base.sha }}" \
             > "${RUNNER_TEMP}/AGENTS.base.md"
-
-      - name: Token permissions
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh api "repos/${GITHUB_REPOSITORY}" --jq '.permissions'
-
-      - name: Probe comment permission
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api -X POST "repos/${GITHUB_REPOSITORY}/issues/${{
-            github.event.pull_request.number
-          }}/comments" -f body="permission probe (will be deleted)" --jq '.id'
 
       - name: Run OpenCode
         uses: anomalyco/opencode/github@2c14fc5586fe0b88e5c04732d2e846769cc35671 # tag latest, 2026-10-25
