@@ -18,7 +18,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '26'
+          node-version: '26.x'
           cache: npm
 
       - run: npm ci
@@ -30,3 +30,51 @@ jobs:
       - run: npm run typecheck
 
       - run: npm run test:unit
+
+  fixtures:
+    name: fixture validator (G3)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.x'
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run validate:fixtures
+
+  jev-canary:
+    name: Jev canary (G4)
+    runs-on: ubuntu-latest
+    # The canary is skipped when the secret is absent (forks), so CI stays green
+    # without pretending it proved the integration.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.x'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check for OPENROUTER_API_KEY
+        id: key
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          if [ -z "${OPENROUTER_API_KEY}" ]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::OPENROUTER_API_KEY is not configured; skipping the Jev canary."
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run canary against the pinned model
+        if: steps.key.outputs.present == 'true'
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: npx vitest run --project unit packages/eval-engine/src/jev/canary.spec.ts

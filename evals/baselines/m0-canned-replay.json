@@ -148,7 +148,7 @@
       {
         "id": "trace.schema_valid",
         "ok": true,
-        "detail": "12/12 completed traces parse against the trace schema"
+        "detail": "all 12 completed traces parse against the trace schema"
       },
       {
         "id": "trace.guard_clean",
@@ -182,7 +182,7 @@
     {
       "id": "trace.schema_valid",
       "ok": true,
-      "detail": "12/12 completed traces parse against the trace schema"
+      "detail": "all 12 completed traces parse against the trace schema"
     },
     {
       "id": "trace.guard_clean",
@@ -430,7 +430,7 @@
     "failedExecutions": 0
   },
   "versions": {
-    "codeSha": "010566b66e5aea0631030d5c2a1b9fa3eea42a0c",
+    "codeSha": "e91b3d03b5d0819910465ede12c248dd8805729d",
     "traceSchemaVersion": "1.0.0",
     "fixtureDataset": "synthetic-workplace",
     "fixtureVersion": "v1",
@@ -439,6 +439,6 @@
     "rubricVersion": "m0-harness-v1",
     "seed": 20261025
   },
-  "startedAt": "2026-10-25T18:08:59.530Z",
-  "finishedAt": "2026-10-25T18:08:59.547Z"
+  "startedAt": "2026-10-25T18:12:43.319Z",
+  "finishedAt": "2026-10-25T18:12:43.334Z"
 }
