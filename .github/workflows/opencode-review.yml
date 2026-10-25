@@ -31,6 +31,9 @@ jobs:
       github.event.pull_request.draft == false &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    # The action retries transient provider errors; without a bound, a
+    # rate-limited internal model can stall the job indefinitely.
+    timeout-minutes: 15
     steps:
       # Actions are pinned to full commit SHAs: this job holds an API key.
       - name: Checkout repository
@@ -52,6 +55,20 @@ jobs:
             -H "Accept: application/vnd.github.raw" \
             "repos/${GITHUB_REPOSITORY}/contents/AGENTS.md?ref=${{ github.event.pull_request.base.sha }}" \
             > "${RUNNER_TEMP}/AGENTS.base.md"
+
+      # OpenCode generates the session title with `small_model`, not with the
+      # model passed to the action. The default small model is rate-limited on
+      # the shared OpenRouter pool and can stall the whole run, so point it at
+      # the same cheap model the review uses.
+      - name: Point the small model at a working provider
+        run: |
+          mkdir -p "${HOME}/.config/opencode"
+          cat > "${HOME}/.config/opencode/opencode.json" <<'JSON'
+          {
+            "$schema": "https://opencode.ai/config.json",
+            "small_model": "openrouter/deepseek/deepseek-v4.1-flash"
+          }
+          JSON
 
       - name: Run OpenCode
         uses: anomalyco/opencode/github@2c14fc5586fe0b88e5c04732d2e846769cc35671 # tag latest, 2026-10-25
