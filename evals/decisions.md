@@ -19,17 +19,17 @@ Rules:
 M0 is scaffolding, so these gates are about reproducibility and workflow
 integrity, not product quality. They are the first entries in this log.
 
-| Date | Gate | Run ID | Verdict | Evidence |
-| --- | --- | --- | --- | --- |
-| _pending_ | G1 canned replay determinism | — | — | two byte-identical normalised traces per canned EN+FR fixture |
-| _pending_ | G2 manifest enforcement | — | — | incomplete manifests rejected with explicit errors |
-| _pending_ | G3 fixture validator | — | — | zero violations in CI |
-| _pending_ | G4 Jev integration canary | — | — | EN, FR and unsettled smoke questions |
-| _pending_ | G5 harness overhead | — | — | `evals/results/m0-harness-overhead/bench.json` |
-| _pending_ | G6 LiveKit soak | — | — | `evals/results/m0-livekit-soak/<runId>.json` |
+| Date      | Gate                         | Run ID | Verdict | Evidence                                                      |
+| --------- | ---------------------------- | ------ | ------- | ------------------------------------------------------------- |
+| _pending_ | G1 canned replay determinism | —      | —       | two byte-identical normalised traces per canned EN+FR fixture |
+| _pending_ | G2 manifest enforcement      | —      | —       | incomplete manifests rejected with explicit errors            |
+| _pending_ | G3 fixture validator         | —      | —       | zero violations in CI                                         |
+| _pending_ | G4 Jev integration canary    | —      | —       | EN, FR and unsettled smoke questions                          |
+| _pending_ | G5 harness overhead          | —      | —       | `evals/results/m0-harness-overhead/bench.json`                |
+| _pending_ | G6 LiveKit soak              | —      | —       | `evals/results/m0-livekit-soak/<runId>.json`                  |
 
 ## Accepted and rejected changes
 
-| Date | Change | Run ID | Verdict | Notes |
-| --- | --- | --- | --- | --- |
-| — | — | — | — | no behaviour changes exist yet (M0) |
+| Date | Change | Run ID | Verdict | Notes                               |
+| ---- | ------ | ------ | ------- | ----------------------------------- |
+| —    | —      | —      | —       | no behaviour changes exist yet (M0) |
