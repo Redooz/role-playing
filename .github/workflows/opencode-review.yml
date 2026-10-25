@@ -94,11 +94,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           echo "AGENTS.base.md" >> .git/info/exclude
           gh api \
             -H "Accept: application/vnd.github.raw" \
             "repos/${GITHUB_REPOSITORY}/contents/AGENTS.md?ref=${{ github.event.pull_request.base.sha }}" \
             > AGENTS.base.md
+          test -s AGENTS.base.md
 
       # `small_model` drives the hidden title agent. The default is rate-limited
       # on the shared OpenRouter pool and stalls runs. `steps` caps agentic
@@ -113,7 +115,7 @@ jobs:
             "small_model": "openrouter/deepseek/deepseek-v4.1-flash",
             "agent": {
               "build": {
-                "steps": 12
+                "steps": 18
               }
             },
             "permission": {
@@ -177,6 +179,11 @@ jobs:
               commit SHAs, and must not leave the worktree dirty.
 
             Start the comment with the exact heading `## Review findings`.
+
+            Write the review in English. Use simple, plain English and avoid
+            jargon: readers may not be native English speakers. Say what is
+            wrong and what to do instead in short sentences.
+
             Report only actionable findings: bugs, correctness, security, data
             loss, broken determinism, or a violated rule. Give file:line and a
             concrete fix. Do not restate the diff, do not praise, and do not
