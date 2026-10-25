@@ -1,0 +1,39 @@
+{
+  "name": "role-playing",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Voice role-play platform for practising workplace English and French.",
+  "engines": {
+    "node": ">=26"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "tools/*"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc -b",
+    "test": "npm run test:unit",
+    "test:unit": "vitest run --project unit",
+    "test:watch": "vitest --project unit",
+    "test:bench": "vitest run --project bench",
+    "evals": "node --env-file-if-exists=.env tools/eval-runner/src/cli.ts",
+    "validate:fixtures": "node --env-file-if-exists=.env tools/eval-runner/src/cli.ts validate-fixtures"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.5",
+    "eslint": "^10.13.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.0",
+    "vitest": "^5.0.5"
+  }
+}
