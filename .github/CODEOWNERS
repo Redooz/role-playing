@@ -1,0 +1,5 @@
+# Workflows run with repository secrets. Require a code-owner review for any
+# change under .github/workflows/ so a PR cannot add a step that prints them.
+# Enforcement needs "Require review from Code Owners" in the branch protection
+# rules for main.
+/.github/workflows/ @Redooz
