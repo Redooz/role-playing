@@ -1,0 +1,10 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/shared" },
+    { "path": "./packages/session-core" },
+    { "path": "./packages/eval-engine" },
+    { "path": "./tools/eval-runner" },
+    { "path": "./tools/latency-harness" }
+  ]
+}

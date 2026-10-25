@@ -1,0 +1,9 @@
+node_modules/
+dist/
+coverage/
+package-lock.json
+docs/
+.agents/
+evals/results/
+evals/.cache/
+*.tsbuildinfo
