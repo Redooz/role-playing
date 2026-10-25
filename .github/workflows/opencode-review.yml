@@ -49,11 +49,13 @@ jobs:
           # worktree). A credential helper reads it from the environment instead.
           persist-credentials: false
 
-      - name: Provide read credentials without writing them to disk
+      - name: Provide read credentials scoped to GitHub
         run: |
-          # The variable is expanded when git runs the helper, not now, so the
-          # token stays only in the environment of the step that needs it.
-          git config --local credential.helper \
+          # Only the helper command is stored in .git/config. The token is not:
+          # the variable is expanded when git runs the helper, inside the step
+          # that has it in the environment. Scoped to github.com so the token is
+          # never offered to another host.
+          git config --local 'credential.https://github.com.helper' \
             '!f() { echo "username=x-access-token"; echo "password=${GITHUB_TOKEN}"; }; f'
 
       # Counts every comment the bot posted on this PR. The author comes from
@@ -107,6 +109,7 @@ jobs:
       # iterations; the permission block keeps the reviewer read-only and stops
       # it from shelling out to `gh` to post extra comments.
       - name: Configure the review agent
+        if: steps.budget.outputs.skip != 'true'
         run: |
           mkdir -p "${HOME}/.config/opencode"
           cat > "${HOME}/.config/opencode/opencode.json" <<'JSON'
@@ -135,8 +138,9 @@ jobs:
       - name: Neutralise PR-provided instructions and config
         if: steps.budget.outputs.skip != 'true'
         run: |
-          git ls-files -z -- 'AGENTS.md' '*/AGENTS.md' 'opencode.json' \
-            'opencode.jsonc' '.opencode' '.agents' '.claude' 'skills-lock.json' \
+          git ls-files -z -- 'AGENTS.md' '*/AGENTS.md' 'SKILL.md' '*/SKILL.md' \
+            'opencode.json' 'opencode.jsonc' '.opencode' '.agents' '.claude' \
+            'skills-lock.json' \
             | while IFS= read -r -d '' f; do
                 git update-index --skip-worktree -- "$f" || true
               done
