@@ -19,8 +19,8 @@ concurrency:
 
 permissions:
   contents: read # no write: the review cannot push code
-  pull-requests: read
-  issues: write # PR comments are issue comments
+  pull-requests: write # PR comments and reactions
+  issues: write
 
 jobs:
   review:
@@ -49,6 +49,11 @@ jobs:
             -H "Accept: application/vnd.github.raw" \
             "repos/${GITHUB_REPOSITORY}/contents/AGENTS.md?ref=${{ github.event.pull_request.base.sha }}" \
             > "${RUNNER_TEMP}/AGENTS.base.md"
+
+      - name: Token permissions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api "repos/${GITHUB_REPOSITORY}" --jq '.permissions'
 
       - name: Run OpenCode
         uses: anomalyco/opencode/github@2c14fc5586fe0b88e5c04732d2e846769cc35671 # tag latest, 2026-10-25
