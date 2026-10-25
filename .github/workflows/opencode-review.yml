@@ -59,8 +59,6 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # The action otherwise downloads whatever release is latest at run
-          # time, which would defeat the SHA pin. The installer reads VERSION.
-          VERSION: "1.19.4"
         with:
           model: openrouter/deepseek/deepseek-v4.1-flash
           use_github_token: true
