@@ -38,15 +38,16 @@ The repo has no application code yet. It is at milestone **M0** (build the eval 
 
 ## Code layout
 
-- Split code by layer: `domain/`, `application/`, `adapters/`. Do not create a `features/` folder.
+- Split code by layer: `domain/`, `adapters/`. Do not create a `features/` folder or an `application/` folder.
 - `domain/` holds entities, value objects, domain rules, and the ports in `domain/ports/`.
-- `application/` holds one use case per action: `<verb>-<noun>.usecase.ts`. Use cases are plain code with the business rules. No HTTP, LiveKit, database, or provider imports.
+- Use cases live in `domain/usecases/`, one per action: `<verb>-<noun>.usecase.ts`. They are plain code with the business rules. No HTTP, LiveKit, database, or provider imports.
+- Tests live next to the file under test, at the same level, with a `.spec.ts` name. Example: `create-user.usecase.spec.ts` next to `create-user.usecase.ts`. Do not use a separate `test/` folder.
 - `adapters/inbound/` holds `<action>.controller.ts` and `<action>.handler.ts`. Controllers only translate requests. Handlers check identity and input, then call one use case.
 - `adapters/outbound/` holds database, provider, and storage adapters, named like `user.postgres.adapter.ts`.
 - `mappers/` is optional. Add a mapper only when two shapes differ.
-- Never add `*.service.ts`, a `services/` folder, or a `features/` folder.
+- Never add `*.service.ts`, a `services/` folder, a `features/` folder, or an `application/` folder.
 - Depend inward: controller → handler → use case → port. An adapter may not import a use case, and a use case may not import an adapter.
-- Wire real adapters once per app in the composition root. Tests and evals use fake or canned adapters.
+- Wire real adapters once per app in the composition root. Tests use fake or canned adapters.
 - Libraries (`session-core`, `turn-arbiter`, `routing-policy`, `eval-engine`) expose functions and ports. They do not get controllers or handlers.
 
 ## Rules that are easy to get wrong
