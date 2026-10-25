@@ -65,12 +65,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          set -o pipefail
+          set -euo pipefail
+          # The login that posts the comment depends on the token mode; read it
+          # from the token instead of hard-coding it.
+          login=$(gh api /user --jq .login)
+          test -n "${login}"
           # --jq runs once per page, so sum the per-page counts.
           existing=$(gh api \
             "repos/${GITHUB_REPOSITORY}/issues/${{ github.event.pull_request.number }}/comments" \
             --paginate \
-            --jq '[.[] | select(.user.login == "github-actions[bot]")] | length' \
+            --jq "[.[] | select(.user.login == \"${login}\")] | length" \
             | awk '{ total += $1 } END { print total + 0 }')
           echo "review comments so far: ${existing} / ${MAX_REVIEW_COMMENTS}"
           if [ "${existing}" -ge "${MAX_REVIEW_COMMENTS}" ]; then
@@ -130,12 +134,13 @@ jobs:
         if: steps.budget.outputs.skip != 'true'
         run: |
           git ls-files -z -- 'AGENTS.md' '*/AGENTS.md' 'opencode.json' \
-            'opencode.jsonc' '.opencode' \
+            'opencode.jsonc' '.opencode' '.agents' '.claude' 'skills-lock.json' \
             | while IFS= read -r -d '' f; do
                 git update-index --skip-worktree -- "$f" || true
               done
-          find . -type f -name AGENTS.md -not -path './.git/*' -delete
-          rm -rf .opencode opencode.json opencode.jsonc
+          find . -type f \( -name AGENTS.md -o -name SKILL.md \) \
+            -not -path './.git/*' -delete
+          rm -rf .opencode .agents .claude opencode.json opencode.jsonc skills-lock.json
 
       - name: Run OpenCode
         if: steps.budget.outputs.skip != 'true'
@@ -181,9 +186,22 @@ jobs:
       - name: Restore the worktree
         if: always()
         run: |
+          set -euo pipefail
           rm -f AGENTS.base.md
-          git ls-files -v | awk '$1 == "S" { print $2 }' \
-            | while IFS= read -r f; do
-                git update-index --no-skip-worktree -- "$f" || true
-              done
-          git checkout -- . 2>/dev/null || true
+          git ls-files -v -z | while IFS= read -r -d '' entry; do
+            tag="${entry%% *}"
+            path="${entry#* }"
+            if [ "${tag}" = "S" ]; then
+              git update-index --no-skip-worktree -- "${path}"
+            fi
+          done
+          git checkout -- .
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "worktree is dirty after restore:" >&2
+            git status --porcelain >&2
+            exit 1
+          fi
+          if git ls-files -v | grep -q '^S'; then
+            echo "skip-worktree bits remain after restore" >&2
+            exit 1
+          fi
