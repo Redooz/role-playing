@@ -63,11 +63,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # --jq runs once per page, so sum the per-page counts.
           existing=$(gh api \
             "repos/${GITHUB_REPOSITORY}/issues/${{ github.event.pull_request.number }}/comments" \
-            --paginate --slurp \
-            --jq '[.[][] | select(.user.login == "github-actions[bot]")
-                        | select(.body | startswith("## Review findings"))] | length')
+            --paginate \
+            --jq '[.[] | select(.user.login == "github-actions[bot]")
+                        | select(.body | startswith("## Review findings"))] | length' \
+            | awk '{ total += $1 } END { print total + 0 }')
           echo "review comments so far: ${existing} / ${MAX_REVIEW_COMMENTS}"
           if [ "${existing}" -ge "${MAX_REVIEW_COMMENTS}" ]; then
             echo "skip=true" >> "${GITHUB_OUTPUT}"
