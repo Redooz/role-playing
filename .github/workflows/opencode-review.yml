@@ -63,6 +63,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -o pipefail
           # --jq runs once per page, so sum the per-page counts.
           existing=$(gh api \
             "repos/${GITHUB_REPOSITORY}/issues/${{ github.event.pull_request.number }}/comments" \
@@ -119,6 +120,17 @@ jobs:
             }
           }
           JSON
+
+      # opencode auto-loads AGENTS.md from the worktree as instructions. Remove
+      # the PR's copy (skip-worktree keeps `git status` clean, so the action
+      # never sees a dirty tree) and rely on AGENTS.base.md from the base branch.
+      - name: Neutralise PR-provided instructions
+        if: steps.budget.outputs.skip != 'true'
+        run: |
+          if [ -f AGENTS.md ]; then
+            rm AGENTS.md
+            git update-index --skip-worktree AGENTS.md
+          fi
 
       - name: Run OpenCode
         if: steps.budget.outputs.skip != 'true'
