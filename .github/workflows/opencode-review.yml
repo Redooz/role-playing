@@ -56,8 +56,10 @@ jobs:
           git config --local credential.helper \
             '!f() { echo "username=x-access-token"; echo "password=${GITHUB_TOKEN}"; }; f'
 
-      # Counts only review comments, identified by the heading the prompt asks
-      # for. Failure notices from the action do not consume the budget.
+      # Counts every comment the bot posted on this PR. The author comes from
+      # the token mode (`use_github_token`), not from model output, so the cap
+      # cannot be dodged by formatting. Failure notices also consume budget,
+      # which errs on the side of fewer comments.
       - name: Check review budget
         id: budget
         env:
@@ -68,8 +70,7 @@ jobs:
           existing=$(gh api \
             "repos/${GITHUB_REPOSITORY}/issues/${{ github.event.pull_request.number }}/comments" \
             --paginate \
-            --jq '[.[] | select(.user.login == "github-actions[bot]")
-                        | select(.body | startswith("## Review findings"))] | length' \
+            --jq '[.[] | select(.user.login == "github-actions[bot]")] | length' \
             | awk '{ total += $1 } END { print total + 0 }')
           echo "review comments so far: ${existing} / ${MAX_REVIEW_COMMENTS}"
           if [ "${existing}" -ge "${MAX_REVIEW_COMMENTS}" ]; then
@@ -121,16 +122,20 @@ jobs:
           }
           JSON
 
-      # opencode auto-loads AGENTS.md from the worktree as instructions. Remove
-      # the PR's copy (skip-worktree keeps `git status` clean, so the action
-      # never sees a dirty tree) and rely on AGENTS.base.md from the base branch.
-      - name: Neutralise PR-provided instructions
+      # opencode auto-loads AGENTS.md, project config, plugins and skills from
+      # the worktree. All of them are PR-controlled, so remove them before the
+      # review. Tracked deletions are masked with skip-worktree so `git status`
+      # stays clean and the action never tries to commit.
+      - name: Neutralise PR-provided instructions and config
         if: steps.budget.outputs.skip != 'true'
         run: |
-          if [ -f AGENTS.md ]; then
-            rm AGENTS.md
-            git update-index --skip-worktree AGENTS.md
-          fi
+          git ls-files -z -- 'AGENTS.md' '*/AGENTS.md' 'opencode.json' \
+            'opencode.jsonc' '.opencode' \
+            | while IFS= read -r -d '' f; do
+                git update-index --skip-worktree -- "$f" || true
+              done
+          find . -path ./.git -prune -o -name AGENTS.md -type f -delete
+          rm -rf .opencode opencode.json opencode.jsonc
 
       - name: Run OpenCode
         if: steps.budget.outputs.skip != 'true'
@@ -173,6 +178,12 @@ jobs:
             modify files. This run is read-only: never edit files, commit, or
             push.
 
-      - name: Remove the fetched review rules
+      - name: Restore the worktree
         if: always()
-        run: rm -f AGENTS.base.md
+        run: |
+          rm -f AGENTS.base.md
+          git ls-files -v | awk '$1 == "S" { print $2 }' \
+            | while IFS= read -r f; do
+                git update-index --no-skip-worktree -- "$f" || true
+              done
+          git checkout -- . 2>/dev/null || true
