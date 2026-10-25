@@ -1,9 +1,14 @@
 name: opencode review
 
-# Automated PR review by the OpenCode GitHub integration, using the
-# `opencode-agent` GitHub App for the comment/push token and OpenRouter for
-# inference (DeepSeek V4.1 Flash). Review rules come from AGENTS.md on the base
-# branch, not from the pull request, so a PR cannot weaken its own gate.
+# Automated PR review by OpenCode.
+#
+# Reviews only: the job runs with a read-only `contents` token, so the review
+# cannot commit or push code onto the pull request even if the model tries. The
+# token can post the review comment (`issues: write`) and nothing else.
+#
+# Inference goes through OpenRouter (DeepSeek V4.1 Flash). Review rules come
+# from AGENTS.md on the base branch, not from the pull request, so a PR cannot
+# weaken its own gate.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -13,10 +18,9 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
-  # The App token is obtained by exchanging this OIDC token, so the workflow
-  # does not need pull-requests: write itself.
-  id-token: write
+  contents: read # no write: the review cannot push code
+  pull-requests: read
+  issues: write # PR comments are issue comments
 
 jobs:
   review:
@@ -28,17 +32,15 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
-      # Actions are pinned to full commit SHAs: this job holds an API key and an
-      # OIDC token that can mint an App token with write access.
+      # Actions are pinned to full commit SHAs: this job holds an API key.
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 1
           persist-credentials: false
 
-      # Written outside the worktree on purpose. The action commits and pushes a
-      # dirty worktree onto the PR branch, so nothing review-related may appear
-      # in `git status`.
+      # Written outside the worktree on purpose: a dirty worktree makes the
+      # action commit and push, and a review must never change the branch.
       - name: Fetch review rules from the base branch
         env:
           GH_TOKEN: ${{ github.token }}
@@ -52,11 +54,13 @@ jobs:
         uses: anomalyco/opencode/github@2c14fc5586fe0b88e5c04732d2e846769cc35671 # tag latest, 2026-10-25
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # The action otherwise downloads whatever release is latest at run
           # time, which would defeat the SHA pin. The installer reads VERSION.
           VERSION: "1.19.4"
         with:
           model: openrouter/deepseek/deepseek-v4.1-flash
+          use_github_token: true
           share: false
           prompt: |
             Review this pull request as a senior engineer on a TypeScript monorepo.
@@ -79,4 +83,5 @@ jobs:
             Report only actionable findings: bugs, correctness, security, data
             loss, broken determinism, or a violated rule. Give file:line and a
             concrete fix. Do not restate the diff, do not praise, and do not
-            modify files.
+            modify files. This run is read-only: never edit files, commit, or
+            push.
