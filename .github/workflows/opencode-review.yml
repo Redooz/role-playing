@@ -45,10 +45,16 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 1
-          # The action runs `git fetch` and `git checkout` for the PR branch in
-          # token mode, so it needs the checkout credential. The token is
-          # contents:read, so it can read but never push.
-          persist-credentials: true
+          # Never persist the token into .git/config (the review can read the
+          # worktree). A credential helper reads it from the environment instead.
+          persist-credentials: false
+
+      - name: Provide read credentials without writing them to disk
+        run: |
+          # The variable is expanded when git runs the helper, not now, so the
+          # token stays only in the environment of the step that needs it.
+          git config --local credential.helper \
+            '!f() { echo "username=x-access-token"; echo "password=${GITHUB_TOKEN}"; }; f'
 
       # Counts only review comments, identified by the heading the prompt asks
       # for. Failure notices from the action do not consume the budget.
@@ -59,9 +65,9 @@ jobs:
         run: |
           existing=$(gh api \
             "repos/${GITHUB_REPOSITORY}/issues/${{ github.event.pull_request.number }}/comments" \
-            --paginate \
-            --jq '[.[] | select(.user.login == "github-actions[bot]")
-                       | select(.body | startswith("## Review findings"))] | length')
+            --paginate --slurp \
+            --jq '[.[][] | select(.user.login == "github-actions[bot]")
+                        | select(.body | startswith("## Review findings"))] | length')
           echo "review comments so far: ${existing} / ${MAX_REVIEW_COMMENTS}"
           if [ "${existing}" -ge "${MAX_REVIEW_COMMENTS}" ]; then
             echo "skip=true" >> "${GITHUB_OUTPUT}"
@@ -118,6 +124,12 @@ jobs:
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The checkout is the PR branch, so its opencode.json, plugins and
+          # skills are attacker-controlled. Ignore all of them; only the global
+          # config written above applies.
+          OPENCODE_DISABLE_PROJECT_CONFIG: "1"
+          OPENCODE_PURE: "1"
+          OPENCODE_DISABLE_EXTERNAL_SKILLS: "1"
         with:
           model: openrouter/deepseek/deepseek-v4.1-flash
           use_github_token: true
