@@ -13,10 +13,10 @@ results are promoted here.
 
 ## M0 suites
 
-| Suite | Gate | Status |
-| --- | --- | --- |
-| `m0-canned-replay` | G1 | pending first accepted run |
-| `m0-harness-overhead` | G5 | pending first accepted run |
+| Suite                 | Gate | Status                     |
+| --------------------- | ---- | -------------------------- |
+| `m0-canned-replay`    | G1   | pending first accepted run |
+| `m0-harness-overhead` | G5   | pending first accepted run |
 
 The Jev canary (G4) is a canary, not a baseline: it proves the integration and
 does not gate behaviour, because no behaviour exists at M0.
