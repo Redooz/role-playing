@@ -1,0 +1,42 @@
+{
+  "id": "fr-b1-rapport-delai-001",
+  "lang": "fr",
+  "domain": "workplace",
+  "scenarioType": "request-deadline-extension",
+  "cefrBand": "B1",
+  "speakerId": "syn-fr-cal-01",
+  "split": "calibration",
+  "provenance": {
+    "source": "synthetic"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "rubric": "v1",
+    "annotationGuideline": "v1"
+  },
+  "content": {
+    "scenarioBrief": "Une analyste junior demande à sa responsable un délai de deux jours pour un rapport trimestriel attendu vendredi.",
+    "turns": [
+      {
+        "role": "persona",
+        "text": "Bonjour. Avant de commencer, où en est le rapport trimestriel ?"
+      },
+      {
+        "role": "user",
+        "text": "Il avance bien, mais je m'inquiète un peu du délai. Est-ce que je pourrais avoir deux jours de plus pour terminer l'analyse ?"
+      },
+      {
+        "role": "persona",
+        "text": "Deux jours, c'est plus que prévu. Qu'est-ce qu'il reste à faire ?"
+      },
+      {
+        "role": "user",
+        "text": "Je dois vérifier les chiffres de l'équipe commerciale et rédiger la synthèse. Si je vous envoie une première version lundi, est-ce que cela vous convient ?"
+      },
+      {
+        "role": "persona",
+        "text": "D'accord, à condition de me donner les chiffres principaux vendredi. Nous nous mettons d'accord là-dessus."
+      }
+    ]
+  }
+}

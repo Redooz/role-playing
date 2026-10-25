@@ -1,0 +1,42 @@
+{
+  "id": "fr-b2-refuser-reunion-003",
+  "lang": "fr",
+  "domain": "workplace",
+  "scenarioType": "decline-meeting-invitation",
+  "cefrBand": "B2",
+  "speakerId": "syn-fr-hold-01",
+  "split": "holdout",
+  "provenance": {
+    "source": "synthetic"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "rubric": "v1",
+    "annotationGuideline": "v1"
+  },
+  "content": {
+    "scenarioBrief": "L'apprenante est invitée à une réunion d'équipe hebdomadaire qui empiète sur son temps de travail concentré et souhaite refuser poliment.",
+    "turns": [
+      {
+        "role": "persona",
+        "text": "Je t'ai ajoutée à la réunion d'équipe du jeudi après-midi. Est-ce que cela te convient ?"
+      },
+      {
+        "role": "user",
+        "text": "Merci de m'avoir incluse. Je ne suis pas certaine d'avoir besoin d'y être chaque semaine, cependant. La plupart de mes nouvelles sont déjà dans le document partagé."
+      },
+      {
+        "role": "persona",
+        "text": "L'équipe aime avoir les nouvelles en direct. Est-ce que ne pas venir poserait problème ?"
+      },
+      {
+        "role": "user",
+        "text": "Je pourrais envoyer un résumé écrit et venir seulement quand une décision me concerne. Est-ce que cela suffirait pour tenir tout le monde informé ?"
+      },
+      {
+        "role": "persona",
+        "text": "C'est raisonnable. Essayons pendant un mois et nous verrons."
+      }
+    ]
+  }
+}
