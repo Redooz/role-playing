@@ -13,10 +13,17 @@ results are promoted here.
 
 ## M0 suites
 
-| Suite                 | Gate | Status                     |
-| --------------------- | ---- | -------------------------- |
-| `m0-canned-replay`    | G1   | pending first accepted run |
-| `m0-harness-overhead` | G5   | pending first accepted run |
+| Suite                 | Gate | Status                             |
+| --------------------- | ---- | ---------------------------------- |
+| `m0-canned-replay`    | G1   | accepted (`m0-canned-replay.json`) |
+| `m0-harness-overhead` | G5   | pending first accepted run         |
+
+`m0-canned-replay.json` is a full `RunResult` artifact, exactly what
+`tools/eval-runner/src/cli.ts run` writes to `evals/results/<runId>/result.json`.
+`compare --baseline evals/baselines/m0-canned-replay.json --run <dir>` reads it
+directly, so a promoted baseline needs no reshaping. The trace files it lists
+stay with the (git-ignored) run directory; only the artifact and hashes are
+committed.
 
 The Jev canary (G4) is a canary, not a baseline: it proves the integration and
 does not gate behaviour, because no behaviour exists at M0.
