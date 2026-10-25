@@ -10,6 +10,7 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@rp/session-core": "*",
     "@rp/shared": "*"
   }
 }
