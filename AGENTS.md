@@ -8,11 +8,22 @@ The repo has no application code yet. It is at milestone **M0** (build the eval 
 
 ## Where the plan lives
 
-- The plan is **not in this repo**. Docs live in Notion under the page **Role-Playing**:
-  - Architecture Plan v5
-  - M0 Plan: Eval Foundation
+- The plan lives in Notion under the page **Role-Playing**:
+  - Architecture Plan v5 — `40383d257ddf81d183c7c74e2806749a`
+  - M0 Plan: Eval Foundation — `40383d257ddf818eb796e4761f285209`
+- Local copies sit in `docs/plans/` (git-ignored): `architecture-plan-v5.md`,
+  `m0-plan-eval-foundation.md`. Read those first; only call Notion when they are
+  stale.
 - `docs/` is git-ignored on purpose. Never add doc files back to git.
 - Before starting work, read the M0 plan and the architecture plan. They contain the current task list and the rules below.
+
+## Notion access
+
+- There are no MCP servers configured. Do not add any.
+- Use the Notion CLI `ntn` (already logged in) instead of an MCP or the API by hand.
+- Refresh a plan copy with `ntn pages get <page-id> > docs/plans/<file>.md`.
+- Search pages with `ntn api /v1/search -d '{"query":"..."}'`.
+- Never paste a token into a file, log, or shell history; `ntn` uses the login session.
 
 ## Decisions already made
 
@@ -27,14 +38,16 @@ The repo has no application code yet. It is at milestone **M0** (build the eval 
 
 ## Code layout
 
-- Each action gets its own folder: `features/<verb>-<noun>/`.
-- Files in order: `<action>.controller.ts` → `<action>.handler.ts` → `<action>.usecase.ts` → `<action>.mapper.ts` (only if needed) → `<action>.adapter.ts`.
-- Never add `*.service.ts` or a `services/` folder.
-- Use cases are plain code with the business rules. No HTTP, LiveKit, database, or provider imports.
-- Controllers only translate requests. Handlers check identity and input, then call one use case.
-- Depend inward: controller → handler → use case → port. Adapters implement ports and are wired at the app edge.
+- Split code by layer: `domain/`, `application/`, `adapters/`. Do not create a `features/` folder.
+- `domain/` holds entities, value objects, domain rules, and the ports in `domain/ports/`.
+- `application/` holds one use case per action: `<verb>-<noun>.usecase.ts`. Use cases are plain code with the business rules. No HTTP, LiveKit, database, or provider imports.
+- `adapters/inbound/` holds `<action>.controller.ts` and `<action>.handler.ts`. Controllers only translate requests. Handlers check identity and input, then call one use case.
+- `adapters/outbound/` holds database, provider, and storage adapters, named like `user.postgres.adapter.ts`.
+- `mappers/` is optional. Add a mapper only when two shapes differ.
+- Never add `*.service.ts`, a `services/` folder, or a `features/` folder.
+- Depend inward: controller → handler → use case → port. An adapter may not import a use case, and a use case may not import an adapter.
+- Wire real adapters once per app in the composition root. Tests and evals use fake or canned adapters.
 - Libraries (`session-core`, `turn-arbiter`, `routing-policy`, `eval-engine`) expose functions and ports. They do not get controllers or handlers.
-- One use case per action. Shared logic is a plain function, not a service.
 
 ## Rules that are easy to get wrong
 
