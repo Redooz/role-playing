@@ -66,15 +66,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          # The login that posts the comment depends on the token mode; read it
-          # from the token instead of hard-coding it.
-          login=$(gh api /user --jq .login)
-          test -n "${login}"
+          # The action appends a `[github run](...)` footer to everything it
+          # posts. Matching that machine-written marker avoids depending on
+          # model output or on a hard-coded bot login; failure notices also
+          # count, which errs on the side of fewer comments.
           # --jq runs once per page, so sum the per-page counts.
           existing=$(gh api \
             "repos/${GITHUB_REPOSITORY}/issues/${{ github.event.pull_request.number }}/comments" \
             --paginate \
-            --jq "[.[] | select(.user.login == \"${login}\")] | length" \
+            --jq '[.[] | select(.body | contains("[github run]("))] | length' \
             | awk '{ total += $1 } END { print total + 0 }')
           echo "review comments so far: ${existing} / ${MAX_REVIEW_COMMENTS}"
           if [ "${existing}" -ge "${MAX_REVIEW_COMMENTS}" ]; then
