@@ -1,0 +1,44 @@
+{
+  "id": "golden-fr-v1-rapport-delai-001",
+  "lang": "fr",
+  "split": "calibration",
+  "fixtureId": "fr-b1-rapport-delai-001",
+  "routingLabels": {
+    "intent": "request-deadline-extension",
+    "expectedPersonaId": "persona-responsable",
+    "acceptablePersonaIds": ["persona-responsable"]
+  },
+  "dimensionScores": {
+    "task_completion": {
+      "score": 4,
+      "rationale": "Explains the remaining work and proposes a new delivery date."
+    },
+    "clarity": {
+      "score": 4,
+      "rationale": "The request is explicit and the plan is easy to follow."
+    },
+    "politeness": {
+      "score": 4,
+      "rationale": "Uses the conditional and vouvoiement appropriately."
+    },
+    "language_accuracy": {
+      "score": 3,
+      "rationale": "Comprehensible throughout; one clumsy transition ('cependant' after a comma)."
+    }
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 1,
+      "textRef": "je pourrais avoir deux jours de plus",
+      "dimension": "clarity"
+    },
+    {
+      "turnIndex": 3,
+      "textRef": "Si je vous envoie une première version lundi, est-ce que cela vous convient ?",
+      "dimension": "task_completion"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Jeu d'étiquettes provisoire, produit par une seule annotation. L'accord inter-annotateurs n'a pas encore été mesuré : cette entrée n'est pas une vérité de référence stable."
+}

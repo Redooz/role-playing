@@ -1,0 +1,42 @@
+{
+  "id": "en-b2-decline-meeting-003",
+  "lang": "en",
+  "domain": "workplace",
+  "scenarioType": "decline-meeting-invitation",
+  "cefrBand": "B2",
+  "speakerId": "syn-en-hold-01",
+  "split": "holdout",
+  "provenance": {
+    "source": "synthetic"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "rubric": "v1",
+    "annotationGuideline": "v1"
+  },
+  "content": {
+    "scenarioBrief": "The learner is invited to a recurring status meeting that clashes with focused work and wants to decline politely without sounding uncooperative.",
+    "turns": [
+      {
+        "role": "persona",
+        "text": "I have added you to the weekly status meeting on Thursday afternoons. Does that work?"
+      },
+      {
+        "role": "user",
+        "text": "Thanks for including me. I am not sure I need to be there every week, though. Most of my updates are already in the shared document."
+      },
+      {
+        "role": "persona",
+        "text": "The team likes to hear updates live. Would skipping it cause problems?"
+      },
+      {
+        "role": "user",
+        "text": "I could send a short written update instead and join only when there is a decision that involves me. Would that still keep everyone informed?"
+      },
+      {
+        "role": "persona",
+        "text": "That is reasonable. Let us try it for a month and see how it goes."
+      }
+    ]
+  }
+}
