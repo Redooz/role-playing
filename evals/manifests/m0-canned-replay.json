@@ -1,0 +1,77 @@
+{
+  "schemaVersion": "1.0.0",
+  "run": {
+    "runId": "m0-canned-replay",
+    "suite": "m0-canned-replay",
+    "description": "Gate G1: replay every synthetic EN/FR fixture twice with the canned provider and require byte-identical normalized traces."
+  },
+  "fixtures": {
+    "dataset": "synthetic-workplace",
+    "version": "v1",
+    "languages": ["en", "fr"],
+    "splits": ["calibration", "holdout"]
+  },
+  "seeds": {
+    "master": 20261025,
+    "algorithm": "mulberry32"
+  },
+  "scorer": {
+    "id": "deterministic-invariants",
+    "version": "1.0.0"
+  },
+  "rubric": {
+    "version": "m0-harness-v1"
+  },
+  "limits": {
+    "repetitions": 2,
+    "maxFailureRate": 0
+  },
+  "target": {
+    "metric": "replay.deterministic_rate",
+    "direction": "increase",
+    "minimumDetectableEffect": 0
+  },
+  "guardrails": [
+    {
+      "metric": "trace.schema_valid_rate",
+      "direction": "increase",
+      "tolerance": 0
+    },
+    {
+      "metric": "trace.content_class_rate",
+      "direction": "increase",
+      "tolerance": 0
+    },
+    {
+      "metric": "trace.guard_violations",
+      "direction": "decrease",
+      "tolerance": 0
+    },
+    {
+      "metric": "run.failure_rate",
+      "direction": "decrease",
+      "tolerance": 0
+    }
+  ],
+  "invariants": [
+    "trace.schema_valid",
+    "trace.guard_clean",
+    "trace.seq_monotonic",
+    "trace.content_class"
+  ],
+  "provider": {
+    "mode": "canned",
+    "label": "m0-fixture-persona-v1",
+    "allowLive": false
+  },
+  "baseline": {
+    "runId": "m0-canned-replay-bootstrap",
+    "metrics": {
+      "replay.deterministic_rate": 1,
+      "trace.schema_valid_rate": 1,
+      "trace.content_class_rate": 1,
+      "trace.guard_violations": 0,
+      "run.failure_rate": 0
+    }
+  }
+}
