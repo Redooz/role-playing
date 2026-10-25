@@ -430,7 +430,7 @@
     "failedExecutions": 0
   },
   "versions": {
-    "codeSha": "e91b3d03b5d0819910465ede12c248dd8805729d",
+    "codeSha": "d44b78efaa55bfbc9f84d235a44d303833c8a01e",
     "traceSchemaVersion": "1.0.0",
     "fixtureDataset": "synthetic-workplace",
     "fixtureVersion": "v1",
@@ -439,6 +439,6 @@
     "rubricVersion": "m0-harness-v1",
     "seed": 20261025
   },
-  "startedAt": "2026-10-25T18:12:43.319Z",
-  "finishedAt": "2026-10-25T18:12:43.334Z"
+  "startedAt": "2026-10-25T18:15:19.191Z",
+  "finishedAt": "2026-10-25T18:15:19.210Z"
 }
