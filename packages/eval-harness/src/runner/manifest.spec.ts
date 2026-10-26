@@ -47,6 +47,35 @@ describe('run manifest (gate G2)', () => {
     expect(result.manifestHash).toMatch(/^[0-9a-f]{64}$/)
   })
 
+  it('rejects a capability eval with a zero minimum detectable effect', () => {
+    const raw = loadExample()
+    ;(raw['run'] as Record<string, unknown>)['purpose'] = 'capability'
+    ;(raw['target'] as Record<string, unknown>)['minimumDetectableEffect'] = 0
+
+    const result = validateManifest(raw)
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.issues.map((issue) => issue.path)).toContain('target.minimumDetectableEffect')
+  })
+
+  it('accepts a capability eval with a positive minimum detectable effect', () => {
+    const raw = loadExample()
+    ;(raw['run'] as Record<string, unknown>)['purpose'] = 'capability'
+    ;(raw['target'] as Record<string, unknown>)['minimumDetectableEffect'] = 0.01
+
+    expect(validateManifest(raw).ok).toBe(true)
+  })
+
+  it('rejects a regression eval with a non-zero minimum detectable effect', () => {
+    const raw = loadExample()
+    ;(raw['target'] as Record<string, unknown>)['minimumDetectableEffect'] = 0.01
+
+    const result = validateManifest(raw)
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.issues.map((issue) => issue.path)).toContain('target.minimumDetectableEffect')
+  })
+
   it('rejects the deliberately incomplete example used by the CLI test', () => {
     const result = validateManifest(load(incompletePath))
     expect(result.ok).toBe(false)

@@ -18,7 +18,8 @@ scores: `code`, `system-one-model`, or `human`. M0 uses `code` only. A
 Every manifest also declares `run.purpose`:
 
 - `capability` — what can the agent do well? The target must show a real
-  improvement; new behaviour enters here.
+  improvement and `minimumDetectableEffect` must be above `0`; new behaviour
+  enters here.
 - `regression` — does the agent still handle every task it used to? The primary
   axis is held at the baseline and `minimumDetectableEffect` must be `0`;
   every axis is a non-regression gate.

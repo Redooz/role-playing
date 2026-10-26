@@ -318,6 +318,15 @@ export const runManifestSchema = z
           'a regression eval holds its primary axis at the baseline; set minimumDetectableEffect to 0',
       })
     }
+
+    if (manifest.run.purpose === 'capability' && manifest.target.minimumDetectableEffect <= 0) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['target', 'minimumDetectableEffect'],
+        message:
+          'a capability eval must show a real improvement; set minimumDetectableEffect above 0',
+      })
+    }
   })
 
 export type RunManifest = z.infer<typeof runManifestSchema>

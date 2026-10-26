@@ -4,7 +4,7 @@
     "runId": "m0-incomplete-example",
     "suite": "m0-canned-replay",
     "description": "Intentionally invalid. Used by tests and docs to show that the runner refuses a manifest with no registered limits. Never execute this in CI.",
-    "purpose": "capability"
+    "purpose": "regression"
   },
   "tasks": {
     "dataset": "synthetic-workplace",
