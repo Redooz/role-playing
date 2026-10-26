@@ -234,6 +234,14 @@ async function compareCommand(flags: Map<string, string>, io: CliIo): Promise<nu
     )
   }
 
+  if (candidate.verdict.status !== 'accepted') {
+    io.out('comparison: FAIL (candidate not accepted)')
+    io.out(
+      `  - candidate ${candidate.runId} has verdict "${candidate.verdict.status}"; only an accepted candidate may be compared`,
+    )
+    return 1
+  }
+
   const comparison = compareRunResults(baseline, candidate)
   for (const line of formatComparison(comparison)) io.out(line)
 

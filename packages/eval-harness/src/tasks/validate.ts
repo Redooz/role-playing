@@ -6,8 +6,10 @@ import {
   goldenEntrySchema,
   hasMeasuredAgreement,
   LANGS,
+  type GoldenEntry,
   type Lang,
   type Split,
+  type TaskEntry,
 } from './schema.js'
 
 /**
@@ -54,6 +56,8 @@ export type ViolationCode =
   | 'DUPLICATE_ID'
   | 'SPLIT_LEAKAGE'
   | 'GOLDEN_AGREEMENT_MISSING'
+  | 'GOLDEN_TASK_MISSING'
+  | 'GOLDEN_TASK_SPLIT_MISMATCH'
 
 export interface TaskViolation {
   /** Path relative to `rootDir`, always with `/` separators. */
@@ -101,6 +105,7 @@ export async function validateTaskTree(rootDir: string): Promise<TaskViolation[]
 
   const ids = new Map<string, { id: string; scope: string; paths: string[] }>()
   const speakers = new Map<string, Map<string, { path: string; split: Split }[]>>()
+  const tasksByLangVersion = new Map<string, { split: Split; path: string }[]>()
 
   for (const path of taskFiles) {
     const location = parseTaskLocation(relativeToEvals(path))
@@ -139,6 +144,7 @@ export async function validateTaskTree(rootDir: string): Promise<TaskViolation[]
 
     registerId(ids, `${location.scope}\u0000${entry.id}`, entry.id, location.scope, path)
     registerSpeaker(speakers, location.scope, entry.speakerId, path, entry.split)
+    registerTaskForGolden(tasksByLangVersion, location, entry, path)
   }
 
   for (const path of goldenFiles) {
@@ -193,6 +199,7 @@ export async function validateTaskTree(rootDir: string): Promise<TaskViolation[]
     }
 
     registerId(ids, `${location.scope}\u0000${entry.id}`, entry.id, location.scope, path)
+    checkGoldenTaskLink(entry, location, path, tasksByLangVersion, violations)
   }
 
   for (const [, group] of ids) {
@@ -375,6 +382,55 @@ function registerId(
     ids.set(key, { id, scope, paths: [path] })
   } else {
     existing.paths.push(path)
+  }
+}
+
+function taskLinkKey(lang: Lang, version: string, taskId: string): string {
+  return `${lang}\u0000${version}\u0000${taskId}`
+}
+
+function registerTaskForGolden(
+  tasks: Map<string, { split: Split; path: string }[]>,
+  location: TaskLocation,
+  entry: TaskEntry,
+  path: string,
+): void {
+  const key = taskLinkKey(entry.lang, location.version, entry.id)
+  const records = tasks.get(key)
+  if (records === undefined) {
+    tasks.set(key, [{ split: entry.split, path }])
+  } else {
+    records.push({ split: entry.split, path })
+  }
+}
+
+/** A golden link must resolve to a task in the same language/version and split. */
+function checkGoldenTaskLink(
+  entry: GoldenEntry,
+  location: GoldenLocation,
+  path: string,
+  tasks: Map<string, { split: Split; path: string }[]>,
+  violations: TaskViolation[],
+): void {
+  if (entry.taskId === undefined) return
+
+  const records = tasks.get(taskLinkKey(location.lang, location.version, entry.taskId))
+  if (records === undefined || records.length === 0) {
+    violations.push({
+      path,
+      code: 'GOLDEN_TASK_MISSING',
+      message: `taskId "${entry.taskId}" does not resolve to a task with lang "${location.lang}" and version "${location.version}"`,
+    })
+    return
+  }
+
+  if (!records.some((record) => record.split === entry.split)) {
+    const splits = [...new Set(records.map((record) => record.split))].join(', ')
+    violations.push({
+      path,
+      code: 'GOLDEN_TASK_SPLIT_MISMATCH',
+      message: `golden entry split "${entry.split}" does not match task "${entry.taskId}" split (${splits})`,
+    })
   }
 }
 

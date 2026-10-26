@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { computeVerdict, type RunResult } from '@rp/eval-harness'
 import { main, type CliIo } from './cli-main.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -223,13 +224,24 @@ describe('eval-harness CLI', () => {
     expect(result.stdout).toContain('target replay.deterministic_rate')
   })
 
-  it('exits 1 when a guardrail regresses', async () => {
+  it('exits 1 when the candidate is not accepted', async () => {
     const baseline = join(firstRoot, 'm0-canned-replay', 'result.json')
     const candidateResult = JSON.parse(
       await readFile(join(secondRoot, 'm0-canned-replay', 'result.json'), 'utf8'),
-    ) as { metrics: Record<string, number> }
+    ) as RunResult
 
     candidateResult.metrics['transcript.guard_violations'] = 2
+    candidateResult.verdict = computeVerdict({
+      manifest: candidateResult.manifest,
+      metrics: candidateResult.metrics,
+      rounds: {
+        requested: candidateResult.summary.requestedRounds,
+        attempts: candidateResult.summary.attempts,
+        completed: candidateResult.summary.completed,
+      },
+      invariants: candidateResult.invariants,
+      providerOutages: candidateResult.trials.filter((trial) => trial.providerOutage).length,
+    })
     await writeFile(
       join(regressedRoot, 'result.json'),
       `${JSON.stringify(candidateResult, null, 2)}\n`,
@@ -239,7 +251,7 @@ describe('eval-harness CLI', () => {
     const result = await execCli(['compare', '--baseline', baseline, '--run', regressedRoot])
     expect(result.code).toBe(1)
     expect(result.stdout).toContain('comparison: FAIL')
-    expect(result.stdout).toContain('transcript.guard_violations')
+    expect(result.stdout).toContain('only an accepted candidate may be compared')
   })
 
   it('rejects a compare invocation missing --run as a usage error', async () => {

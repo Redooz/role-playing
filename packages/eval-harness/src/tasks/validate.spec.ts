@@ -227,6 +227,45 @@ describe('validateTaskTree', () => {
     expect(await validateTaskTree(root)).toEqual([])
   })
 
+  it('rejects a golden entry whose taskId does not resolve', async () => {
+    const root = await makeTree({
+      [taskPath('en', 'task')]: taskEntry(),
+      [goldenPath('en', 'golden')]: goldenEntry({ taskId: 'missing-task' }),
+    })
+
+    const violations = await validateTaskTree(root)
+    expect(violations.map((violation) => violation.code)).toEqual(['GOLDEN_TASK_MISSING'])
+  })
+
+  it('rejects a golden entry whose split differs from its task', async () => {
+    const root = await makeTree({
+      [taskPath('en', 'task')]: taskEntry({ split: 'holdout' }),
+      [goldenPath('en', 'golden')]: goldenEntry({ taskId: 'task-001', split: 'calibration' }),
+    })
+
+    const violations = await validateTaskTree(root)
+    expect(violations.map((violation) => violation.code)).toEqual(['GOLDEN_TASK_SPLIT_MISMATCH'])
+  })
+
+  it('rejects a golden entry that links to a task in another language', async () => {
+    const root = await makeTree({
+      [taskPath('fr', 'task')]: taskEntry({ id: 'fr-task-001', lang: 'fr' }),
+      [goldenPath('en', 'golden')]: goldenEntry({ taskId: 'fr-task-001' }),
+    })
+
+    const violations = await validateTaskTree(root)
+    expect(violations.map((violation) => violation.code)).toEqual(['GOLDEN_TASK_MISSING'])
+  })
+
+  it('accepts a golden entry linked to a task in the same split', async () => {
+    const root = await makeTree({
+      [taskPath('en', 'task')]: taskEntry(),
+      [goldenPath('en', 'golden')]: goldenEntry({ taskId: 'task-001', split: 'calibration' }),
+    })
+
+    expect(await validateTaskTree(root)).toEqual([])
+  })
+
   it('reports schema violations with the failing field', async () => {
     const root = await makeTree({
       [taskPath('en', 'bad-cefr')]: { ...taskEntry(), cefrBand: 'D1' },

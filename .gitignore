@@ -21,6 +21,9 @@ evals/results/*
 !evals/results/.gitkeep
 !evals/results/index.md
 
+# Soak output is local evidence, never a commit
+infra/livekit-soak/.runs/
+
 # Editor / OS
 .DS_Store
 .idea/

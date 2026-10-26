@@ -31,7 +31,8 @@ Codes: `EVALS_DIR_MISSING`, `UNREADABLE_DIRECTORY`,
 `UNREADABLE_FILE`, `INVALID_JSON`, `INVALID_LAYOUT`, `SCHEMA_VIOLATION`,
 `MISSING_PROVENANCE`, `MISSING_CONSENT_SCOPE`, `MISSING_ANNOTATION_VERSIONS`,
 `LANG_PATH_MISMATCH`, `DUPLICATE_ID`, `SPLIT_LEAKAGE`,
-`GOLDEN_AGREEMENT_MISSING`.
+`GOLDEN_AGREEMENT_MISSING`, `GOLDEN_TASK_MISSING`,
+`GOLDEN_TASK_SPLIT_MISMATCH`.
 
 ## Provenance and consent
 
@@ -70,7 +71,9 @@ in place invalidates results that referenced it.
 ## Golden entries
 
 Golden entries are the human-based grader: they carry routing labels, 1–5 per-dimension scores, evidence spans,
-blind pairwise preferences, and an optional `annotatorAgreement` block. A golden
+blind pairwise preferences, and an optional `annotatorAgreement` block. A
+golden entry's `taskId`, when present, must resolve to a task in the same
+language and version, and its `split` must match that task's split. A golden
 entry may only use `status: "stable"` when agreement was measured with at least
 two distinct annotators and a stated metric/value (§4.4.4). The seeded English
 and French entries are `draft` on purpose: a single annotation pass is not

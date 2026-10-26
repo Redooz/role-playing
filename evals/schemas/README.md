@@ -33,4 +33,6 @@ every rule. The following are enforced by the Zod refinements and/or
 - a task may not share a `speakerId` across calibration and holdout
   (`SPLIT_LEAKAGE`);
 - `dimensionScores` must not be empty and `annotationVersions` must not be empty;
-- ids are unique within their dataset/version/language scope (`DUPLICATE_ID`).
+- ids are unique within their dataset/version/language scope (`DUPLICATE_ID`);
+- a golden `taskId` must resolve in the same language/version, and its split must
+  match the task's split (`GOLDEN_TASK_MISSING`, `GOLDEN_TASK_SPLIT_MISMATCH`).
