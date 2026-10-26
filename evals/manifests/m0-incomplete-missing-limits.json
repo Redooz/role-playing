@@ -1,11 +1,12 @@
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "3.0.0",
   "run": {
     "runId": "m0-incomplete-example",
     "suite": "m0-canned-replay",
-    "description": "Intentionally invalid. Used by tests and docs to show that the runner refuses a manifest with no registered limits. Never execute this in CI."
+    "description": "Intentionally invalid. Used by tests and docs to show that the runner refuses a manifest with no registered limits. Never execute this in CI.",
+    "purpose": "capability"
   },
-  "fixtures": {
+  "tasks": {
     "dataset": "synthetic-workplace",
     "version": "v1",
     "languages": ["en", "fr"]
@@ -14,8 +15,9 @@
     "master": 20261025,
     "algorithm": "mulberry32"
   },
-  "scorer": {
+  "grader": {
     "id": "deterministic-invariants",
+    "kind": "code",
     "version": "1.0.0"
   },
   "rubric": {
@@ -28,15 +30,15 @@
   },
   "guardrails": [
     {
-      "metric": "trace.guard_violations",
+      "metric": "transcript.guard_violations",
       "direction": "decrease",
       "tolerance": 0
     }
   ],
-  "invariants": ["trace.guard_clean"],
+  "invariants": ["transcript.guard_clean"],
   "provider": {
     "mode": "canned",
-    "label": "m0-fixture-persona-v1",
+    "label": "m0-task-persona-v1",
     "allowLive": false
   }
 }

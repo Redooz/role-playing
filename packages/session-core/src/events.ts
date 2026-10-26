@@ -5,7 +5,7 @@ import { z } from 'zod'
  * Plan v5 §2.1 and the grant contract in §3.2.
  *
  * These are *wire* shapes: everything here must survive JSON serialization
- * unchanged so a trace can be replayed byte-for-byte. Timestamps are therefore
+ * unchanged so a transcript can be replayed byte-for-byte. Timestamps are therefore
  * ISO-8601 UTC strings, not `Date` instances, and every object is strict:
  * unknown fields are rejected rather than silently dropped. Adding a field is
  * an additive change covered by the versioning policy in `version.ts`.
@@ -20,7 +20,7 @@ export type TurnId = z.infer<typeof turnIdSchema>
 export type GrantId = z.infer<typeof grantIdSchema>
 
 /**
- * §3.2 `TurnGrant`. `expiresAt` is ISO-8601 UTC because the trace record is
+ * §3.2 `TurnGrant`. `expiresAt` is ISO-8601 UTC because the transcript record is
  * JSON; the engine converts from its (fake) clock before emitting `turn.granted`.
  */
 export const turnGrantSchema = z.strictObject({
@@ -59,7 +59,7 @@ export type TurnRequest = z.infer<typeof turnRequestSchema>
 /**
  * Why a grant was revoked. The plan requires the reason but does not enumerate
  * values; this list covers the transitions in §3.3–§3.5 and is part of the
- * schema we validate, not free text (free text could leak content into traces).
+ * schema we validate, not free text (free text could leak content into transcripts).
  */
 export const revocationReasonSchema = z.enum([
   'completed',
@@ -223,7 +223,7 @@ export type SessionEventPayloadMap = {
 
 /**
  * Discriminated union of all events. The discriminator is `type` and the
- * validated payload sits under `payload`, matching `TraceRecord.kind`/`payload`.
+ * validated payload sits under `payload`, matching `TranscriptRecord.kind`/`payload`.
  */
 export const sessionEventSchema = z.discriminatedUnion('type', [
   z.strictObject({
@@ -301,7 +301,7 @@ export function isSessionEventName(kind: string): kind is SessionEventName {
   return Object.hasOwn(eventPayloadSchemas, kind)
 }
 
-/** Parse and validate an event from untrusted input (fixtures, JSONL traces). */
+/** Parse and validate an event from untrusted input (tasks, JSONL transcripts). */
 export function parseSessionEvent(input: unknown): SessionEvent {
   return sessionEventSchema.parse(input)
 }

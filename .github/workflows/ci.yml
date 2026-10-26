@@ -31,8 +31,8 @@ jobs:
 
       - run: npm run test:unit
 
-  fixtures:
-    name: fixture validator (G3)
+  tasks:
+    name: task validator (G3)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -44,7 +44,7 @@ jobs:
 
       - run: npm ci
 
-      - run: npm run validate:fixtures
+      - run: npm run validate:tasks
 
   jev-canary:
     name: Jev canary (G4)
@@ -77,4 +77,4 @@ jobs:
         if: steps.key.outputs.present == 'true'
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-        run: npx vitest run --project unit packages/eval-engine/src/jev/canary.spec.ts
+        run: npx vitest run --project unit packages/eval-harness/src/jev/canary.spec.ts

@@ -6,6 +6,41 @@ A voice role-play platform for practicing workplace English and French. Several 
 
 The repo has no application code yet. It is at milestone **M0** (build the eval foundation). Do not invent commands, folders, or build steps that do not exist.
 
+## Eval vocabulary
+
+Use these words in code, data, docs, and conversation. Do not fall back to the
+old synonyms (fixture, repetition, scorer, trace).
+
+- **Evaluation suite** — a collection of related tasks that measures specific
+  behaviour, for example `m0-canned-replay`.
+- **Capability eval** — asks what the agent can do well. It must show a real
+  improvement on its target (a positive minimum detectable effect). New
+  behaviour enters here.
+- **Regression eval** — asks whether the agent still handles every task it used
+  to. Its primary axis is held at the baseline, no improvement is required, and
+  every axis is a non-regression gate. Existing behaviour is protected here.
+- **Task** — one test: its inputs and the success criteria the suite registers
+  for it. Task files live under `evals/tasks/`.
+- **Trial** — one attempt at one task. In M0 a trial is one replay of one task.
+- **Round** — one pass over every task in a suite. `rounds × tasks = trials`.
+- **Grader** — the logic that scores an aspect of a trial. There are three
+  types, and they are not interchangeable:
+  - **code-based** — deterministic checks, counts, ratios, invariants;
+  - **system-1-model-based** — a System One model (Jev) answers a typed question
+    and returns a calibrated probability;
+  - **human-based** — an annotator's label, used as the reference the other two
+    are checked against.
+- **Transcript** — the complete record of a trial: outputs, tool calls,
+  reasoning, and every interaction, each with a content class.
+- **Outcome** — the final state of the environment after a trial, for example
+  whether a booking exists in the database. M0 has no environment, so it has no
+  outcome checks; the current `invariants` are transcript checks.
+- **Evaluation harness** — the infrastructure that runs evals
+  (`packages/eval-harness`, `tools/eval-harness-cli`).
+- **Agent harness** — the system that lets a model act: the session engine, its
+  tools, and its transport. It arrives in M1+; `packages/session-core` holds the
+  schemas it will use.
+
 ## Where the plan lives
 
 - The plan lives in Notion under the page **Role-Playing**:
@@ -32,7 +67,7 @@ The repo has no application code yet. It is at milestone **M0** (build the eval 
 - Spoken replies stream as plain text. Do not use JSON mode for speech.
 - Persona replies use Groq `openai/gpt-oss-20b`. This model is fixed; reviewer tests must not change it.
 - The async session reviewer is a separate model, provisional `anthropic/claude-haiku-5.5` (low reasoning).
-- Semantic scoring uses Jev, pinned to `typesafe/jev-1.14`. Never use `jev-latest`.
+- Semantic grading uses Jev, pinned to `typesafe/jev-1.14`. Never use `jev-latest`.
 - Use OpenRouter for Jev and eval models. A ChatGPT subscription does not work at runtime.
 - Live speech-to-text is Azure `MAI-Transcribe-2-Streaming`.
 
@@ -48,16 +83,17 @@ The repo has no application code yet. It is at milestone **M0** (build the eval 
 - Never add `*.service.ts`, a `services/` folder, a `features/` folder, or an `application/` folder.
 - Depend inward: controller → handler → use case → port. An adapter may not import a use case, and a use case may not import an adapter.
 - Wire real adapters once per app in the composition root. Tests use fake or canned adapters.
-- Libraries (`session-core`, `turn-arbiter`, `routing-policy`, `eval-engine`) expose functions and ports. They do not get controllers or handlers.
+- Libraries (`session-core`, `turn-arbiter`, `routing-policy`, `eval-harness`) expose functions and ports. They do not get controllers or handlers.
 
 ## Rules that are easy to get wrong
 
 - **Evals decide.** If an eval gets worse, fix the feature. Never lower a threshold or widen a gate to make a change pass.
-- **Models judge, code decides.** Counting, math, dates, and hard limits stay in normal code. Ask Jev only for yes/no or graded judgments.
+- **Name the purpose.** A new behaviour needs a capability eval. Existing behaviour needs a regression eval. A capability result is not proof that old tasks still pass.
+- **Models grade, code decides.** Counting, math, dates, and hard limits stay in normal code. Ask Jev only for yes/no or graded answers.
 - **Store raw scores.** Keep the full Jev answer and probability, not just the chosen label.
 - **A failed model call is not a "no".** Mark the run incomplete; never turn an error into a pass or zero.
 - **One writer at a time.** Only the character that holds the current turn may produce output. Late output from an old turn is dropped.
-- **No secret in the repo.** API keys stay in the environment (they are loaded from `~/.bashrc`). Never put keys in files, logs, or traces.
+- **No secret in the repo.** API keys stay in the environment (they are loaded from `~/.bashrc`). Never put keys in files, logs, or transcripts.
 - **No raw audio saved by default.** Saving audio needs a separate opt-in from the user.
 
 ## Working style

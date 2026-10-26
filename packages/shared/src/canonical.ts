@@ -4,8 +4,8 @@ import { createHash } from 'node:crypto'
  * Deterministic JSON serialization with a stable key order.
  *
  * The eval contract (M0 D3) requires that replaying the same manifest twice
- * produces byte-identical normalized traces, so every value that ends up in a
- * trace or in a canned-provider cache key goes through this function.
+ * produces byte-identical normalized transcripts, so every value that ends up in a
+ * transcript or in a canned-provider cache key goes through this function.
  */
 export function canonicalJson(value: unknown): string {
   return serialize(value, new Set())

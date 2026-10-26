@@ -9,7 +9,7 @@ Rules from the M0 plan (D4, D5, D6):
   invalidates every cache entry and baseline keyed by that version, so a change
   means a new version directory.
 - The Jev cache key includes the rubric version (Architecture Plan v5 §4.3),
-  alongside the canonical payload, scorer version, extraction version and
+  alongside the canonical payload, grader version, extraction version and
   provider surface. Reusing a version number for different content is a bug.
 - Every rubric carries provenance and a version. Deletion propagation is
   documented even though no production data exists at M0 (§4.6.9).

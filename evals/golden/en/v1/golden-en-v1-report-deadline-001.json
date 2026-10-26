@@ -2,7 +2,7 @@
   "id": "golden-en-v1-report-deadline-001",
   "lang": "en",
   "split": "calibration",
-  "fixtureId": "en-b1-report-deadline-001",
+  "taskId": "en-b1-report-deadline-001",
   "routingLabels": {
     "intent": "request-deadline-extension",
     "expectedPersonaId": "persona-manager",

@@ -10,7 +10,7 @@ import type { SessionEvent, TurnGrant } from './events.js'
  * which is the only path that throws.
  *
  * The ledger is a pure fold over a *complete* event stream starting at session
- * start. Feeding it a partial stream (for example a trace that begins mid-turn)
+ * start. Feeding it a partial stream (for example a transcript that begins mid-turn)
  * will report the first grant-less response as stale.
  */
 
@@ -278,12 +278,12 @@ export function guardTurnEvents(
 }
 
 /**
- * Trace-record sequence guard: `seq` must strictly increase, so replay order is
+ * Transcript-record sequence guard: `seq` must strictly increase, so replay order is
  * unambiguous and a duplicated or reordered record is visible rather than
  * silently sorted. Accepts any object with a `seq` so it can run before schema
  * parsing in tooling.
  */
-export function checkTraceSequence(records: readonly { readonly seq: number }[]): GuardResult {
+export function checkTranscriptSequence(records: readonly { readonly seq: number }[]): GuardResult {
   const violations: Violation[] = []
 
   for (let index = 1; index < records.length; index += 1) {
@@ -294,7 +294,7 @@ export function checkTraceSequence(records: readonly { readonly seq: number }[])
     if (current.seq <= previous.seq) {
       violations.push({
         code: 'seq_not_monotonic',
-        message: `trace seq must strictly increase: record ${index} has seq ${current.seq} after seq ${previous.seq}`,
+        message: `transcript seq must strictly increase: record ${index} has seq ${current.seq} after seq ${previous.seq}`,
       })
     }
   }
