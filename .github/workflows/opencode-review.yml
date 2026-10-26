@@ -242,6 +242,13 @@ jobs:
           first_line=$(printf '%s' "$body" | sed -e 's/^[[:space:]]*//' | head -n 1)
 
           if [ "$first_line" != "## Review findings" ]; then
+            if printf '%s' "$body" | grep -qi "no actionable findings"; then
+              jq -n '{body: "## Review findings\n\nNo actionable findings."}' \
+                | gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${id}" --input -
+              echo "::notice::the reviewer found nothing actionable; normalised the comment"
+              exit 0
+            fi
+
             echo "::error::the review comment is malformed (first line: ${first_line}); deleting it"
             gh api -X DELETE "repos/${GITHUB_REPOSITORY}/issues/comments/${id}"
             exit 1
