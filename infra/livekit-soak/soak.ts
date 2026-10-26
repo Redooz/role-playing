@@ -88,7 +88,7 @@ interface SoakReport {
   kind: 'm0-livekit-soak'
   startedAt: string
   finishedAt: string | null
-  config: Omit<Config, 'outputDir' | 'apiSecret'>
+  config: Omit<Config, 'outputDir' | 'apiSecret' | 'apiKey'>
   livekitVersion: string | null
   nodeVersion: string
   platform: string
@@ -434,7 +434,6 @@ async function main(): Promise<void> {
     finishedAt: null,
     config: {
       url: config.url,
-      apiKey: config.apiKey,
       cycles: config.cycles,
       cycleMs: config.cycleMs,
       sampleMs: config.sampleMs,
