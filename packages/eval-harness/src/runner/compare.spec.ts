@@ -5,6 +5,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { compareRunResults } from './compare.js'
 import { manifestHash } from './manifest.js'
 import { parseRunResult, type RunResult } from './results.js'
+import { computeVerdict } from './verdict.js'
 import { executeRun } from './runner.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -19,6 +20,17 @@ function cloneWith(base: RunResult, mutate: (draft: RunResult) => void): RunResu
   const draft = structuredClone(base)
   mutate(draft)
   draft.manifestHash = manifestHash(draft.manifest)
+  draft.verdict = computeVerdict({
+    manifest: draft.manifest,
+    metrics: draft.metrics,
+    rounds: {
+      requested: draft.summary.requestedRounds,
+      attempts: draft.summary.attempts,
+      completed: draft.summary.completed,
+    },
+    invariants: draft.invariants,
+    providerOutages: draft.trials.filter((trial) => trial.providerOutage).length,
+  })
   return parseRunResult(draft)
 }
 
@@ -79,6 +91,16 @@ describe('baseline comparison', () => {
     expect(comparison.ok).toBe(false)
     expect(comparison.target.status).toBe('fail')
     expect(comparison.target.delta).toBe(-0.5)
+  })
+
+  it('fails when the candidate is not accepted', () => {
+    const candidate = cloneWith(baseline(), (draft) => {
+      ;(draft.invariants[0] as { ok: boolean }).ok = false
+    })
+
+    const comparison = compareRunResults(baseline(), candidate)
+    expect(comparison.ok).toBe(false)
+    expect(comparison.reasons.join('; ')).toContain('only an accepted candidate')
   })
 
   it('is inconclusive below the minimum detectable effect', () => {

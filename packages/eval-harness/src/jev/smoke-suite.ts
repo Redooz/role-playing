@@ -117,12 +117,13 @@ export async function runJevSmokeSuite(grader: JevGrader): Promise<JevSmokeRepor
 
     const costUsd = result.usage.cost ?? 0
     totalCostUsd += costUsd
-    failures.push(...checkSuccessfulCase(smoke, result))
+    const caseFailures = checkSuccessfulCase(smoke, result)
+    failures.push(...caseFailures)
     observations.push({
       caseId: smoke.id,
       role: smoke.role,
       lang: smoke.lang,
-      ok: true,
+      ok: caseFailures.length === 0,
       servedModel: result.servedModel,
       distribution: result.distribution,
       errorCode: null,

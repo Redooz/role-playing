@@ -1,5 +1,10 @@
 import { canonicalJson } from '@rp/shared'
-import { evaluateGuardrailAxis, evaluateTargetAxis, type AxisVerdict } from './verdict.js'
+import {
+  evaluateGuardrailAxis,
+  evaluateRegressionAxis,
+  evaluateTargetAxis,
+  type AxisVerdict,
+} from './verdict.js'
 import type { RunResult } from './results.js'
 
 /**
@@ -10,9 +15,12 @@ import type { RunResult } from './results.js'
  * a guardrail regression.
  *
  * A comparison is only valid when the eval definition did not move (§4.1.2):
- * task selection, target registration, guardrail registrations, grader,
- * grader model, rubric and transcript schema must match the baseline. Otherwise the
- * result is marked incompatible and can never pass.
+ * purpose, task selection, target, guardrails, limits, transcript checks, seeds,
+ * provider, grader, grader model, rubric and transcript schema must match the
+ * baseline. Otherwise the result is marked incompatible and can never pass.
+ *
+ * The candidate must also be a valid accepted result. A failed transcript check,
+ * a failed model call, or an unconcluded run can never compare as passing.
  */
 
 export interface ComparisonResult {
@@ -52,6 +60,26 @@ export function compareRunResults(baseline: RunResult, candidate: RunResult): Co
       baseline: baseline.manifest.guardrails,
       candidate: candidate.manifest.guardrails,
     },
+    {
+      label: 'limit registration',
+      baseline: baseline.manifest.limits,
+      candidate: candidate.manifest.limits,
+    },
+    {
+      label: 'transcript checks',
+      baseline: baseline.manifest.invariants,
+      candidate: candidate.manifest.invariants,
+    },
+    {
+      label: 'seed registration',
+      baseline: baseline.manifest.seeds,
+      candidate: candidate.manifest.seeds,
+    },
+    {
+      label: 'provider registration',
+      baseline: baseline.manifest.provider,
+      candidate: candidate.manifest.provider,
+    },
   ]
 
   for (const check of definitionChecks) {
@@ -88,7 +116,13 @@ export function compareRunResults(baseline: RunResult, candidate: RunResult): Co
 
   const compatible = reasons.length === 0
 
-  const target = evaluateTargetAxis(candidate.manifest.target, baseline.metrics, candidate.metrics)
+  const candidateProblems = auditCandidate(candidate)
+  reasons.push(...candidateProblems)
+
+  const target =
+    candidate.manifest.run.purpose === 'regression'
+      ? evaluateRegressionAxis(candidate.manifest.target, baseline.metrics, candidate.metrics)
+      : evaluateTargetAxis(candidate.manifest.target, baseline.metrics, candidate.metrics)
 
   const guardrails = candidate.manifest.guardrails.map((guardrail) =>
     evaluateGuardrailAxis(guardrail, baseline.metrics, candidate.metrics),
@@ -101,8 +135,46 @@ export function compareRunResults(baseline: RunResult, candidate: RunResult): Co
 
   const ok =
     compatible &&
+    candidateProblems.length === 0 &&
     target.status === 'pass' &&
     guardrails.every((guardrail) => guardrail.status === 'pass')
 
   return { ok, compatible, target, guardrails, reasons }
+}
+
+/**
+ * A candidate is only comparable when it is itself a valid accepted result.
+ * Otherwise a failed transcript check, a failed model call, or an unconcluded
+ * run could still compare as passing.
+ */
+function auditCandidate(candidate: RunResult): string[] {
+  const problems: string[] = []
+
+  if (candidate.verdict.status !== 'accepted') {
+    problems.push(
+      `candidate ${candidate.runId} has verdict "${candidate.verdict.status}"; only an accepted candidate may be compared`,
+    )
+  }
+
+  if (candidate.verdict.providerOutages !== 0) {
+    problems.push(
+      `candidate ${candidate.runId} recorded ${candidate.verdict.providerOutages} provider outage(s); a failed model call is not a pass`,
+    )
+  }
+
+  const failed = candidate.invariants.filter((invariant) => !invariant.ok)
+  if (failed.length > 0) {
+    problems.push(
+      `candidate ${candidate.runId} failed transcript check(s): ${failed.map((invariant) => invariant.id).join(', ')}`,
+    )
+  }
+
+  const failedInVerdict = candidate.verdict.invariants.filter((invariant) => !invariant.ok)
+  if (failedInVerdict.length > 0) {
+    problems.push(
+      `candidate ${candidate.runId} verdict records failed transcript check(s): ${failedInVerdict.map((invariant) => invariant.id).join(', ')}`,
+    )
+  }
+
+  return problems
 }

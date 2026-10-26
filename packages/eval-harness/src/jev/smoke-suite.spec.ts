@@ -91,6 +91,10 @@ describe('Jev smoke suite (gate G4)', () => {
 
     expect(report.passed).toBe(false)
     expect(report.failures.join('\n')).toMatch(/unsettled .*forced to a side/)
+    expect(
+      report.observations.find((observation) => observation.caseId === SMOKE_UNSETTLED_QUESTION_ID)
+        ?.ok,
+    ).toBe(false)
     expect(() => assertJevSmokeSuite(report)).toThrow(/failed/)
   })
 

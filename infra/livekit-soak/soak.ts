@@ -12,13 +12,13 @@
  *   SOAK_CYCLES=10 SOAK_CYCLE_MINUTES=20 node infra/livekit-soak/soak.ts
  *
  * Environment:
- *   LIVEKIT_URL            default ws://127.0.0.1:7880
- *   LIVEKIT_API_KEY        default devkey  (livekit-server --dev placeholder)
- *   LIVEKIT_API_SECRET     default secret
+ *   LIVEKIT_URL            default ws://127.0.0.1:7880; must be a local host
+ *   LIVEKIT_API_KEY        required, no default
+ *   LIVEKIT_API_SECRET     required, no default
  *   SOAK_CYCLES            default 10
  *   SOAK_CYCLE_MINUTES     default 20
  *   SOAK_SAMPLE_SECONDS    default 30
- *   SOAK_OUTPUT_DIR        default evals/results/m0-livekit-soak
+ *   SOAK_OUTPUT_DIR        default infra/livekit-soak/.runs (git-ignored)
  */
 import { createHmac } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
@@ -107,15 +107,45 @@ function envNumber(name: string, fallback: number): number {
   return value
 }
 
+function requiredEnv(name: string): string {
+  const value = process.env[name]?.trim()
+  if (value === undefined || value === '') {
+    throw new Error(`${name} must be set; this script provides no credential default`)
+  }
+  return value
+}
+
+function assertLocalUrl(raw: string): string {
+  let url: URL
+  try {
+    url = new URL(raw)
+  } catch {
+    throw new Error(`LIVEKIT_URL must be a valid ws:// URL, got ${JSON.stringify(raw)}`)
+  }
+
+  const localHosts = new Set(['127.0.0.1', 'localhost', '::1', '[::1]'])
+  if (!localHosts.has(url.hostname)) {
+    throw new Error(
+      `LIVEKIT_URL must point at a local host (127.0.0.1, localhost or ::1), got ${url.hostname}; refusing to send credentials elsewhere`,
+    )
+  }
+
+  if (url.protocol !== 'ws:' && url.protocol !== 'wss:') {
+    throw new Error(`LIVEKIT_URL must use ws:// or wss://, got ${url.protocol}`)
+  }
+
+  return raw
+}
+
 function readConfig(): Config {
   return {
-    url: process.env.LIVEKIT_URL ?? 'ws://127.0.0.1:7880',
-    apiKey: process.env.LIVEKIT_API_KEY ?? 'devkey',
-    apiSecret: process.env.LIVEKIT_API_SECRET ?? 'secret',
+    url: assertLocalUrl(process.env.LIVEKIT_URL?.trim() || 'ws://127.0.0.1:7880'),
+    apiKey: requiredEnv('LIVEKIT_API_KEY'),
+    apiSecret: requiredEnv('LIVEKIT_API_SECRET'),
     cycles: Math.floor(envNumber('SOAK_CYCLES', 10)),
     cycleMs: envNumber('SOAK_CYCLE_MINUTES', 20) * 60_000,
     sampleMs: envNumber('SOAK_SAMPLE_SECONDS', 30) * 1000,
-    outputDir: resolve(process.env.SOAK_OUTPUT_DIR ?? 'evals/results/m0-livekit-soak'),
+    outputDir: resolve(process.env.SOAK_OUTPUT_DIR ?? 'infra/livekit-soak/.runs'),
   }
 }
 

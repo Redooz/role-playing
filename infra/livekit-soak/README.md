@@ -22,27 +22,32 @@ docker run --rm --name rp-livekit-soak \
   livekit/livekit-server:latest --dev --bind 0.0.0.0
 ```
 
-Then, from the repo root:
+Then, from the repo root, pass the local `--dev` credentials explicitly:
 
 ```sh
-node infra/livekit-soak/soak.ts
+LIVEKIT_API_KEY=devkey LIVEKIT_API_SECRET=secret \
+  node infra/livekit-soak/soak.ts
 ```
+
+The script has no credential defaults. `LIVEKIT_URL` defaults to
+`ws://127.0.0.1:7880`; if you set it, the host must be `127.0.0.1`, `localhost`,
+or `::1`, so a real key cannot be sent to another server by accident.
 
 The defaults are the M0 gate: 10 cycles of 20 minutes. Override for a smoke
 run:
 
 ```sh
-SOAK_CYCLES=2 SOAK_CYCLE_MINUTES=0.25 SOAK_SAMPLE_SECONDS=5 node infra/livekit-soak/soak.ts
+LIVEKIT_API_KEY=devkey LIVEKIT_API_SECRET=secret \
+  SOAK_CYCLES=2 SOAK_CYCLE_MINUTES=0.25 SOAK_SAMPLE_SECONDS=5 \
+  node infra/livekit-soak/soak.ts
 ```
-
-`--dev` mode uses the placeholder credentials `devkey` / `secret`, which the
-script also defaults to. Nothing here touches cloud LiveKit or any secret.
 
 ## Output
 
-Raw metrics are written to `evals/results/m0-livekit-soak/<runId>.json`
-(git-ignored). The accepted run is summarised on the Notion page
-`m0-livekit-soak`, per the M0 plan.
+Raw metrics are written to `infra/livekit-soak/.runs/<runId>.json`, which is
+git-ignored. Soak output is local evidence, not a repository artifact. Only the
+summary and the accepted numbers go into the Notion page `m0-livekit-soak` and
+the run index, per the M0 plan.
 
 The report is rewritten after every cycle, so an interrupted run still leaves
 partial metrics with `"interrupted": true`.

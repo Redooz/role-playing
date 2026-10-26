@@ -136,7 +136,10 @@ export const goldenEntrySchema = z
     id: z.string().min(1),
     lang: langSchema,
     split: splitSchema,
-    /** Optional link to a task id in this repository. Unresolved links are not failures. */
+    /**
+     * Link to a task in the same language and version. When present it must
+     * resolve, and the golden entry's split must match the task's split.
+     */
     taskId: z.string().min(1).optional(),
     /**
      * Which character the turn should be routed to (§4.4.3). `intent` is a short

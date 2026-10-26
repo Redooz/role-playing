@@ -1,3 +1,4 @@
+import { canonicalJson } from '@rp/shared'
 import { TRANSCRIPT_SCHEMA_VERSION } from '@rp/session-core'
 import { z } from 'zod'
 import { langSchema } from '../tasks/schema.js'
@@ -9,7 +10,7 @@ import {
   runManifestSchema,
   type RunManifest,
 } from './manifest.js'
-import { runVerdictSchema } from './verdict.js'
+import { computeVerdict, runVerdictSchema } from './verdict.js'
 
 /**
  * Persisted run artifact (M0 D3/D6, Architecture Plan v5 §4.1.8).
@@ -163,6 +164,54 @@ export const runResultSchema = z
         code: 'custom',
         path: ['summary', 'completed'],
         message: 'completed count does not match attempts minus failed rounds',
+      })
+    }
+
+    if (result.summary.requestedRounds !== result.manifest.limits.rounds) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['summary', 'requestedRounds'],
+        message: `requestedRounds ${result.summary.requestedRounds} does not match the registered round limit ${result.manifest.limits.rounds}`,
+      })
+    }
+
+    const providerOutages = result.trials.filter((trial) => trial.providerOutage).length
+    if (result.verdict.providerOutages !== providerOutages) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['verdict', 'providerOutages'],
+        message: `verdict records ${result.verdict.providerOutages} provider outage(s) but ${providerOutages} trial(s) report one`,
+      })
+    }
+
+    const expectedFailureRate =
+      result.summary.attempts === 0 ? 1 : result.summary.failed / result.summary.attempts
+    if (Math.abs(result.summary.failureRate - expectedFailureRate) > 1e-12) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['summary', 'failureRate'],
+        message: `failureRate ${result.summary.failureRate} does not match ${expectedFailureRate}`,
+      })
+    }
+
+    const recomputedVerdict = computeVerdict({
+      manifest: result.manifest,
+      metrics: result.metrics,
+      rounds: {
+        requested: result.summary.requestedRounds,
+        attempts: result.summary.attempts,
+        completed: result.summary.completed,
+      },
+      invariants: result.invariants,
+      providerOutages,
+    })
+
+    if (canonicalJson(recomputedVerdict) !== canonicalJson(result.verdict)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['verdict'],
+        message:
+          'verdict does not match a recomputation from the embedded manifest, metrics, trials and transcript checks',
       })
     }
   })

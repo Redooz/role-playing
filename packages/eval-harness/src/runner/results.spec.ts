@@ -32,6 +32,22 @@ describe('run result artifact', () => {
     expect(() => parseRunResult(raw)).toThrow(/manifestHash/)
   })
 
+  it('rejects an artifact whose verdict no longer matches its metrics', () => {
+    const raw = loadCommittedBaseline() as Record<string, unknown>
+    const metrics = raw['metrics'] as Record<string, number>
+    metrics['replay.deterministic_rate'] = 0.5
+
+    expect(() => parseRunResult(raw)).toThrow(/verdict/)
+  })
+
+  it('rejects an artifact whose provider-outage count does not match its trials', () => {
+    const raw = loadCommittedBaseline() as Record<string, unknown>
+    const verdict = raw['verdict'] as Record<string, unknown>
+    verdict['providerOutages'] = 1
+
+    expect(() => parseRunResult(raw)).toThrow(/providerOutages|provider outage/)
+  })
+
   it('requires at least one per-axis metric', () => {
     expect(metricReadingsSchema.safeParse({}).success).toBe(false)
     expect(metricReadingsSchema.safeParse({ 'transcript.guard_violations': 0 }).success).toBe(true)
