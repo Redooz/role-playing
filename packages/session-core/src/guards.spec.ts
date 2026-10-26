@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { SessionEvent } from './events.js'
 import {
-  checkTraceSequence,
+  checkTranscriptSequence,
   createGrantLedger,
   enforceGuardResult,
   GuardViolationError,
@@ -196,20 +196,20 @@ describe('sequence monotonicity', () => {
     expect(report.violations).toEqual([])
   })
 
-  it('passes strictly increasing trace seq', () => {
-    const result = checkTraceSequence([{ seq: 0 }, { seq: 1 }, { seq: 2 }])
+  it('passes strictly increasing transcript seq', () => {
+    const result = checkTranscriptSequence([{ seq: 0 }, { seq: 1 }, { seq: 2 }])
     expect(result.ok).toBe(true)
     expect(result.violations).toEqual([])
   })
 
-  it('rejects duplicated trace seq', () => {
-    const result = checkTraceSequence([{ seq: 0 }, { seq: 1 }, { seq: 1 }])
+  it('rejects duplicated transcript seq', () => {
+    const result = checkTranscriptSequence([{ seq: 0 }, { seq: 1 }, { seq: 1 }])
     expect(codes(result)).toEqual(['seq_not_monotonic'])
     expect(result.violations[0]?.message).toMatch(/strictly increase/)
   })
 
-  it('rejects reordered trace seq', () => {
-    expect(codes(checkTraceSequence([{ seq: 2 }, { seq: 1 }]))).toEqual(['seq_not_monotonic'])
+  it('rejects reordered transcript seq', () => {
+    expect(codes(checkTranscriptSequence([{ seq: 2 }, { seq: 1 }]))).toEqual(['seq_not_monotonic'])
   })
 })
 

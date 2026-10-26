@@ -2,7 +2,7 @@
   "id": "golden-fr-v1-rapport-delai-001",
   "lang": "fr",
   "split": "calibration",
-  "fixtureId": "fr-b1-rapport-delai-001",
+  "taskId": "fr-b1-rapport-delai-001",
   "routingLabels": {
     "intent": "request-deadline-extension",
     "expectedPersonaId": "persona-responsable",

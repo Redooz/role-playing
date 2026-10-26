@@ -5,7 +5,7 @@
  * records crash/handle-leak behaviour, memory slope and reconnect counts.
  *
  * This is a compatibility probe only. It is deliberately isolated: it imports
- * nothing from session-core, eval-engine or the app packages. No production
+ * nothing from session-core, eval-harness or the app packages. No production
  * audio path exists in M0.
  *
  * Usage:

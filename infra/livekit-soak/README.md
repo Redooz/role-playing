@@ -9,7 +9,7 @@ publish/subscribe/dispose cycles against a local `livekit-server` and records:
 - reconnect and disconnect counts
 - how long disposal took
 
-It imports **nothing** from `session-core`, `eval-engine` or the apps. There is
+It imports **nothing** from `session-core`, `eval-harness` or the apps. There is
 no production audio path in M0, and this script must stay that way.
 
 ## Run it

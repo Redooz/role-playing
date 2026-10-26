@@ -1,7 +1,7 @@
 /**
  * The only time source the engine is allowed to read.
  *
- * `session-core` and `eval-engine` must never call `Date.now()` directly: the
+ * `session-core` and `eval-harness` must never call `Date.now()` directly: the
  * eval runner injects a `FakeClock` so that runs are reproducible. `advance`
  * is meaningful for simulated clocks and is a plain sleep for the real one.
  */

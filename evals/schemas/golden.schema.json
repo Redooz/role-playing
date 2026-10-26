@@ -14,7 +14,7 @@
       "type": "string",
       "enum": ["calibration", "holdout"]
     },
-    "fixtureId": {
+    "taskId": {
       "type": "string",
       "minLength": 1
     },

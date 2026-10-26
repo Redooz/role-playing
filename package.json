@@ -22,8 +22,8 @@
     "test:unit": "vitest run --project unit",
     "test:watch": "vitest --project unit",
     "test:bench": "vitest run --project bench",
-    "evals": "node --env-file-if-exists=.env tools/eval-runner/src/cli.ts",
-    "validate:fixtures": "node --env-file-if-exists=.env tools/eval-runner/src/cli.ts validate-fixtures"
+    "eval": "node --env-file-if-exists=.env tools/eval-harness-cli/src/cli.ts",
+    "validate:tasks": "node --env-file-if-exists=.env tools/eval-harness-cli/src/cli.ts validate-tasks"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
