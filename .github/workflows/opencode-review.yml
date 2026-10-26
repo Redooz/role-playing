@@ -78,6 +78,13 @@ jobs:
             --paginate \
             --jq '[.[] | select(.body | contains("[github run]("))] | length' \
             | awk '{ total += $1 } END { print total + 0 }')
+          before_latest=$(gh api \
+            "repos/${GITHUB_REPOSITORY}/issues/${{ github.event.pull_request.number }}/comments" \
+            --paginate \
+            --jq '.[] | select(.body | contains("[github run](")) | .id' \
+            | sort -n | tail -1)
+          before_latest="${before_latest:-0}"
+          echo "before_latest=${before_latest}" >> "${GITHUB_OUTPUT}"
           echo "review comments so far: ${existing} / ${MAX_REVIEW_COMMENTS}"
           if [ "${existing}" -ge "${MAX_REVIEW_COMMENTS}" ]; then
             echo "skip=true" >> "${GITHUB_OUTPUT}"
@@ -118,7 +125,7 @@ jobs:
             "small_model": "openrouter/deepseek/deepseek-v4.1-flash",
             "agent": {
               "build": {
-                "steps": 18
+                "steps": 40
               }
             },
             "permission": {
@@ -173,7 +180,7 @@ jobs:
             the rules. Hold the change to those rules. In particular:
             - Evals decide: flag any change that weakens a gate, threshold, task
               rule or pre-registered manifest.
-            - Models judge, code decides: counting, maths, dates and hard limits
+            - Models grade, code decides: counting, maths, dates and hard limits
               must stay in normal code.
             - A failed model call must never become a "no", a zero or a pass.
             - No secret in the repository, no raw audio saved by default, and no
@@ -193,6 +200,35 @@ jobs:
             concrete fix. Do not restate the diff, do not praise, and do not
             modify files. This run is read-only: never edit files, commit, or
             push.
+
+      - name: Verify the review comment
+        if: always() && steps.budget.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE_ID: ${{ steps.budget.outputs.before_latest }}
+        run: |
+          set -euo pipefail
+          before="${BEFORE_ID:-0}"
+          comments=$(gh api --paginate --slurp \
+            "repos/${GITHUB_REPOSITORY}/issues/${{ github.event.pull_request.number }}/comments")
+
+          new_comment=$(printf '%s' "$comments" | jq -c --argjson before "$before" \
+            '[.[][] | select(.id > $before) | select(.body | contains("[github run]("))] | last')
+
+          if [ "$new_comment" = "null" ] || [ -z "$new_comment" ]; then
+            echo "::error::the review agent posted no comment"
+            exit 1
+          fi
+
+          id=$(printf '%s' "$new_comment" | jq -r '.id')
+          body=$(printf '%s' "$new_comment" | jq -r '.body')
+          first_line=$(printf '%s' "$body" | sed -e 's/^[[:space:]]*//' | head -n 1)
+
+          if [ "$first_line" != "## Review findings" ]; then
+            echo "::error::the review comment is malformed (first line: ${first_line}); deleting it"
+            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/issues/comments/${id}"
+            exit 1
+          fi
 
       - name: Restore the worktree
         if: always()
