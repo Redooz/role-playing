@@ -4,8 +4,14 @@ import { fileURLToPath } from 'node:url'
 import { canonicalJson, sha256Hex } from '@rp/shared'
 import { describe, expect, it } from 'vitest'
 import { ManifestValidationError, manifestHash, parseManifest } from './manifest.js'
-import { executeRun } from './runner.js'
+import { executeRun, loadSelectedTasks } from './runner.js'
 import type { Grader } from './grader.js'
+import { buildCannedEntriesForTask } from './replay.js'
+import {
+  createCannedProvider,
+  type CompletionChunk,
+  type CompletionProvider,
+} from './canned-provider.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(here, '../../../..')
@@ -16,6 +22,19 @@ function loadManifestRaw(): Record<string, unknown> {
 }
 
 const fixedWallClock = (): number => 1_700_000_000_000
+
+/** An async stream whose first read rejects, so a trial fails at the provider. */
+function failingStream(message: string): AsyncIterable<CompletionChunk> {
+  return {
+    [Symbol.asyncIterator]() {
+      return {
+        next() {
+          return Promise.reject(new Error(message))
+        },
+      }
+    },
+  }
+}
 
 describe('executeRun (gate G1)', () => {
   it('runs the committed EN/FR manifest twice with byte-identical normalized transcripts', async () => {
@@ -137,6 +156,69 @@ describe('executeRun (gate G1)', () => {
     expect(result.summary.failedTrials).toBe(12)
     expect(result.transcripts).toHaveLength(0)
     expect(result.trials.every((outcome) => !outcome.ok && outcome.providerOutage)).toBe(true)
+  })
+
+  it('gives every trial a fresh provider and disposes it, so one failure cannot poison the next', async () => {
+    const raw = loadManifestRaw()
+    const manifest = parseManifest(raw)
+    const tasks = await loadSelectedTasks(repoRoot, manifest.tasks)
+    const firstTask = tasks[0]
+    if (firstTask === undefined) throw new Error('the manifest selected no tasks')
+
+    const entries = tasks.flatMap(({ task }) => buildCannedEntriesForTask(task))
+    const base = createCannedProvider(entries, 'isolation-base')
+    const failingTaskId = firstTask.task.id
+    let created = 0
+    let disposed = 0
+
+    const providerFactory = (): CompletionProvider => {
+      created += 1
+      const instance = created
+      return {
+        kind: 'canned',
+        label: `isolation-${instance}`,
+        complete(request) {
+          if (request.metadata?.taskId === failingTaskId) {
+            return failingStream('trial boom')
+          }
+          return base.complete(request)
+        },
+        dispose() {
+          disposed += 1
+        },
+      }
+    }
+
+    const execution = await executeRun({
+      repoRoot,
+      manifest: raw,
+      wallClock: fixedWallClock,
+      providerFactory,
+    })
+
+    const expectedTrials = manifest.limits.rounds * tasks.length
+    expect(created).toBe(expectedTrials)
+    expect(disposed).toBe(expectedTrials)
+    expect(execution.result.trials).toHaveLength(expectedTrials)
+
+    const failed = execution.result.trials.filter((trial) => !trial.ok)
+    expect(failed).toHaveLength(manifest.limits.rounds)
+    expect(failed.every((trial) => trial.taskId === failingTaskId)).toBe(true)
+    expect(failed.every((trial) => trial.error?.includes('trial boom'))).toBe(true)
+
+    // Every other task still produced exactly the transcript of a clean run.
+    const clean = await executeRun({ repoRoot, manifest: raw, wallClock: fixedWallClock })
+    const cleanTranscripts = new Map(
+      clean.transcripts.map((transcript) => [
+        `${transcript.round}\u0000${transcript.lang}\u0000${transcript.taskId}`,
+        transcript.jsonl,
+      ]),
+    )
+
+    for (const transcript of execution.transcripts) {
+      const key = `${transcript.round}\u0000${transcript.lang}\u0000${transcript.taskId}`
+      expect(transcript.jsonl, key).toBe(cleanTranscripts.get(key))
+    }
   })
 
   it('records the manifest copy canonically so its hash can be re-derived', () => {

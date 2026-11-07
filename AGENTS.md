@@ -89,12 +89,28 @@ old synonyms (fixture, repetition, scorer, trace).
 
 - **Evals decide.** If an eval gets worse, fix the feature. Never lower a threshold or widen a gate to make a change pass.
 - **Name the purpose.** A new behaviour needs a capability eval. Existing behaviour needs a regression eval. A capability result is not proof that old tasks still pass.
+- **Each trial starts clean.** Every trial gets its own clock, RNG stream, provider instance, and copy of the task. Dispose per-trial resources in `finally`. A failed trial must not change the next trial.
 - **Models grade, code decides.** Counting, math, dates, and hard limits stay in normal code. Ask Jev only for yes/no or graded answers.
 - **Store raw scores.** Keep the full Jev answer and probability, not just the chosen label.
 - **A failed model call is not a "no".** Mark the run incomplete; never turn an error into a pass or zero.
 - **One writer at a time.** Only the character that holds the current turn may produce output. Late output from an old turn is dropped.
 - **No secret in the repo.** API keys stay in the environment (they are loaded from `~/.bashrc`). Never put keys in files, logs, or transcripts.
 - **No raw audio saved by default.** Saving audio needs a separate opt-in from the user.
+
+## Known trial-isolation gaps (M0 → M1)
+
+M0 isolates in-memory trial state only: clock, RNG, provider instance, and task
+copy. These are **not** implemented yet and must arrive with the agent harness:
+
+- a process, worker, or container boundary per trial;
+- a per-trial timeout and cancellation path for a hung provider or tool;
+- reset and seeding of an external database;
+- a per-trial filesystem workspace and cleanup of its temporary files;
+- reset of environment variables, network mocks, and module-level caches;
+- verified cleanup of live provider connections and background work.
+
+Do not claim a trial is isolated until every external state it touches has a
+reset path covered by a test.
 
 ## Working style
 
