@@ -234,10 +234,11 @@ describe('buildObservationPlan', () => {
     expect(item?.output.error).toContain('provider is down')
     expect(item?.trace.spans).toEqual([])
     expect(item?.scores.map((score) => score.name).sort()).toEqual([
-      'trial.ok',
       'trial.provider_outage',
       'trial.status',
     ])
     expect(item?.scores.find((score) => score.name === 'trial.status')?.value).toBe('inconclusive')
+    expect(item?.scores.some((score) => score.name === 'trial.ok')).toBe(false)
+    expect(item?.scores.every((score) => score.value !== 0)).toBe(true)
   })
 })

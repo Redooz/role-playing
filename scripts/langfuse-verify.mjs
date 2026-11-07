@@ -74,13 +74,22 @@ for (const dir of dirs) {
     assert(item.input != null, `${dir}: ${id} has no input`)
     assert(item.output != null, `${dir}: ${id} has no output`)
 
-    const names = new Set((item.scores ?? []).map((score) => score.name))
-    for (const required of ['trial.status', 'trial.ok', 'transcript.guard_violations']) {
+    const scores = item.scores ?? []
+    const names = new Set(scores.map((score) => score.name))
+    for (const required of ['trial.status', 'transcript.guard_violations']) {
       assert(names.has(required), `${dir}: ${id} is missing score ${required}`)
+    }
+    const status = scores.find((score) => score.name === 'trial.status')
+    if (status?.value === 'graded') {
+      assert(names.has('trial.ok'), `${dir}: graded item ${id} is missing score trial.ok`)
     }
     for (const forbidden of ['score', 'overall', 'composite']) {
       assert(!names.has(forbidden), `${dir}: ${id} has a composite score "${forbidden}"`)
     }
+    assert(
+      scores.every((score) => score.value !== 0 || score.name !== 'trial.ok'),
+      `${dir}: ${id} has a failed trial.ok zero score`,
+    )
   }
 
   assert(seen.size === itemIds.length, `${dir}: item id set differs from the artifact`)

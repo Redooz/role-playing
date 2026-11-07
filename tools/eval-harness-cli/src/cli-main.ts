@@ -250,8 +250,22 @@ async function runCommand(
     requireExport,
   })
 
-  if (requireExport && artifact.status !== 'exported') return 3
-  return execution.result.verdict.status === 'accepted' ? 0 : 1
+  return runExitCode(execution.result.verdict.status, artifact.status, requireExport)
+}
+
+/**
+ * Exit-code precedence: the eval verdict always wins. A rejected or
+ * inconclusive run reports that decision even when the export also failed;
+ * only an accepted run can turn an export failure into exit 3.
+ */
+export function runExitCode(
+  verdict: RunResult['verdict']['status'],
+  exportStatus: 'disabled' | 'exported' | 'failed',
+  requireExport: boolean,
+): number {
+  const verdictCode = verdict === 'accepted' ? 0 : 1
+  if (verdictCode !== 0) return verdictCode
+  return requireExport && exportStatus !== 'exported' ? 3 : 0
 }
 
 async function compareCommand(flags: Map<string, string>, io: CliIo): Promise<number> {
