@@ -4,9 +4,10 @@
 
 A voice role-play platform for practicing workplace English and French. Several AI characters talk with one user in real time. The work is built test-first: every change that affects behavior must be checked by evals before it is accepted.
 
-The repo has no application code yet. **M0** (the eval foundation) is complete.
-It is at milestone **M0.1** (self-hosted Langfuse review layer), the bridge to
-M1. Do not invent commands, folders, or build steps that do not exist.
+**M0** (the eval foundation) and **M0.1** (the self-hosted Langfuse review
+layer) are complete. **M1** (single-agent text) is in progress: the session
+driver, the line CLI, the session log and the Groq text adapter exist. Do not
+invent commands, folders, or build steps that do not exist.
 
 ## Eval vocabulary
 
