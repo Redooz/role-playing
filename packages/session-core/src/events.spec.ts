@@ -20,6 +20,10 @@ const EXPIRES_AT = '2026-01-01T00:00:00.000Z'
  * to compile if an event is added without coverage.
  */
 const payloadCases = {
+  'session.started': {
+    good: { sessionId: 'session-1', clockMode: 'simulated', lang: 'en', taskId: 'task-1' },
+    bad: { sessionId: '', clockMode: 'simulated', lang: 'en' },
+  },
   'user.started_speaking': {
     good: {},
     bad: { source: 'keyboard' },
@@ -173,6 +177,17 @@ describe('event payload schemas', () => {
     }
     expect(
       eventPayloadSchemas['persona.requested_turn'].safeParse({ request: tooUrgent }).success,
+    ).toBe(false)
+  })
+
+  it('accepts session.started without a task id and rejects an unknown clock mode', () => {
+    const started = { sessionId: 'session-1', clockMode: 'wall', lang: 'fr' }
+    expect(eventPayloadSchemas['session.started'].safeParse(started).success).toBe(true)
+    expect(
+      eventPayloadSchemas['session.started'].safeParse({ ...started, clockMode: 'fake' }).success,
+    ).toBe(false)
+    expect(
+      eventPayloadSchemas['session.started'].safeParse({ ...started, lang: 'de' }).success,
     ).toBe(false)
   })
 })

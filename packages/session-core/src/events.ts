@@ -20,6 +20,23 @@ export type TurnId = z.infer<typeof turnIdSchema>
 export type GrantId = z.infer<typeof grantIdSchema>
 
 /**
+ * Clock a session runs on. Replay and unit tests use `simulated`; a live text
+ * session uses `wall`. The transcript writer records which one produced the run.
+ */
+export const clockModeSchema = z.enum(['simulated', 'wall'])
+
+export type ClockMode = z.infer<typeof clockModeSchema>
+
+/**
+ * Languages the product supports. Declared here rather than imported from the
+ * eval tasks so `session-core` stays the lower layer: the harness may depend on
+ * the session model, never the other way round.
+ */
+export const sessionLanguageSchema = z.enum(['en', 'fr'])
+
+export type SessionLanguage = z.infer<typeof sessionLanguageSchema>
+
+/**
  * §3.2 `TurnGrant`. `expiresAt` is ISO-8601 UTC because the transcript record is
  * JSON; the engine converts from its (fake) clock before emitting `turn.granted`.
  */
@@ -101,6 +118,19 @@ export type ResponseCancellationReason = z.infer<typeof responseCancellationReas
 /* ------------------------------------------------------------------------- */
 /* §2.1 payloads                                                             */
 /* ------------------------------------------------------------------------- */
+
+/**
+ * Opens a session. `sessionId` is minted once per process (M1) and is not the
+ * suite `runId` or the run's execution id: those identify an eval run, this
+ * identifies one process's conversation. `taskId` is present only when the
+ * session runs a registered task.
+ */
+export const sessionStartedPayloadSchema = z.strictObject({
+  sessionId: z.string().min(1),
+  clockMode: clockModeSchema,
+  lang: sessionLanguageSchema,
+  taskId: z.string().min(1).optional(),
+})
 
 /**
  * The user began producing input (first keystroke in raw mode, first STT
@@ -189,6 +219,7 @@ export const sessionCompletedPayloadSchema = z.strictObject({})
  * need to check "is this kind an event?" use `isSessionEventName`.
  */
 export const eventPayloadSchemas = {
+  'session.started': sessionStartedPayloadSchema,
   'user.started_speaking': userStartedSpeakingPayloadSchema,
   'user.utterance.committed': userUtteranceCommittedPayloadSchema,
   'user.barge_in': userBargeInPayloadSchema,
@@ -226,6 +257,10 @@ export type SessionEventPayloadMap = {
  * validated payload sits under `payload`, matching `TranscriptRecord.kind`/`payload`.
  */
 export const sessionEventSchema = z.discriminatedUnion('type', [
+  z.strictObject({
+    type: z.literal('session.started'),
+    payload: sessionStartedPayloadSchema,
+  }),
   z.strictObject({
     type: z.literal('user.started_speaking'),
     payload: userStartedSpeakingPayloadSchema,

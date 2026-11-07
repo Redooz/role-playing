@@ -5,6 +5,7 @@ import { SystemClock, createSeededRandom, sha256Hex, type SeededRandom } from '@
 import {
   checkTranscriptSequence,
   eventFromTranscriptRecord,
+  expectedContentClass,
   guardTurnEvents,
   isSessionEventName,
   type SessionEvent,
@@ -26,12 +27,7 @@ import {
   type ManifestIssue,
   type RunManifest,
 } from './manifest.js'
-import {
-  buildCannedEntriesForTask,
-  expectedContentClass,
-  replayTask,
-  ReplayError,
-} from './replay.js'
+import { buildCannedEntriesForTask, replayTask, ReplayError } from './replay.js'
 import {
   RUN_RESULT_SCHEMA_VERSION,
   buildVersions,
@@ -46,6 +42,7 @@ import {
 import { createDeterministicInvariantGrader, type Grader, type TrialRecord } from './grader.js'
 import { createTrialEnvironment, type ProviderFactory, type TrialEnvironment } from './trial.js'
 import { computeVerdict, type RunVerdict } from './verdict.js'
+import { deriveExecutionId } from '../observability/execution-id.js'
 
 /**
  * Simulated-time evaluation harness (M0 D3).
@@ -192,6 +189,7 @@ export async function executeRun(options: ExecuteRunOptions): Promise<Evaluation
 
   const wallClock = options.wallClock ?? (() => new SystemClock().now())
   const startedAt = new Date(wallClock()).toISOString()
+  const executionId = deriveExecutionId(manifest.run.runId, startedAt)
 
   const tasks = await loadSelectedTasks(options.repoRoot, manifest.tasks)
   const providerFactory = options.providerFactory ?? createProviderFactory(manifest, tasks)
@@ -219,6 +217,7 @@ export async function executeRun(options: ExecuteRunOptions): Promise<Evaluation
 
         const replayed = await replayTask({
           runId: manifest.run.runId,
+          executionId,
           task: environment.task,
           clock: environment.clock,
           provider: environment.provider,

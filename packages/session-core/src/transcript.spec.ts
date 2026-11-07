@@ -2,6 +2,7 @@ import { canonicalJson } from '@rp/shared'
 import { describe, expect, it } from 'vitest'
 import {
   eventFromTranscriptRecord,
+  NORMALIZED_EXECUTION_ID,
   NORMALIZED_T_WALL,
   normalizeTranscriptRecord,
   normalizedTranscriptJsonl,
@@ -13,6 +14,7 @@ import { GuardViolationError } from './guards.js'
 import { TRANSCRIPT_SCHEMA_VERSION } from './version.js'
 
 const RUN_ID = 'run-2026-01-01T00-00-00Z'
+const EXECUTION_ID = 'run-2026-01-01T00-00-00Z-20260101T000000Z-deadbeef'
 const WALL_CLOCK = 1_735_689_600_123
 const EXPIRES_AT = '2026-01-01T00:00:00.000Z'
 
@@ -20,6 +22,7 @@ function record(seq: number): TranscriptRecord {
   return {
     schemaVersion: TRANSCRIPT_SCHEMA_VERSION,
     runId: RUN_ID,
+    executionId: EXECUTION_ID,
     seq,
     tSim: seq * 100,
     tWall: WALL_CLOCK + seq,
@@ -41,7 +44,7 @@ function grantRecord(seq: number): TranscriptRecord {
         expiresAt: EXPIRES_AT,
       },
     },
-    contentClass: 'public',
+    contentClass: 'contentFree',
   }
 }
 
@@ -95,6 +98,45 @@ describe('transcriptRecordSchema', () => {
     ).toBe(true)
   })
 
+  it('rejects a text-bearing event emitted as public', () => {
+    const chunk = {
+      ...record(0),
+      kind: 'persona.response.chunk',
+      payload: { grantId: 'grant-1', text: 'Hi', sequence: 0 },
+      contentClass: 'public',
+    }
+
+    expect(transcriptRecordSchema.safeParse(chunk).success).toBe(false)
+    expect(transcriptRecordSchema.safeParse({ ...chunk, contentClass: 'restricted' }).success).toBe(
+      true,
+    )
+  })
+
+  it('rejects an operational event classified as public or restricted', () => {
+    expect(transcriptRecordSchema.safeParse({ ...record(0), contentClass: 'public' }).success).toBe(
+      false,
+    )
+    expect(
+      transcriptRecordSchema.safeParse({ ...record(0), contentClass: 'restricted' }).success,
+    ).toBe(false)
+  })
+
+  it('leaves a non-event record free to choose its content class', () => {
+    expect(
+      transcriptRecordSchema.safeParse({
+        ...record(0),
+        kind: 'engine.latency_ms',
+        payload: { value: 1 },
+        contentClass: 'public',
+      }).success,
+    ).toBe(true)
+  })
+
+  it('accepts a record without an execution id for backward compatibility', () => {
+    const { executionId: _executionId, ...legacy } = record(0)
+    expect(transcriptRecordSchema.safeParse(legacy).success).toBe(true)
+  })
+
   it('rejects a negative or fractional seq', () => {
     expect(transcriptRecordSchema.safeParse({ ...record(0), seq: -1 }).success).toBe(false)
     expect(transcriptRecordSchema.safeParse({ ...record(0), seq: 0.5 }).success).toBe(false)
@@ -134,31 +176,41 @@ describe('eventFromTranscriptRecord', () => {
 })
 
 describe('normalizeTranscriptRecord', () => {
-  it('pins tWall to the normalized constant and keeps simulated time', () => {
+  it('pins tWall and executionId and keeps simulated time', () => {
     const normalized = normalizeTranscriptRecord(record(2))
     expect(normalized.tWall).toBe(NORMALIZED_T_WALL)
+    expect(normalized.executionId).toBe(NORMALIZED_EXECUTION_ID)
     expect(normalized.tSim).toBe(200)
+  })
+
+  it('makes two executions of the same suite compare equal', () => {
+    const first = record(0)
+    const second = { ...record(0), executionId: 'another-execution', tWall: 9_999_999 }
+
+    expect(normalizeTranscriptRecord(first)).toEqual(normalizeTranscriptRecord(second))
   })
 })
 
 describe('normalizedTranscriptJsonl', () => {
-  it('is stable across key insertion order and differing wall-clock time', () => {
+  it('is stable across key insertion order and differing wall-clock time and execution', () => {
     const first: TranscriptRecord = {
       schemaVersion: TRANSCRIPT_SCHEMA_VERSION,
       runId: RUN_ID,
+      executionId: 'execution-one',
       seq: 0,
       tSim: 0,
       tWall: 1_000,
       kind: 'user.started_speaking',
       payload: {},
-      contentClass: 'public',
+      contentClass: 'contentFree',
     }
 
     const second: TranscriptRecord = {
-      contentClass: 'public',
+      contentClass: 'contentFree',
       payload: {},
       kind: 'user.started_speaking',
       tWall: 9_999_999,
+      executionId: 'execution-two',
       tSim: 0,
       seq: 0,
       runId: RUN_ID,
@@ -168,12 +220,14 @@ describe('normalizedTranscriptJsonl', () => {
     expect(normalizedTranscriptJsonl([first])).toBe(normalizedTranscriptJsonl([second]))
   })
 
-  it('contains no wall-clock value in the output', () => {
+  it('contains no wall-clock value or execution identity in the output', () => {
     const jsonl = normalizedTranscriptJsonl([record(0)])
     expect(jsonl).not.toContain(String(WALL_CLOCK))
+    expect(jsonl).not.toContain(EXECUTION_ID)
 
-    const parsed = JSON.parse(jsonl) as { tWall: number }
+    const parsed = JSON.parse(jsonl) as { tWall: number; executionId: string }
     expect(parsed.tWall).toBe(NORMALIZED_T_WALL)
+    expect(parsed.executionId).toBe(NORMALIZED_EXECUTION_ID)
   })
 
   it('emits one canonical JSON record per line with sorted keys', () => {

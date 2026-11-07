@@ -2,17 +2,11 @@ import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { FakeClock } from '@rp/shared'
-import { isSessionEventName, parseTranscriptRecord } from '@rp/session-core'
+import { expectedContentClass, isSessionEventName, parseTranscriptRecord } from '@rp/session-core'
 import { describe, expect, it } from 'vitest'
 import { taskEntrySchema, type TaskEntry } from '../tasks/schema.js'
 import { createCannedProvider } from './canned-provider.js'
-import {
-  ReplayError,
-  buildCannedEntriesForTask,
-  chunkText,
-  expectedContentClass,
-  replayTask,
-} from './replay.js'
+import { ReplayError, buildCannedEntriesForTask, chunkText, replayTask } from './replay.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(here, '../../../..')
@@ -32,12 +26,14 @@ function cannedProviderFor(task: TaskEntry) {
 }
 
 const fixedWallNow = (): number => 1_700_000_000_000
+const EXECUTION_ID = 'replay-test-execution'
 
 describe('deterministic replay harness', () => {
   it.each(taskPaths)('emits the required event sequence for %s', async (relativePath) => {
     const task = loadTask(relativePath)
     const result = await replayTask({
       runId: 'replay-test',
+      executionId: EXECUTION_ID,
       task,
       clock: new FakeClock(0),
       provider: cannedProviderFor(task),
@@ -95,6 +91,7 @@ describe('deterministic replay harness', () => {
       const task = loadTask(relativePath)
       const result = await replayTask({
         runId: 'content-class-test',
+        executionId: EXECUTION_ID,
         task,
         clock: new FakeClock(0),
         provider: cannedProviderFor(task),
@@ -123,11 +120,27 @@ describe('deterministic replay harness', () => {
     },
   )
 
+  it('stamps the execution identity separately from the suite run id', async () => {
+    const task = loadTask(taskPaths[0])
+    const result = await replayTask({
+      runId: 'suite-id',
+      executionId: 'execution-42',
+      task,
+      clock: new FakeClock(0),
+      provider: cannedProviderFor(task),
+      wallNow: fixedWallNow,
+    })
+
+    expect(result.records.every((record) => record.runId === 'suite-id')).toBe(true)
+    expect(result.records.every((record) => record.executionId === 'execution-42')).toBe(true)
+  })
+
   it('produces byte-identical normalized transcripts for two identical replays', async () => {
     const task = loadTask(taskPaths[0])
 
     const first = await replayTask({
       runId: 'same-run',
+      executionId: 'execution-one',
       task,
       clock: new FakeClock(0),
       provider: cannedProviderFor(task),
@@ -135,6 +148,7 @@ describe('deterministic replay harness', () => {
     })
     const second = await replayTask({
       runId: 'same-run',
+      executionId: 'execution-two',
       task,
       clock: new FakeClock(0),
       provider: cannedProviderFor(task),
@@ -151,6 +165,7 @@ describe('deterministic replay harness', () => {
     await expect(
       replayTask({
         runId: 'expiry-test',
+        executionId: EXECUTION_ID,
         task,
         clock: new FakeClock(0),
         provider: cannedProviderFor(task),

@@ -1,4 +1,4 @@
-import type { TranscriptRecord } from '@rp/session-core'
+import { TRANSCRIPT_SCHEMA_VERSION, type TranscriptRecord } from '@rp/session-core'
 import { canonicalJson, FakeClock, MemoryTranscriptSink } from '@rp/shared'
 
 /**
@@ -65,8 +65,9 @@ const SAMPLE_PERSONA_TEXT =
 /** Build one representative, schema-valid transcript record for the benchmarks. */
 export function createTranscriptRecord(seq = 1): TranscriptRecord {
   return {
-    schemaVersion: '1.0.0',
+    schemaVersion: TRANSCRIPT_SCHEMA_VERSION,
     runId: 'm0-harness-overhead',
+    executionId: 'm0-harness-overhead-bench',
     seq,
     tSim: 1_234.5,
     tWall: 1_700_000_000_000,
@@ -76,7 +77,7 @@ export function createTranscriptRecord(seq = 1): TranscriptRecord {
       text: SAMPLE_PERSONA_TEXT,
       sequence: seq,
     },
-    contentClass: 'public',
+    contentClass: 'restricted',
   }
 }
 

@@ -2,13 +2,13 @@ import { canonicalJson } from '@rp/shared'
 import {
   checkTranscriptSequence,
   eventFromTranscriptRecord,
+  expectedContentClass,
   guardTurnEvents,
   isSessionEventName,
   transcriptRecordSchema,
   type SessionEvent,
 } from '@rp/session-core'
 import { z } from 'zod'
-import { expectedContentClass } from '../runner/replay.js'
 import type { EvaluationRun, TrialTranscriptFile } from '../runner/runner.js'
 import type { TrialOutcome } from '../runner/results.js'
 import type { TaskEntry } from '../tasks/schema.js'
