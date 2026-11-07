@@ -49,11 +49,16 @@ old synonyms (fixture, repetition, scorer, trace).
   - Architecture Plan v5 — `40383d257ddf81d183c7c74e2806749a`
   - M0 Plan: Eval Foundation — `40383d257ddf818eb796e4761f285209`
   - M0.1 Plan: Langfuse Review Layer — `41183d257ddf81bc9c41e6464a643407`
+  - M1 Plan: Single-Agent Text — `41183d257ddf81ba8e0ffccae64d3e0e`
 - Local copies sit in `docs/plans/` (git-ignored): `architecture-plan-v5.md`,
-  `m0-plan-eval-foundation.md`, `m0.1-plan-langfuse-review-layer.md`. Read those
-  first; only call Notion when they are stale.
+  `m0-plan-eval-foundation.md`, `m0.1-plan-langfuse-review-layer.md`,
+  `m1-plan-single-agent-text.md`. Read those first; only call Notion when they
+  are stale.
+- Reading notes sit beside them as `docs/plans/reading-notes-*.md`. They record
+  the evidence behind eval, latency and reliability decisions. They are not
+  plans, and they do not override the current milestone plan.
 - `docs/` is git-ignored on purpose. Never add doc files back to git.
-- Before starting work, read the M0 plan and the architecture plan. They contain the current task list and the rules below.
+- Before starting work, read the current milestone plan and the architecture plan. They contain the current task list and the rules below.
 
 ## Notion access
 
@@ -120,6 +125,11 @@ reset path covered by a test.
 
 ## Working style
 
+- **Always work on a feature branch, never on `main`.** Name it `<type>/<short-slug>` with the same
+  prefixes the commits use (`feat/`, `fix/`, `refactor/`, `docs/`, `chore/`, `ci/`), for example
+  `feat/m1-session-driver` or `fix/cancel-late-chunk`. Open it before the first edit, keep one
+  concern per branch, and let CI run before merging. If a change lands on `main` by mistake, move
+  it to a branch and reset `main`; do not build on top of it.
 - Keep changes small and tied to one milestone.
 - Do not start audio work before M5.
 - Use separate English and French test data. Passing in one language does not count for the other.
