@@ -23,7 +23,16 @@
     "test:watch": "vitest --project unit",
     "test:bench": "vitest run --project bench",
     "eval": "node --env-file-if-exists=.env tools/eval-harness-cli/src/cli.ts",
-    "validate:tasks": "node --env-file-if-exists=.env tools/eval-harness-cli/src/cli.ts validate-tasks"
+    "validate:tasks": "node --env-file-if-exists=.env tools/eval-harness-cli/src/cli.ts validate-tasks",
+    "langfuse:deploy": "bash scripts/langfuse.sh deploy",
+    "langfuse:up": "bash scripts/langfuse.sh up",
+    "langfuse:down": "bash scripts/langfuse.sh down",
+    "langfuse:logs": "bash scripts/langfuse.sh logs",
+    "langfuse:health": "bash scripts/langfuse.sh health",
+    "langfuse:tunnel": "bash scripts/langfuse.sh tunnel",
+    "langfuse:untunnel": "bash scripts/langfuse.sh untunnel",
+    "langfuse:env": "bash scripts/langfuse.sh env",
+    "langfuse:verify": "node --env-file-if-exists=.env scripts/langfuse-verify.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

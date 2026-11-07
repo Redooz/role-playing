@@ -8,6 +8,7 @@ import {
   guardTurnEvents,
   isSessionEventName,
   type SessionEvent,
+  type TranscriptRecord,
   type Violation,
 } from '@rp/session-core'
 import { taskEntrySchema, type TaskEntry, type Lang } from '../tasks/schema.js'
@@ -100,11 +101,15 @@ export interface TrialTranscriptFile {
   readonly relativePath: string
   readonly jsonl: string
   readonly sha256: string
+  /** The same records the JSONL encodes, kept in memory for observability. */
+  readonly records: readonly TranscriptRecord[]
 }
 
 export interface EvaluationRun {
   readonly result: RunResult
   readonly transcripts: readonly TrialTranscriptFile[]
+  /** Loaded tasks, so exporters can attach task metadata without re-reading disk. */
+  readonly tasks: readonly LoadedTask[]
 }
 
 /**
@@ -264,6 +269,7 @@ export async function executeRun(options: ExecuteRunOptions): Promise<Evaluation
           relativePath,
           jsonl: replayed.jsonl,
           sha256,
+          records: replayed.records,
         })
       } catch (error) {
         if (error instanceof CannedProviderMissError) {
@@ -328,7 +334,7 @@ export async function executeRun(options: ExecuteRunOptions): Promise<Evaluation
 
   // Parse the artifact we are about to persist: a result that does not satisfy
   // its own schema must never reach disk.
-  return { result: parseRunResult(result), transcripts }
+  return { result: parseRunResult(result), transcripts, tasks: orderedTasks }
 }
 
 function assertGraderMatchesManifest(grader: Grader, manifest: RunManifest): void {

@@ -9,5 +9,7 @@
 
 export * from './tasks/schema.js'
 export * from './tasks/validate.js'
+export * from './tasks/golden.js'
 export * from './jev/index.js'
 export * from './runner/index.js'
+export * from './observability/index.js'
