@@ -43,6 +43,15 @@ gates cover the exporter and the review workflow, not application behaviour.
 | 2026-11-07 | L5 review workflow     | two exports        | accepted | `m0-canned-replay-20261107T212616Z-e8958f18` and `...212620Z-02e7056d` expose the same 12 item ids; scores filter by `trial.status`; metadata carries lang, task id, CEFR band and split     |
 | 2026-11-07 | L6 privacy             | `langfuse`         | accepted | Self-hosted only; the exporter refuses `langfuse.com`; server `.env` stays on the Docker host; traces carry only service/scope metadata, no host, PID or command line; no raw audio          |
 
+## M1 gates
+
+M1 measures the text path before audio exists. The latency row is a baseline,
+not a budget: the numbers are recorded and the proxy is labelled.
+
+| Date       | Gate                        | Run ID            | Verdict             | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ---------- | --------------------------- | ----------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-11-07 | M1-G4 text latency baseline | `m1-text-latency` | accepted (baseline) | 100 live Groq turns (20 sessions × 5, `openai/gpt-oss-20b`, 3 s pacing, 0 failures). Turn utterance→first chunk (TTFT): p50 371 / p95 594 / p99 748 ms (n=100). Utterance→committed: p50 373 / p95 618 / p99 765 ms. Session start→first text chunk (text proxy only): p50 377 / p95 494 / p99 517 ms (n=20). Provider request→first content: p50 371 / p95 594 / p99 748 ms. Local overhead (driver + event loop): p50 0.1 / p99 0.4 ms. **No budget frozen**; `evals/results/m1-text-latency/latency.json`. |
+
 ## Accepted and rejected changes
 
 | Date | Change | Run ID | Verdict | Notes                               |

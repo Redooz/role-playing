@@ -4,9 +4,10 @@ Voice role-play platform for practising workplace English and French. Several AI
 characters talk with one user in real time, and every change that affects
 behaviour is checked by evals before it is accepted.
 
-M0 (the eval foundation) is complete. The repo is at milestone **M0.1**, the
-self-hosted Langfuse review layer that bridges M0 and M1. There is no
-application code and no audio path yet.
+M0 (the eval foundation) and M0.1 (the self-hosted Langfuse review layer) are
+complete. **M1** (single-agent text) is in progress: a transport-agnostic
+session driver, a line CLI, an append-only session log and a Groq text adapter.
+There is no audio path yet.
 
 ## Eval vocabulary
 
@@ -58,6 +59,11 @@ npm run format:check    # Prettier
 npm run typecheck       # tsc project references
 npm run test:unit       # fast suite, the PR gate
 npm run test:bench      # wall-time measurements, never the PR gate
+npm run mutation        # Stryker over packages/session-core (not a PR gate yet)
+
+# Text session CLI (M1). Live mode needs GROQ_API_KEY in .env.
+npm run chat -- --provider canned
+npm run chat -- --provider live
 
 npm run validate:tasks  # task/golden validator (gate G3)
 npm run eval -- run --manifest evals/manifests/m0-canned-replay.json

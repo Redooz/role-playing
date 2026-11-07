@@ -11,6 +11,9 @@
     },
     {
       "path": "../../packages/session-core"
+    },
+    {
+      "path": "../../packages/pipeline"
     }
   ]
 }

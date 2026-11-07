@@ -5,6 +5,7 @@ import {
   GROQ_TEXT_MODEL_LABEL,
   GroqTextModelError,
   createGroqTextModel,
+  type GroqRequestTiming,
 } from './groq-text.adapter.js'
 import type { TextModelChunk } from '@rp/session-core'
 
@@ -128,6 +129,32 @@ describe('Groq text adapter', () => {
 
     expect(await collect(model, controller.signal)).toEqual([])
     expect(seen).toBe(controller.signal)
+  })
+
+  it('reports request timing boundaries for the latency bench', async () => {
+    const times = [0, 10, 20, 30]
+    let index = 0
+    const timings: GroqRequestTiming[] = []
+
+    const model = createGroqTextModel({
+      apiKey: API_KEY,
+      now: () => times[index++] ?? 99,
+      fetchImpl: async () => sseResponse(['{"choices":[{"delta":{"content":"hello"}}]}', '[DONE]']),
+      onTiming: (timing) => timings.push(timing),
+    })
+
+    await collect(model)
+
+    expect(timings).toEqual([
+      {
+        requestStartedAt: 0,
+        responseHeadersAt: 10,
+        firstContentAt: 20,
+        finishedAt: 30,
+        ok: true,
+        status: 200,
+      },
+    ])
   })
 
   it('refuses to start without an API key', () => {
