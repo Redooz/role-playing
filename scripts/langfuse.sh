@@ -24,7 +24,10 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LOCAL_DIR="$REPO_ROOT/infra/langfuse"
 HOST="${LANGFUSE_SSH_HOST:-mac}"
 REMOTE_DIR="${LANGFUSE_REMOTE_DIR:-langfuse}"
-CONTROL_PATH="${TMPDIR:-/tmp}/langfuse-ssh-${HOST//[^A-Za-z0-9_.-]/_}.sock"
+# Keep the control socket in a private, stable directory. A predictable path in
+# a shared /tmp lets another user pre-create it and block or hijack the tunnel.
+CONTROL_DIR="${XDG_RUNTIME_DIR:-$HOME/.cache/role-playing}/langfuse"
+CONTROL_PATH="$CONTROL_DIR/control-${HOST//[^A-Za-z0-9_.-]/_}.sock"
 HEALTH_URL="http://127.0.0.1:3000/api/public/health"
 
 remote() {
@@ -113,6 +116,8 @@ case "${1:-}" in
     remote 'bash scripts/health.sh' || true
     ;;
   tunnel)
+    mkdir -p "$CONTROL_DIR"
+    chmod 700 "$CONTROL_DIR"
     # The user's SSH config carries unrelated LocalForward entries that may
     # already be bound locally. Resolve the alias once and open this tunnel from
     # a clean config so only port 3000 is forwarded.

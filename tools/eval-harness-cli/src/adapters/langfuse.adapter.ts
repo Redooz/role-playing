@@ -230,8 +230,11 @@ class LangfuseObserver implements EvaluationObserver {
 export async function createLangfuseObserver(config: ObserverConfig): Promise<EvaluationObserver> {
   const sdk = new NodeSDK({
     // A minimal resource keeps host, PID and command line out of the trace
-    // metadata; only the service identity is useful for review.
+    // metadata; only the service identity is useful for review. Automatic
+    // detection must stay off or NodeSDK merges the host/process detectors
+    // back into this resource.
     resource: resourceFromAttributes({ 'service.name': 'role-playing-evals' }),
+    autoDetectResources: false,
     spanProcessors: [
       new BaggageSpanProcessor(),
       new LangfuseSpanProcessor({

@@ -165,6 +165,9 @@ function buildTrialGrade(options: BuildTrialGradeOptions): TrialGrade {
   } as const
 
   if (!trial.ok) {
+    // A failed trial has no quality reading. Never emit a `false` boolean that a
+    // review platform would display as a zero: the categorical status carries
+    // the outcome, and the outage flag is only present when it is true.
     return trialGradeSchema.parse({
       ...base,
       status: trial.providerOutage ? 'inconclusive' : 'failed',
@@ -173,20 +176,18 @@ function buildTrialGrade(options: BuildTrialGradeOptions): TrialGrade {
           metric: 'trial.status',
           kind: 'categorical',
           value: trial.providerOutage ? 'inconclusive' : 'failed',
-          status: 'inconclusive',
+          status: trial.providerOutage ? 'inconclusive' : 'graded',
         },
-        {
-          metric: 'trial.ok',
-          kind: 'boolean',
-          value: false,
-          status: 'graded',
-        },
-        {
-          metric: 'trial.provider_outage',
-          kind: 'boolean',
-          value: trial.providerOutage,
-          status: 'graded',
-        },
+        ...(trial.providerOutage
+          ? [
+              {
+                metric: 'trial.provider_outage',
+                kind: 'boolean' as const,
+                value: true,
+                status: 'graded' as const,
+              },
+            ]
+          : []),
       ],
       ...(trial.error === undefined ? {} : { error: trial.error }),
     })
@@ -196,8 +197,9 @@ function buildTrialGrade(options: BuildTrialGradeOptions): TrialGrade {
 
   const scores: GradeScore[] = [
     { metric: 'trial.status', kind: 'categorical', value: 'graded', status: 'graded' },
+    // Only true booleans are emitted. `provider_outage = false` would render
+    // as a zero and is implied by a graded trial.
     { metric: 'trial.ok', kind: 'boolean', value: true, status: 'graded' },
-    { metric: 'trial.provider_outage', kind: 'boolean', value: false, status: 'graded' },
     {
       metric: 'transcript.schema_valid',
       kind: 'boolean',

@@ -9,7 +9,7 @@ import type {
   ObserverConfig,
   ObserverFactory,
 } from '@rp/eval-harness'
-import { main, type CliIo } from './cli-main.js'
+import { main, runExitCode, type CliIo } from './cli-main.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(here, '../../..')
@@ -85,6 +85,20 @@ async function readArtifact(root: string): Promise<Record<string, unknown>> {
 
 afterEach(async () => {
   for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true })
+})
+
+describe('runExitCode', () => {
+  it('reports a rejected verdict before an export failure', () => {
+    expect(runExitCode('rejected', 'failed', true)).toBe(1)
+    expect(runExitCode('inconclusive', 'failed', true)).toBe(1)
+  })
+
+  it('turns a failed required export into exit 3 only for an accepted run', () => {
+    expect(runExitCode('accepted', 'failed', true)).toBe(3)
+    expect(runExitCode('accepted', 'disabled', true)).toBe(3)
+    expect(runExitCode('accepted', 'exported', true)).toBe(0)
+    expect(runExitCode('accepted', 'failed', false)).toBe(0)
+  })
 })
 
 describe('Langfuse export in the eval CLI', () => {

@@ -54,7 +54,6 @@ describe('buildGrades', () => {
     expect(metrics).toEqual([
       'trial.status',
       'trial.ok',
-      'trial.provider_outage',
       'transcript.schema_valid',
       'transcript.seq_monotonic',
       'transcript.content_class',
@@ -103,13 +102,13 @@ describe('buildGrades', () => {
     for (const record of grades.records) {
       expect(record.status).toBe('inconclusive')
       expect(record.scores.map((score) => score.metric).sort()).toEqual([
-        'trial.ok',
         'trial.provider_outage',
         'trial.status',
       ])
       const status = record.scores.find((score) => score.metric === 'trial.status')
       expect(status?.value).toBe('inconclusive')
       expect(status?.status).toBe('inconclusive')
+      expect(record.scores.some((score) => score.metric === 'trial.ok')).toBe(false)
       expect(record.scores.some((score) => score.metric.startsWith('transcript.'))).toBe(false)
       expect(record.error).toContain('provider is down')
     }
