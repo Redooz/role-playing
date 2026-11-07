@@ -21,7 +21,7 @@
     "test": "npm run test:unit",
     "test:unit": "vitest run --project unit",
     "test:watch": "vitest --project unit",
-    "test:bench": "vitest run --project bench",
+    "test:bench": "node --env-file-if-exists=.env ./node_modules/vitest/vitest.mjs run --project bench",
     "mutation": "stryker run",
     "chat": "node --env-file-if-exists=.env apps/cli/src/cli.ts",
     "eval": "node --env-file-if-exists=.env tools/eval-harness-cli/src/cli.ts",
