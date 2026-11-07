@@ -3,8 +3,10 @@
   "references": [
     { "path": "./packages/shared" },
     { "path": "./packages/session-core" },
+    { "path": "./packages/pipeline" },
     { "path": "./packages/eval-harness" },
     { "path": "./tools/eval-harness-cli" },
-    { "path": "./tools/agent-harness-bench" }
+    { "path": "./tools/agent-harness-bench" },
+    { "path": "./apps/cli" }
   ]
 }

@@ -190,6 +190,23 @@ describe('event payload schemas', () => {
       eventPayloadSchemas['session.started'].safeParse({ ...started, lang: 'de' }).success,
     ).toBe(false)
   })
+
+  it('accepts optional usage on a committed response and rejects negative tokens', () => {
+    const committed = {
+      grantId: GRANT_ID,
+      text: 'Hello there.',
+      usage: { inputTokens: 12, outputTokens: 4, costUsd: 0.00002 },
+    }
+    expect(eventPayloadSchemas['persona.response.committed'].safeParse(committed).success).toBe(
+      true,
+    )
+    expect(
+      eventPayloadSchemas['persona.response.committed'].safeParse({
+        ...committed,
+        usage: { inputTokens: -1 },
+      }).success,
+    ).toBe(false)
+  })
 })
 
 describe('sessionEventSchema', () => {

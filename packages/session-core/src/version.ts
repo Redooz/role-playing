@@ -7,7 +7,8 @@ import { z } from 'zod'
  * - **Additive change → minor bump** (`1.0.0` → `1.1.0`). New optional payload
  *   fields, new event types, and widened enums are additive: an existing transcript
  *   still parses, so old tasks and baselines stay readable. `1.1.0` added the
- *   `session.started` event and the optional `executionId` record field.
+ *   `session.started` event and the optional `executionId` record field;
+ *   `1.2.0` added optional `usage` to `persona.response.committed`.
  * - **Breaking change → major bump** (`1.x.y` → `2.0.0`) **and** a task
  *   migration note. Removed or renamed events/fields, changed field meaning,
  *   new required fields, or narrowed enums break readers and therefore require
@@ -18,7 +19,7 @@ import { z } from 'zod'
  * replaying it: a different major version must be migrated first, never parsed
  * leniently.
  */
-export const TRANSCRIPT_SCHEMA_VERSION = '1.1.0'
+export const TRANSCRIPT_SCHEMA_VERSION = '1.2.0'
 
 /**
  * Machine-readable form of the versioning policy above, so tools can assert it

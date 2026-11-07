@@ -1,4 +1,4 @@
-import type { SessionLanguage } from './events.js'
+import type { SessionLanguage, TextModelUsage } from './events.js'
 
 /**
  * Model port owned by `session-core` (M1 D1).
@@ -23,13 +23,6 @@ export type TextModelRole = (typeof textModelRoleSchema)[number]
 export interface TextModelMessage {
   readonly role: TextModelRole
   readonly content: string
-}
-
-export interface TextModelUsage {
-  readonly inputTokens?: number
-  readonly outputTokens?: number
-  /** Estimated cost in USD, when the provider reports enough to derive it. */
-  readonly costUsd?: number
 }
 
 export interface TextModelChunk {

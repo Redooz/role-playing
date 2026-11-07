@@ -1,4 +1,4 @@
-import { FakeClock } from '@rp/shared'
+import { FakeClock, createSeededRandom } from '@rp/shared'
 import { describe, expect, it } from 'vitest'
 import {
   createTextSessionDriver,
@@ -8,6 +8,7 @@ import {
   type TextModelChunk,
   type TextModelPort,
   type TextModelRequest,
+  type TextModelUsage,
 } from './index.js'
 import { SessionClosedError, SessionDriverError } from './driver.js'
 
@@ -27,6 +28,8 @@ interface ScriptedOptions {
   readonly endWithoutDone?: boolean
   /** Yield one extra chunk after the one marked `done`. */
   readonly chunkAfterDone?: boolean
+  /** Usage reported on the final chunk. */
+  readonly usage?: TextModelUsage
   /** Run before a chunk is yielded (the clock test uses it). */
   readonly beforeChunk?: (index: number) => Promise<void>
 }
@@ -46,7 +49,11 @@ function scriptedModel(options: ScriptedOptions): ScriptedModel {
         await options.beforeChunk?.(index)
         await Promise.resolve()
         const last = index === options.chunks.length - 1
-        yield { text, done: last && options.endWithoutDone !== true }
+        yield {
+          text,
+          done: last && options.endWithoutDone !== true,
+          ...(last && options.usage !== undefined ? { usage: options.usage } : {}),
+        }
       }
 
       if (options.chunkAfterDone === true) {
@@ -113,6 +120,50 @@ async function runToEnd(harness: SessionHarness): Promise<SessionEvent[]> {
   await harness.driver.close()
   await harness.finished()
   return harness.events
+}
+
+/**
+ * The D2 invariants, checked over a complete event stream:
+ * - no chunk after the turn's terminal event;
+ * - exactly one terminal event per turn;
+ * - chunk sequence numbers start at 0 and increase by 1 per grant;
+ * - the §3.2 guard stays clean.
+ */
+function expectCancellationInvariants(events: readonly SessionEvent[]): void {
+  const terminalByGrant = new Map<string, 'committed' | 'cancelled'>()
+  const lastSequence = new Map<string, number>()
+  let cancelledCount = 0
+
+  for (const event of events) {
+    if (event.type === 'persona.response.chunk') {
+      const { grantId, sequence } = event.payload
+      expect(terminalByGrant.has(grantId), `chunk after terminal for ${grantId}`).toBe(false)
+      const last = lastSequence.get(grantId)
+      expect(sequence, `sequence for ${grantId}`).toBe(last === undefined ? 0 : last + 1)
+      lastSequence.set(grantId, sequence)
+      continue
+    }
+
+    if (
+      event.type === 'persona.response.committed' ||
+      event.type === 'persona.response.cancelled'
+    ) {
+      const { grantId } = event.payload
+      expect(terminalByGrant.has(grantId), `second terminal for ${grantId}`).toBe(false)
+      terminalByGrant.set(
+        grantId,
+        event.type === 'persona.response.committed' ? 'committed' : 'cancelled',
+      )
+      if (event.type === 'persona.response.cancelled') cancelledCount += 1
+    }
+  }
+
+  // One cancelled event per cancelled turn is guaranteed by the single-terminal
+  // check above; this keeps the count explicit for the fuzz report.
+  expect([...terminalByGrant.values()].filter((value) => value === 'cancelled')).toHaveLength(
+    cancelledCount,
+  )
+  expect(guardTurnEvents(events).ok).toBe(true)
 }
 
 describe('text session driver', () => {
@@ -255,6 +306,79 @@ describe('text session driver', () => {
       await runToEnd(harness)
       expect(guardTurnEvents(harness.events).ok, `guard at boundary ${interruptAt}`).toBe(true)
     }
+  })
+
+  it('holds the cancellation invariants across seeded interleavings', async () => {
+    const random = createSeededRandom(20261107)
+
+    for (let trial = 0; trial < 60; trial += 1) {
+      const chunkCount = 1 + random.int(5)
+      const interruptAt = random.int(chunkCount + 2) - 1 // -1 = never, 0 = before the first chunk
+      const doubleInterrupt = random.bool(0.3)
+      const closeDuringStream = random.bool(0.2)
+      const closeAt = closeDuringStream ? random.int(chunkCount + 1) : -1
+
+      const model = scriptedModel({
+        chunks: Array.from({ length: chunkCount }, (_value, index) => `c${index} `),
+      })
+      const harness = openSession(model)
+      let chunksSeen = 0
+      let fired = false
+
+      harness.onEvent((event) => {
+        if (fired) return
+        if (event.type === 'persona.response.chunk') chunksSeen += 1
+
+        const atStart = event.type === 'persona.response.started'
+        const atChunk = event.type === 'persona.response.chunk'
+        const triggerAt = closeDuringStream ? closeAt : interruptAt
+        const reached = triggerAt === 0 ? atStart : atChunk && chunksSeen === triggerAt
+        if (!reached) return
+
+        fired = true
+        if (closeDuringStream) {
+          void harness.driver.close()
+          return
+        }
+        void harness.driver.interrupt()
+        if (doubleInterrupt) void harness.driver.interrupt()
+      })
+
+      const sending = harness.driver.send('go')
+      await sending
+      if (!closeDuringStream) await harness.driver.close()
+      await harness.finished()
+
+      expectCancellationInvariants(harness.events)
+    }
+  })
+
+  it('records provider usage on the committed event', async () => {
+    const usage = { inputTokens: 12, outputTokens: 4, costUsd: 0.00002 }
+    const model = scriptedModel({ chunks: ['Hello'], usage })
+    const harness = openSession(model)
+
+    await harness.driver.send('go')
+    const events = await runToEnd(harness)
+
+    expect(events.find((event) => event.type === 'persona.response.committed')?.payload).toEqual({
+      grantId: 'session-1-grant-1',
+      text: 'Hello',
+      usage,
+    })
+  })
+
+  it('omits usage when the provider does not report it', async () => {
+    const model = scriptedModel({ chunks: ['Hello'] })
+    const harness = openSession(model)
+
+    await harness.driver.send('go')
+    const events = await runToEnd(harness)
+
+    expect(events.find((event) => event.type === 'persona.response.committed')?.payload).toEqual({
+      grantId: 'session-1-grant-1',
+      text: 'Hello',
+    })
   })
 
   it('does nothing when interrupted while idle', async () => {

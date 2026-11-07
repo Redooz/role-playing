@@ -1,0 +1,17 @@
+{
+  "name": "@rp/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "role-play": "./src/cli.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@rp/pipeline": "*",
+    "@rp/session-core": "*",
+    "@rp/shared": "*"
+  }
+}
