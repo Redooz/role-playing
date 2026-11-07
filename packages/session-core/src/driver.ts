@@ -5,6 +5,7 @@ import {
   type SessionEvent,
   type SessionEventName,
   type SessionLanguage,
+  type TextModelUsage,
 } from './events.js'
 import type { TextModelChunk, TextModelMessage, TextModelPort } from './model-port.js'
 
@@ -251,6 +252,7 @@ class TextSessionDriver implements SessionDriver {
     let text = ''
     let sequence = 0
     let sawDone = false
+    let usage: TextModelUsage | undefined
     let outcome: TurnOutcome = 'committed'
     let iterator: AsyncIterator<TextModelChunk> | undefined
 
@@ -299,10 +301,16 @@ class TextSessionDriver implements SessionDriver {
           text += chunk.text
           sequence += 1
         }
+        if (chunk.usage !== undefined) usage = chunk.usage
         if (chunk.done) sawDone = true
       }
 
-      if (outcome === 'committed' && !sawDone) outcome = 'provider_failure'
+      if (outcome === 'committed' && controller.signal.aborted) {
+        // The interrupt landed while the provider was closing its stream.
+        outcome = 'interrupted'
+      } else if (outcome === 'committed' && !sawDone) {
+        outcome = 'provider_failure'
+      }
     } catch {
       // A failed model call is not a "no": it is an interrupted reply, never a
       // fabricated or empty committed one. The caller decides whether to retry.
@@ -318,7 +326,11 @@ class TextSessionDriver implements SessionDriver {
     }
 
     if (outcome === 'committed') {
-      this.#emit('persona.response.committed', { grantId: turn.grantId, text })
+      this.#emit('persona.response.committed', {
+        grantId: turn.grantId,
+        text,
+        ...(usage === undefined ? {} : { usage }),
+      })
       this.#messages.push({ role: 'assistant', content: text })
       return
     }

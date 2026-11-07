@@ -37,6 +37,19 @@ export const sessionLanguageSchema = z.enum(['en', 'fr'])
 export type SessionLanguage = z.infer<typeof sessionLanguageSchema>
 
 /**
+ * Token usage reported by a model adapter. Every field is optional: providers
+ * differ, and a cancelled request may report nothing. `costUsd` is included only
+ * when the provider reports enough to derive it; the driver never invents one.
+ */
+export const textModelUsageSchema = z.strictObject({
+  inputTokens: z.int().nonnegative().optional(),
+  outputTokens: z.int().nonnegative().optional(),
+  costUsd: z.number().nonnegative().optional(),
+})
+
+export type TextModelUsage = z.infer<typeof textModelUsageSchema>
+
+/**
  * §3.2 `TurnGrant`. `expiresAt` is ISO-8601 UTC because the transcript record is
  * JSON; the engine converts from its (fake) clock before emitting `turn.granted`.
  */
@@ -191,6 +204,8 @@ export const personaResponseChunkPayloadSchema = z.strictObject({
 export const personaResponseCommittedPayloadSchema = z.strictObject({
   grantId: grantIdSchema,
   text: z.string(),
+  /** Token usage when the adapter reported it; absent for canned replay. */
+  usage: textModelUsageSchema.optional(),
 })
 
 export const personaResponseCancelledPayloadSchema = z.strictObject({

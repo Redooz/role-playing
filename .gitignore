@@ -32,3 +32,6 @@ infra/livekit-soak/.runs/
 # Mutation reports and Stryker sandbox
 reports/
 .stryker-tmp/
+
+# Local session logs
+sessions/
