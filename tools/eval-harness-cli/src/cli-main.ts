@@ -6,6 +6,7 @@ import { canonicalJson } from '@rp/shared'
 import {
   ManifestValidationError,
   HarnessConfigError,
+  buildGrades,
   compareRunResults,
   executeRun,
   formatManifestIssue,
@@ -13,9 +14,12 @@ import {
   runResultSchema,
   validateTaskTree,
   validateManifest,
+  type GradesArtifact,
+  type ObserverFactory,
   type RunResult,
   type EvaluationRun,
 } from '@rp/eval-harness'
+import { exportRun } from './export-run.js'
 import { formatComparison, formatRunResult } from './output.js'
 
 /**
@@ -42,6 +46,10 @@ export interface CliDeps {
   wallClock?: () => number
   /** Override the code SHA stamp (tests). */
   codeSha?: string
+  /** Environment for the Langfuse export step (tests). Defaults to `process.env`. */
+  env?: NodeJS.ProcessEnv
+  /** Replace the Langfuse adapter in tests; never loaded unless export is on. */
+  observerFactory?: ObserverFactory
 }
 
 class CliUsageError extends Error {
@@ -51,23 +59,26 @@ class CliUsageError extends Error {
   }
 }
 
-const HELP_TEXT = `eval-harness - simulated-time evaluation harness (M0)
+const HELP_TEXT = `eval-harness - simulated-time evaluation harness (M0.1)
 
 Usage:
   eval-harness run --manifest <path> [--results-root <dir>] [--repo-root <dir>]
+                   [--no-export] [--require-export]
   eval-harness compare --baseline <path> --run <dir-or-result.json> [--repo-root <dir>]
   eval-harness validate-tasks [--repo-root <dir>]
   eval-harness --help
 
 Commands:
   run                 Validate a pre-registered manifest, execute its rounds,
-                      write the manifest copy + hash, result.json and normalized
-                      transcripts, then print the per-axis verdict.
+                      write the manifest copy + hash, result.json, grades.jsonl
+                      and normalized transcripts, then export the run to the
+                      self-hosted Langfuse review layer when enabled.
                       Exit 0 accepted, 1 rejected/inconclusive, 2 invalid manifest
-                      or configuration.
+                      or configuration, 3 export required but failed (artifacts
+                      are still written).
   compare             Compare a committed baseline artifact with a run directory.
                       Exit 0 all axes pass, 1 regression/inconclusive, 2 usage error.
-  validate-tasks   Validate evals/tasks and evals/golden (gate G3).
+  validate-tasks      Validate evals/tasks and evals/golden (gate G3).
                       Exit 0 zero violations, 1 any violation.
 
 Notes:
@@ -75,7 +86,13 @@ Notes:
   - Provider/output failures are never turned into a "no" or a zero.
   - Results default to evals/results/<runId>/ (git-ignored); --results-root
     redirects them, which is how tests stay read-only.
-  - No composite score is printed; every axis and guardrail is shown separately.`
+  - No composite score is printed; every axis and guardrail is shown separately.
+  - Langfuse export is opt-in via LANGFUSE_ENABLED=true. --no-export forces it
+    off; --require-export makes a failed export exit non-zero after artifacts
+    are written. Export never changes the verdict.`
+
+/** Flags that take no value; they are stored as `"true"`. */
+const BOOLEAN_FLAGS: ReadonlySet<string> = new Set(['no-export', 'require-export'])
 
 const SYSTEM_IO: CliIo = {
   out(line) {
@@ -112,7 +129,7 @@ export async function main(
 
   let flags: Map<string, string>
   try {
-    flags = parseOptions(args.slice(1))
+    flags = parseOptions(args.slice(1), BOOLEAN_FLAGS)
   } catch (error) {
     if (error instanceof CliUsageError) {
       io.err(error.message)
@@ -167,7 +184,13 @@ async function runCommand(
   io: CliIo,
   deps: CliDeps,
 ): Promise<number> {
-  assertKnownFlags(flags, ['manifest', 'results-root', 'repo-root'])
+  assertKnownFlags(flags, ['manifest', 'results-root', 'repo-root', 'no-export', 'require-export'])
+
+  const noExport = flags.get('no-export') === 'true'
+  const requireExport = flags.get('require-export') === 'true'
+  if (noExport && requireExport) {
+    throw new CliUsageError('--no-export and --require-export cannot be combined')
+  }
 
   const manifestArg = flags.get('manifest')
   if (manifestArg === undefined) throw new CliUsageError('run requires --manifest <path>')
@@ -208,12 +231,26 @@ async function runCommand(
     )
   }
 
-  await writeRunArtifacts(runDir, execution)
+  const grades = buildGrades({ execution })
+  await writeRunArtifacts(runDir, execution, grades)
 
   for (const line of formatRunResult(execution.result)) io.out(line)
   io.out('')
   io.out(`results: ${runDir}`)
 
+  const artifact = await exportRun({
+    execution,
+    grades,
+    runDir,
+    repoRoot,
+    io,
+    env: deps.env ?? process.env,
+    ...(deps.observerFactory === undefined ? {} : { observerFactory: deps.observerFactory }),
+    noExport,
+    requireExport,
+  })
+
+  if (requireExport && artifact.status !== 'exported') return 3
   return execution.result.verdict.status === 'accepted' ? 0 : 1
 }
 
@@ -267,7 +304,11 @@ async function validateTasksCommand(
   return 1
 }
 
-async function writeRunArtifacts(runDir: string, execution: EvaluationRun): Promise<void> {
+async function writeRunArtifacts(
+  runDir: string,
+  execution: EvaluationRun,
+  grades: GradesArtifact,
+): Promise<void> {
   await mkdir(runDir, { recursive: true })
 
   await writeFile(
@@ -288,6 +329,7 @@ async function writeRunArtifacts(runDir: string, execution: EvaluationRun): Prom
     `${JSON.stringify(execution.result, null, 2)}\n`,
     'utf8',
   )
+  await writeFile(join(runDir, 'grades.jsonl'), grades.jsonl, 'utf8')
 }
 
 async function readRunArtifact(path: string, label: string): Promise<RunResult> {
@@ -332,7 +374,10 @@ async function readJsonFile(path: string): Promise<unknown> {
   }
 }
 
-function parseOptions(args: readonly string[]): Map<string, string> {
+function parseOptions(
+  args: readonly string[],
+  booleanFlags: ReadonlySet<string> = new Set(),
+): Map<string, string> {
   const flags = new Map<string, string>()
 
   for (let index = 0; index < args.length; index += 1) {
@@ -353,6 +398,11 @@ function parseOptions(args: readonly string[]): Map<string, string> {
     }
 
     const name = token.slice(2)
+    if (booleanFlags.has(name)) {
+      setFlag(flags, name, 'true')
+      continue
+    }
+
     const value = args[index + 1]
     if (value === undefined || value.startsWith('--')) {
       throw new CliUsageError(`flag --${name} requires a value`)

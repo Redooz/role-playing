@@ -4,7 +4,9 @@
 
 A voice role-play platform for practicing workplace English and French. Several AI characters talk with one user in real time. The work is built test-first: every change that affects behavior must be checked by evals before it is accepted.
 
-The repo has no application code yet. It is at milestone **M0** (build the eval foundation). Do not invent commands, folders, or build steps that do not exist.
+The repo has no application code yet. **M0** (the eval foundation) is complete.
+It is at milestone **M0.1** (self-hosted Langfuse review layer), the bridge to
+M1. Do not invent commands, folders, or build steps that do not exist.
 
 ## Eval vocabulary
 
@@ -46,9 +48,10 @@ old synonyms (fixture, repetition, scorer, trace).
 - The plan lives in Notion under the page **Role-Playing**:
   - Architecture Plan v5 — `40383d257ddf81d183c7c74e2806749a`
   - M0 Plan: Eval Foundation — `40383d257ddf818eb796e4761f285209`
+  - M0.1 Plan: Langfuse Review Layer — `41183d257ddf81bc9c41e6464a643407`
 - Local copies sit in `docs/plans/` (git-ignored): `architecture-plan-v5.md`,
-  `m0-plan-eval-foundation.md`. Read those first; only call Notion when they are
-  stale.
+  `m0-plan-eval-foundation.md`, `m0.1-plan-langfuse-review-layer.md`. Read those
+  first; only call Notion when they are stale.
 - `docs/` is git-ignored on purpose. Never add doc files back to git.
 - Before starting work, read the M0 plan and the architecture plan. They contain the current task list and the rules below.
 
@@ -84,6 +87,7 @@ old synonyms (fixture, repetition, scorer, trace).
 - Depend inward: controller → handler → use case → port. An adapter may not import a use case, and a use case may not import an adapter.
 - Wire real adapters once per app in the composition root. Tests use fake or canned adapters.
 - Libraries (`session-core`, `turn-arbiter`, `routing-policy`, `eval-harness`) expose functions and ports. They do not get controllers or handlers.
+- Observability follows the same rule: `packages/eval-harness/src/observability/` holds the pure plan, grade sidecar and observer port; `tools/eval-harness-cli/src/adapters/langfuse.adapter.ts` is the only file that imports Langfuse or OpenTelemetry.
 
 ## Rules that are easy to get wrong
 
@@ -94,8 +98,10 @@ old synonyms (fixture, repetition, scorer, trace).
 - **Store raw scores.** Keep the full Jev answer and probability, not just the chosen label.
 - **A failed model call is not a "no".** Mark the run incomplete; never turn an error into a pass or zero.
 - **One writer at a time.** Only the character that holds the current turn may produce output. Late output from an old turn is dropped.
-- **No secret in the repo.** API keys stay in the environment (they are loaded from `~/.bashrc`). Never put keys in files, logs, or transcripts.
+- **No secret in the repo.** API keys stay in the environment (they are loaded from `~/.bashrc`). Never put keys in files, logs, or transcripts. The self-hosted Langfuse server `.env` stays on the Docker host and is git-ignored; only the client keys reach the repository's `.env`.
 - **No raw audio saved by default.** Saving audio needs a separate opt-in from the user.
+- **Langfuse observes; code decides.** The self-hosted Langfuse instance is the review layer for transcripts, scores and experiment comparison. It never replaces the manifest, the verdict, the baselines, the Jev client or the golden files. There is no custom transcript viewer, grade table, comparison dashboard or results web UI.
+- **Export never changes a verdict.** Langfuse export is opt-in (`LANGFUSE_ENABLED=true`) and runs after `result.json`, the transcripts and `grades.jsonl` are written. A failed export only fails the command when `--require-export` is set. Self-hosted only: never point `LANGFUSE_BASE_URL` at Langfuse Cloud.
 
 ## Known trial-isolation gaps (M0 → M1)
 

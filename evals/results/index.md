@@ -15,3 +15,11 @@ it still handle every task it used to?). **Grader** is `code`,
 | 2026-10-25 | `m0-harness-overhead` | agent-harness overhead (G5) | capability | code | recorded | no budget frozen at M0 |
 | 2026-10-25 | `jev-canary-2026-10-25` | Jev integration canary (G4) | capability | system-one-model | accepted (canary) | 3 live calls, $0.0000465 |
 | 2026-10-25 | `soak-2026-10-25T17-55-13-434Z` | LiveKit soak (G6) | capability | — | accepted | 10 × 20 min cycles, 0 crashes, 0 handle growth, RSS +70.3 MB noted |
+| 2026-11-07 | `m0-canned-replay` (M0.1 export) | canned replay determinism (G1) | regression | code | accepted | 12 trials; `grades.jsonl` and `langfuse.json`; 12 traces × (5 turn spans, 3 generations, 7 events, 9 scores); experiment `m0-canned-replay-20261107T195632Z-472c94de`; comparison `m0-canned-replay-20261107T195636Z-f31762d7` |
+
+Langfuse experiment links are local to the self-hosted instance:
+`http://127.0.0.1:3000/project/8cdf72afddb90bd4e129b3c7/experiments/results?baseline=<execution-id>`.
+Open the tunnel with `npm run langfuse:tunnel` first. The link only works on this
+machine; the run directories keep the raw evidence:
+`evals/results/m0-canned-replay/` and
+`evals/results/m01-comparison/m0-canned-replay/`.
