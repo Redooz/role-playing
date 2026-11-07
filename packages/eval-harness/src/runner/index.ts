@@ -12,6 +12,7 @@
 export * from './manifest.js'
 export * from './verdict.js'
 export * from './canned-provider.js'
+export * from './text-model.adapter.js'
 export * from './replay.js'
 export * from './trial.js'
 export * from './grader.js'
