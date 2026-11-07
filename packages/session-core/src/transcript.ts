@@ -24,6 +24,28 @@ export const contentClassSchema = z.enum(['public', 'restricted', 'contentFree']
 export type ContentClass = z.infer<typeof contentClassSchema>
 
 /**
+ * Event kinds whose payload carries user or persona text. These may only be
+ * `restricted`: exporting them as `public` (or `contentFree`) would let transcript
+ * privacy depend on a producer remembering the rule.
+ */
+const RESTRICTED_EVENT_KINDS: ReadonlySet<SessionEventName> = new Set([
+  'user.utterance.committed',
+  'persona.utterance.partial',
+  'persona.response.chunk',
+  'persona.response.committed',
+  'persona.response.cancelled',
+])
+
+/**
+ * The content class an event kind must carry. Text-bearing kinds are
+ * `restricted`; operational kinds are `contentFree`. `public` stays reserved
+ * for non-event records whose payload is known to be safe to log verbatim.
+ */
+export function expectedContentClass(kind: SessionEventName): ContentClass {
+  return RESTRICTED_EVENT_KINDS.has(kind) ? 'restricted' : 'contentFree'
+}
+
+/**
  * Transcript record envelope. When `kind` is one of the §2.1 event names, `payload`
  * must parse against that event's payload schema (see the refinement below).
  * Non-event kinds (for example latency samples) stay `unknown` payloads but
@@ -32,6 +54,12 @@ export type ContentClass = z.infer<typeof contentClassSchema>
 const transcriptRecordBaseSchema = z.strictObject({
   schemaVersion: transcriptSchemaVersionSchema,
   runId: z.string().min(1),
+  /**
+   * Identifies one execution of the suite; `runId` only names the suite and is
+   * reused by every execution. Optional so records written before 1.1.0 still
+   * parse; every producer from M1 on must set it.
+   */
+  executionId: z.string().min(1).optional(),
   /** Strictly increasing across the run; see `checkTranscriptSequence`. */
   seq: z.int().nonnegative(),
   /** Simulated clock time in milliseconds. Deterministic; kept in normalized output. */
@@ -53,13 +81,26 @@ export const transcriptRecordSchema = transcriptRecordBaseSchema.superRefine((re
 
   const payloadSchema = eventPayloadSchemas[record.kind] as z.ZodType
   const result = payloadSchema.safeParse(record.payload)
-  if (result.success) return
+  if (!result.success) {
+    for (const issue of result.error.issues) {
+      ctx.addIssue({
+        code: 'custom',
+        message: issue.message,
+        path: ['payload', ...issue.path],
+      })
+    }
+  }
 
-  for (const issue of result.error.issues) {
+  // Privacy guard at parse/emit time: a text-bearing event may never be
+  // classified as public, and an operational event may not claim to be
+  // restricted or public. This makes the M0 `contentClassValid` check
+  // structural instead of advisory.
+  const expected = expectedContentClass(record.kind)
+  if (record.contentClass !== expected) {
     ctx.addIssue({
       code: 'custom',
-      message: issue.message,
-      path: ['payload', ...issue.path],
+      message: `${record.kind} must be contentClass "${expected}", got "${record.contentClass}"`,
+      path: ['contentClass'],
     })
   }
 })
@@ -90,17 +131,23 @@ export function eventFromTranscriptRecord(record: TranscriptRecord): SessionEven
 }
 
 /**
- * Value written to `tWall` by normalization.
+ * Value written to `tWall` and `executionId` by normalization.
  *
- * Wall-clock time is the only non-reproducible field in a transcript (§2.3), so it is
- * pinned to a constant instead of removed: the schema and every reader stay the
- * same shape, while the normalized bytes contain no wall-clock value.
+ * Wall-clock time and execution identity are the only non-reproducible fields
+ * in a transcript (§2.3), so they are pinned to constants instead of removed:
+ * the schema and every reader stay the same shape, while the normalized bytes
+ * contain no wall-clock value and no execution-specific identity.
  */
 export const NORMALIZED_T_WALL = 0
+export const NORMALIZED_EXECUTION_ID = 'normalized'
 
-/** Copy one record with wall-clock time removed (`tWall` = 0). */
+/** Copy one record with wall-clock time and execution identity removed. */
 export function normalizeTranscriptRecord(record: TranscriptRecord): TranscriptRecord {
-  return { ...record, tWall: NORMALIZED_T_WALL }
+  return {
+    ...record,
+    tWall: NORMALIZED_T_WALL,
+    executionId: NORMALIZED_EXECUTION_ID,
+  }
 }
 
 /** Copy records with wall-clock time removed. Does not validate. */

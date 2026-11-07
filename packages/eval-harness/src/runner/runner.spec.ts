@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { canonicalJson, sha256Hex } from '@rp/shared'
+import { TRANSCRIPT_SCHEMA_VERSION } from '@rp/session-core'
 import { describe, expect, it } from 'vitest'
 import { ManifestValidationError, manifestHash, parseManifest } from './manifest.js'
 import { executeRun, loadSelectedTasks } from './runner.js'
@@ -71,6 +72,15 @@ describe('executeRun (gate G1)', () => {
     expect(new Set(first.transcripts.map((transcript) => transcript.lang))).toEqual(
       new Set(['en', 'fr']),
     )
+
+    // One execution identity for the whole run, distinct from the suite id.
+    const executionIds = new Set(
+      first.transcripts.flatMap((transcript) =>
+        transcript.records.map((record) => record.executionId),
+      ),
+    )
+    expect(executionIds.size).toBe(1)
+    expect([...executionIds][0]).not.toBe(first.result.runId)
   })
 
   it('writes a valid accepted artifact with full version stamps and no composite score', async () => {
@@ -100,7 +110,7 @@ describe('executeRun (gate G1)', () => {
     expect(result.versions.taskVersion).toBe(manifest.tasks.version)
     expect(result.versions.graderId).toBe(manifest.grader.id)
     expect(result.versions.rubricVersion).toBe(manifest.rubric.version)
-    expect(result.versions.transcriptSchemaVersion).toBe('1.0.0')
+    expect(result.versions.transcriptSchemaVersion).toBe(TRANSCRIPT_SCHEMA_VERSION)
 
     expect(Object.keys(result.metrics).sort()).toEqual([
       'replay.deterministic_rate',

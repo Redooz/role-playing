@@ -28,3 +28,7 @@ infra/livekit-soak/.runs/
 .DS_Store
 .idea/
 .vscode/
+
+# Mutation reports and Stryker sandbox
+reports/
+.stryker-tmp/

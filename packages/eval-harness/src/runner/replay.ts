@@ -1,8 +1,8 @@
 import { MemoryTranscriptSink, type Clock } from '@rp/shared'
 import {
   TRANSCRIPT_SCHEMA_VERSION,
+  expectedContentClass,
   normalizedTranscriptJsonl,
-  type ContentClass,
   type EventPayloadFor,
   type SessionEventName,
   type TranscriptRecord,
@@ -49,25 +49,10 @@ const SESSION_END_MS = 200
 /** How many whitespace-delimited words go into one streamed chunk. */
 const WORDS_PER_CHUNK = 3
 
-const RESTRICTED_EVENT_KINDS: ReadonlySet<SessionEventName> = new Set([
-  'user.utterance.committed',
-  'persona.utterance.partial',
-  'persona.response.chunk',
-  'persona.response.committed',
-  'persona.response.cancelled',
-])
-
-/**
- * Content class for an event kind. Text-bearing payloads are `restricted`
- * (§9 transcript privacy); operational events are `contentFree`. `public` is
- * reserved for content that is safe to log verbatim.
- */
-export function expectedContentClass(kind: SessionEventName): ContentClass {
-  return RESTRICTED_EVENT_KINDS.has(kind) ? 'restricted' : 'contentFree'
-}
-
 export interface ReplayOptions {
   readonly runId: string
+  /** Unique identity of this execution; `runId` only names the suite. */
+  readonly executionId: string
   readonly task: TaskEntry
   readonly clock: Clock
   readonly provider: CompletionProvider
@@ -147,7 +132,7 @@ export function buildCannedEntriesForTask(task: TaskEntry): CannedEntry[] {
  * `user.utterance.committed`; the transcript ends with `session.completed`.
  */
 export async function replayTask(options: ReplayOptions): Promise<ReplayResult> {
-  const { runId, task, clock, provider, wallNow } = options
+  const { runId, executionId, task, clock, provider, wallNow } = options
   const personaId = options.personaId ?? 'persona-1'
   const grantTtlMs = options.grantTtlMs ?? REPLAY_GRANT_TTL_MS
 
@@ -162,6 +147,7 @@ export async function replayTask(options: ReplayOptions): Promise<ReplayResult> 
     sink.append({
       schemaVersion: TRANSCRIPT_SCHEMA_VERSION,
       runId,
+      executionId,
       seq,
       tSim: clock.now(),
       tWall: wallNow(),

@@ -22,6 +22,7 @@
     "test:unit": "vitest run --project unit",
     "test:watch": "vitest --project unit",
     "test:bench": "vitest run --project bench",
+    "mutation": "stryker run",
     "eval": "node --env-file-if-exists=.env tools/eval-harness-cli/src/cli.ts",
     "validate:tasks": "node --env-file-if-exists=.env tools/eval-harness-cli/src/cli.ts validate-tasks",
     "langfuse:deploy": "bash scripts/langfuse.sh deploy",
@@ -37,6 +38,8 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@livekit/rtc-node": "^1.2.1",
+    "@stryker-mutator/core": "10.1.1",
+    "@stryker-mutator/vitest-runner": "10.1.1",
     "@types/node": "^26.6.5",
     "eslint": "^10.13.0",
     "eslint-config-prettier": "^10.1.8",
