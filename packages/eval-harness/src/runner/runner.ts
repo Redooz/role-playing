@@ -1,13 +1,7 @@
 import type { Dirent } from 'node:fs'
 import { readdir, readFile } from 'node:fs/promises'
 import { join, relative, resolve, sep } from 'node:path'
-import {
-  FakeClock,
-  SystemClock,
-  createSeededRandom,
-  sha256Hex,
-  type SeededRandom,
-} from '@rp/shared'
+import { SystemClock, createSeededRandom, sha256Hex, type SeededRandom } from '@rp/shared'
 import {
   checkTranscriptSequence,
   eventFromTranscriptRecord,
@@ -22,7 +16,6 @@ import {
   ProviderUnavailableError,
   createCannedProvider,
   createLiveProvider,
-  type CompletionProvider,
 } from './canned-provider.js'
 import {
   manifestHash,
@@ -50,6 +43,7 @@ import {
   type RunSummary,
 } from './results.js'
 import { createDeterministicInvariantGrader, type Grader, type TrialRecord } from './grader.js'
+import { createTrialEnvironment, type ProviderFactory, type TrialEnvironment } from './trial.js'
 import { computeVerdict, type RunVerdict } from './verdict.js'
 
 /**
@@ -88,6 +82,11 @@ export interface ExecuteRunOptions {
   readonly manifest: unknown
   /** Grading port. Defaults to the deterministic invariant grader. */
   readonly grader?: Grader
+  /**
+   * Builds a fresh provider for every trial. Defaults to the manifest's
+   * provider mode. Tests inject a factory to prove no instance is shared.
+   */
+  readonly providerFactory?: ProviderFactory
   /** Wall clock used only for run metadata and `tWall`. */
   readonly wallClock?: () => number
   /** Code SHA to stamp into the result, when the caller can resolve one. */
@@ -190,7 +189,7 @@ export async function executeRun(options: ExecuteRunOptions): Promise<Evaluation
   const startedAt = new Date(wallClock()).toISOString()
 
   const tasks = await loadSelectedTasks(options.repoRoot, manifest.tasks)
-  const provider = createProvider(manifest, tasks)
+  const providerFactory = options.providerFactory ?? createProviderFactory(manifest, tasks)
 
   const rng = createSeededRandom(manifest.seeds.master)
   const orderedTasks = shuffled(tasks, rng)
@@ -203,14 +202,21 @@ export async function executeRun(options: ExecuteRunOptions): Promise<Evaluation
     let roundFailed = false
 
     for (const { task } of orderedTasks) {
-      const clock = new FakeClock(0)
+      let environment: TrialEnvironment | undefined
 
       try {
+        environment = createTrialEnvironment({
+          masterSeed: manifest.seeds.master,
+          round,
+          task,
+          providerFactory,
+        })
+
         const replayed = await replayTask({
           runId: manifest.run.runId,
-          task,
-          clock,
-          provider,
+          task: environment.task,
+          clock: environment.clock,
+          provider: environment.provider,
           wallNow: wallClock,
         })
 
@@ -272,6 +278,8 @@ export async function executeRun(options: ExecuteRunOptions): Promise<Evaluation
 
         trials.push(failedTrial(round, task, error))
         roundFailed = true
+      } finally {
+        await environment?.dispose()
       }
     }
 
@@ -335,13 +343,20 @@ function assertGraderMatchesManifest(grader: Grader, manifest: RunManifest): voi
   }
 }
 
-function createProvider(manifest: RunManifest, tasks: readonly LoadedTask[]): CompletionProvider {
+function createProviderFactory(
+  manifest: RunManifest,
+  tasks: readonly LoadedTask[],
+): ProviderFactory {
   if (manifest.provider.mode === 'live') {
-    return createLiveProvider(manifest.provider.label)
+    return () => createLiveProvider(manifest.provider.label)
   }
 
   const entries = tasks.flatMap(({ task }) => buildCannedEntriesForTask(task))
-  return createCannedProvider(entries, manifest.provider.label)
+  // Validate the recorded bundle once, before any trial runs. A bad bundle is a
+  // configuration error, not a failed trial. Each trial still gets a fresh
+  // provider instance.
+  createCannedProvider(entries, manifest.provider.label)
+  return () => createCannedProvider(entries, manifest.provider.label)
 }
 
 async function score(

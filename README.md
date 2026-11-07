@@ -19,6 +19,12 @@ application code and no audio path yet.
 - **Task** — one test: its inputs and the success criteria registered for it.
   Task files live under `evals/tasks/`.
 - **Trial** — one attempt at one task. In M0 a trial is one replay of one task.
+- **Trial isolation** — every trial starts from a clean environment: its own
+  clock, RNG stream, provider instance and copy of the task. A failed trial
+  cannot change the next one. M0 covers in-memory state only; process/worker
+  isolation, per-trial timeouts, and resets for an external database,
+  filesystem, environment variables and live provider connections still need to
+  arrive with the M1 agent harness.
 - **Round** — one pass over every task in a suite. `rounds × tasks = trials`.
 - **Grader** — the logic that scores an aspect of a trial. There are three types:
   **code-based** (deterministic checks and counts), **system-1-model-based** (a

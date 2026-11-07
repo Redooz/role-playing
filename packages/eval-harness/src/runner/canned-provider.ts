@@ -46,6 +46,12 @@ export interface CompletionProvider {
   /** Label recorded with the run. Never contains secrets. */
   readonly label: string
   complete(request: CompletionRequest): AsyncIterable<CompletionChunk>
+  /**
+   * Release any per-trial resource (connection, worker, temp file). The
+   * evaluation harness calls this once after every trial, whether the trial
+   * passed or failed. Canned replay has nothing to release.
+   */
+  dispose?(): void | Promise<void>
 }
 
 export interface CannedEntry {
