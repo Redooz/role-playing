@@ -122,13 +122,21 @@ describe('transcriptRecordSchema', () => {
     ).toBe(false)
   })
 
-  it('leaves a non-event record free to choose its content class', () => {
+  it('does not let a non-event record claim public without an allowlist', () => {
     expect(
       transcriptRecordSchema.safeParse({
         ...record(0),
         kind: 'engine.latency_ms',
         payload: { value: 1 },
         contentClass: 'public',
+      }).success,
+    ).toBe(false)
+    expect(
+      transcriptRecordSchema.safeParse({
+        ...record(0),
+        kind: 'engine.latency_ms',
+        payload: { value: 1 },
+        contentClass: 'contentFree',
       }).success,
     ).toBe(true)
   })
@@ -200,6 +208,20 @@ describe('parseTranscriptRecord', () => {
     expect(() => parseTranscriptRecord({ ...record(0), schemaVersion: '2.0.0' })).toThrow(
       TranscriptSchemaVersionError,
     )
+  })
+
+  it('reports an incompatible version before a v2-shaped payload is called corrupt', () => {
+    // A breaking bump is exactly when the payload shape changed; the version
+    // error must win so the migration trigger fires.
+    const v2Chunk = {
+      ...record(0),
+      schemaVersion: '2.0.0',
+      kind: 'persona.response.chunk',
+      payload: { grantId: 'grant-1', text: 'hi' },
+      contentClass: 'restricted',
+    }
+
+    expect(() => parseTranscriptRecord(v2Chunk)).toThrow(TranscriptSchemaVersionError)
   })
 })
 

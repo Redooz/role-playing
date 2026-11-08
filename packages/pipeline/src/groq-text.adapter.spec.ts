@@ -21,10 +21,14 @@ function sseResponse(events: readonly string[]): Response {
 async function collect(
   model: ReturnType<typeof createGroqTextModel>,
   signal?: AbortSignal,
+  requestId?: string,
 ): Promise<TextModelChunk[]> {
   const chunks: TextModelChunk[] = []
   for await (const chunk of model.complete(
-    { messages: [{ role: 'user', content: 'hello' }] },
+    {
+      messages: [{ role: 'user', content: 'hello' }],
+      ...(requestId === undefined ? {} : { requestId }),
+    },
     signal === undefined ? undefined : { signal },
   )) {
     chunks.push(chunk)
@@ -143,10 +147,11 @@ describe('Groq text adapter', () => {
       onTiming: (timing) => timings.push(timing),
     })
 
-    await collect(model)
+    await collect(model, undefined, 'turn-1')
 
     expect(timings).toEqual([
       {
+        requestId: 'turn-1',
         requestStartedAt: 0,
         responseHeadersAt: 10,
         firstContentAt: 20,
@@ -155,6 +160,52 @@ describe('Groq text adapter', () => {
         status: 200,
       },
     ])
+  })
+
+  it('tolerates a null delta content from a compatible server', async () => {
+    const model = createGroqTextModel({
+      apiKey: API_KEY,
+      fetchImpl: async () =>
+        sseResponse([
+          '{"choices":[{"delta":{"content":null}}]}',
+          '{"choices":[{"delta":{"content":"ok"}}]}',
+          '[DONE]',
+        ]),
+    })
+
+    expect(await collect(model)).toEqual([
+      { text: 'ok', done: false },
+      { text: '', done: true },
+    ])
+  })
+
+  it('tolerates a null usage object', async () => {
+    const model = createGroqTextModel({
+      apiKey: API_KEY,
+      fetchImpl: async () =>
+        sseResponse(['{"choices":[{"delta":{"content":"ok"}}],"usage":null}', '[DONE]']),
+    })
+
+    expect(await collect(model)).toEqual([
+      { text: 'ok', done: false },
+      { text: '', done: true },
+    ])
+  })
+
+  it('normalizes a base URL that ends in a slash', async () => {
+    let url = ''
+    const model = createGroqTextModel({
+      apiKey: API_KEY,
+      baseUrl: 'https://example.test/v1/',
+      fetchImpl: async (requestUrl) => {
+        url = String(requestUrl)
+        return sseResponse(['[DONE]'])
+      },
+    })
+
+    await collect(model)
+
+    expect(url).toBe('https://example.test/v1/chat/completions')
   })
 
   it('refuses to start without an API key', () => {

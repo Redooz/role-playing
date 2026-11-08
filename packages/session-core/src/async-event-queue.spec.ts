@@ -29,14 +29,30 @@ describe('AsyncEventQueue', () => {
     await expect(queue.next()).resolves.toEqual({ value: undefined, done: true })
   })
 
-  it('rejects later reads after a failure', async () => {
+  it('rejects pending and later reads after a failure', async () => {
     const queue = new AsyncEventQueue<number>()
     const error = new Error('queue failed')
     const pending = queue.next()
     queue.fail(error)
 
-    await expect(pending).resolves.toEqual({ value: undefined, done: true })
+    await expect(pending).rejects.toBe(error)
     await expect(queue.next()).rejects.toBe(error)
+  })
+
+  it('fails instead of growing past its limit', async () => {
+    const queue = new AsyncEventQueue<number>(2)
+    queue.push(1)
+    queue.push(2)
+    queue.push(3)
+
+    await expect(queue.next()).resolves.toEqual({ value: 1, done: false })
+    await expect(queue.next()).resolves.toEqual({ value: 2, done: false })
+    await expect(queue.next()).rejects.toThrow(/consumer is not keeping up/)
+  })
+
+  it('rejects a non-positive limit', () => {
+    expect(() => new AsyncEventQueue<number>(0)).toThrow(/positive integer/)
+    expect(() => new AsyncEventQueue<number>(1.5)).toThrow(/positive integer/)
   })
 
   it('treats return() as a close', async () => {

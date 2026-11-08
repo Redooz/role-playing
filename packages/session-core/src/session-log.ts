@@ -109,6 +109,12 @@ export interface ParsedSessionLog {
   readonly records: readonly TranscriptRecord[]
   /** True when the final line was incomplete and had to be dropped. */
   readonly truncated: boolean
+  /**
+   * True when the log does not end with `session.completed`. A process killed
+   * after a complete append leaves a parseable final line but an unfinished
+   * turn; replay reports this instead of printing the log as a normal session.
+   */
+  readonly unterminated: boolean
 }
 
 export interface ReplayedSession extends ParsedSessionLog {
@@ -119,8 +125,9 @@ export interface ReplayedSession extends ParsedSessionLog {
 
 /**
  * Parse a log. Throws on a missing/invalid header, a malformed interior line,
- * a non-event record, or an unreadable major version. An incomplete final line
- * is dropped and reported as `truncated`.
+ * a non-event record, an unreadable major version, a record from another run,
+ * or a `seq` gap. An incomplete final line is dropped and reported as
+ * `truncated`; a log without `session.completed` is reported as `unterminated`.
  */
 export function parseSessionLog(text: string): ParsedSessionLog {
   const lines = text.split('\n')
@@ -175,7 +182,26 @@ export function parseSessionLog(text: string): ParsedSessionLog {
     records.push(parseRecord(parsedLine, index + 1))
   }
 
-  return { header, records, truncated }
+  // The writer stamps `runId = sessionId` and a contiguous `seq` starting at 0.
+  // Re-checking both on read is free here and makes a lost interior record or a
+  // concatenated log fail instead of replaying as a clean session.
+  for (const [position, record] of records.entries()) {
+    if (record.runId !== header.sessionId) {
+      throw new SessionLogFormatError(
+        `session log record ${position} belongs to run "${record.runId}", not "${header.sessionId}"`,
+      )
+    }
+    if (record.seq !== position) {
+      throw new SessionLogFormatError(
+        `session log record ${position} has seq ${record.seq}; a session log must be contiguous from 0`,
+      )
+    }
+  }
+
+  const lastRecord = records.at(-1)
+  const unterminated = lastRecord === undefined || lastRecord.kind !== 'session.completed'
+
+  return { header, records, truncated, unterminated }
 }
 
 function parseRecord(line: unknown, lineNumber: number): TranscriptRecord {

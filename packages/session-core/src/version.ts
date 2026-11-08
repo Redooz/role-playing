@@ -9,7 +9,8 @@ import { z } from 'zod'
  *   still parses, so old tasks and baselines stay readable. `1.1.0` added the
  *   `session.started` event, the optional `executionId` record field, and the
  *   content-class rule; `1.2.0` added optional `usage` to
- *   `persona.response.committed`.
+ *   `persona.response.committed`; `1.3.0` added the optional
+ *   `persona.response.cancelled.detail`.
  * - **Breaking change → major bump** (`1.x.y` → `2.0.0`) **and** a task
  *   migration note. Removed or renamed events/fields, changed field meaning,
  *   new required fields, or narrowed enums break readers and therefore require
@@ -21,7 +22,7 @@ import { z } from 'zod'
  * replaying it: a different major version must be migrated first, never parsed
  * leniently.
  */
-export const TRANSCRIPT_SCHEMA_VERSION = '1.2.0'
+export const TRANSCRIPT_SCHEMA_VERSION = '1.3.0'
 
 /**
  * First schema version whose records must satisfy the structural content-class
@@ -34,8 +35,14 @@ export const TRANSCRIPT_SCHEMA_VERSION = '1.2.0'
  */
 export const CONTENT_CLASS_RULE_SINCE = '1.1.0'
 
+/**
+ * Canonical `MAJOR.MINOR.PATCH`. Leading zeros are rejected so a version has
+ * exactly one spelling; `01.2.3` is not treated as `1.2.3`.
+ */
+const SEMANTIC_VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/
+
 function parseSchemaVersion(version: string): readonly [number, number, number] | undefined {
-  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version)
+  const match = SEMANTIC_VERSION.exec(version)
   if (match === null) return undefined
   return [Number(match[1]), Number(match[2]), Number(match[3])]
 }
@@ -82,4 +89,4 @@ export const TRANSCRIPT_SCHEMA_VERSION_POLICY = {
 /** `MAJOR.MINOR.PATCH`, the only accepted `schemaVersion` shape. */
 export const transcriptSchemaVersionSchema = z
   .string()
-  .regex(/^\d+\.\d+\.\d+$/, 'expected a semantic version such as "1.0.0"')
+  .regex(SEMANTIC_VERSION, 'expected a semantic version such as "1.0.0"')

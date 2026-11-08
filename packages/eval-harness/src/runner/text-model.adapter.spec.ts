@@ -130,10 +130,12 @@ describe('CompletionProvider → TextModelPort adapter', () => {
     await driver.close()
     const emitted = await events
 
-    expect(emitted.find((event) => event.type === 'persona.response.cancelled')?.payload).toEqual({
+    const cancelled = emitted.find((event) => event.type === 'persona.response.cancelled')
+    expect(cancelled?.payload).toMatchObject({
       grantId: 'session-1-grant-1',
       reason: 'provider_failure',
     })
+    expect((cancelled?.payload as { detail?: string }).detail).toContain('CannedProviderMissError')
     expect(emitted.some((event) => event.type === 'persona.response.committed')).toBe(false)
     expect(guardTurnEvents(emitted).ok).toBe(true)
   })

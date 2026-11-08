@@ -40,6 +40,12 @@ export interface TextModelRequest {
    * secrets or user text.
    */
   readonly metadata?: Readonly<Record<string, string>>
+  /**
+   * Operational id for this model call (the turn id). It is deliberately not
+   * part of `metadata`: it changes on every turn and must not change a canned
+   * request hash. Adapters use it to tag timing, never to build the request body.
+   */
+  readonly requestId?: string
 }
 
 export interface TextModelCompleteOptions {

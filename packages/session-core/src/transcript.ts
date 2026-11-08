@@ -58,9 +58,17 @@ const RESTRICTED_EVENT_KINDS: ReadonlySet<SessionEventName> = new Set([
 ])
 
 /**
+ * Non-event record kinds whose payload is verified safe to log verbatim. The
+ * set is empty until a producer can prove that: everything else must be
+ * `restricted` or `contentFree`, so a custom record cannot claim `public` and
+ * bypass the privacy rule.
+ */
+const PUBLIC_NON_EVENT_KINDS: ReadonlySet<string> = new Set()
+
+/**
  * The content class an event kind must carry. Text-bearing kinds are
- * `restricted`; operational kinds are `contentFree`. `public` stays reserved
- * for non-event records whose payload is known to be safe to log verbatim.
+ * `restricted`; operational kinds are `contentFree`. `public` is reserved for a
+ * non-event kind on the explicit allowlist, which is empty today.
  */
 export function expectedContentClass(kind: SessionEventName): ContentClass {
   return RESTRICTED_EVENT_KINDS.has(kind) ? 'restricted' : 'contentFree'
@@ -84,7 +92,10 @@ const transcriptRecordBaseSchema = z.strictObject({
   executionId: z.string().min(1).optional(),
   /** Strictly increasing across the run; see `checkTranscriptSequence`. */
   seq: z.int().nonnegative(),
-  /** Simulated clock time in milliseconds. Deterministic; kept in normalized output. */
+  /**
+   * Simulated clock time in milliseconds. A wall-mode session log pins it to 0
+   * (see `createFileSessionLog`); wall time lives in `tWall`. Deterministic.
+   */
   tSim: z.number().nonnegative(),
   /** Wall-clock time in milliseconds since the epoch. Removed by normalization. */
   tWall: z.number().nonnegative(),
@@ -99,17 +110,17 @@ const transcriptRecordBaseSchema = z.strictObject({
  * without importing engine code.
  */
 export const transcriptRecordSchema = transcriptRecordBaseSchema.superRefine((record, ctx) => {
-  if (!isSessionEventName(record.kind)) return
-
-  const payloadSchema = eventPayloadSchemas[record.kind] as z.ZodType
-  const result = payloadSchema.safeParse(record.payload)
-  if (!result.success) {
-    for (const issue of result.error.issues) {
-      ctx.addIssue({
-        code: 'custom',
-        message: issue.message,
-        path: ['payload', ...issue.path],
-      })
+  if (isSessionEventName(record.kind)) {
+    const payloadSchema = eventPayloadSchemas[record.kind] as z.ZodType
+    const result = payloadSchema.safeParse(record.payload)
+    if (!result.success) {
+      for (const issue of result.error.issues) {
+        ctx.addIssue({
+          code: 'custom',
+          message: issue.message,
+          path: ['payload', ...issue.path],
+        })
+      }
     }
   }
 
@@ -122,11 +133,19 @@ export const transcriptRecordSchema = transcriptRecordBaseSchema.superRefine((re
   // bump break old logs, so legacy records stay readable; every new producer
   // writes a current version and is checked.
   if (isTranscriptSchemaAtLeast(record.schemaVersion, CONTENT_CLASS_RULE_SINCE)) {
-    const expected = expectedContentClass(record.kind)
-    if (record.contentClass !== expected) {
+    if (isSessionEventName(record.kind)) {
+      const expected = expectedContentClass(record.kind)
+      if (record.contentClass !== expected) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `${record.kind} must be contentClass "${expected}", got "${record.contentClass}"`,
+          path: ['contentClass'],
+        })
+      }
+    } else if (record.contentClass === 'public' && !PUBLIC_NON_EVENT_KINDS.has(record.kind)) {
       ctx.addIssue({
         code: 'custom',
-        message: `${record.kind} must be contentClass "${expected}", got "${record.contentClass}"`,
+        message: `non-event record "${record.kind}" may not be contentClass "public"; use "contentFree" or "restricted"`,
         path: ['contentClass'],
       })
     }
@@ -141,17 +160,33 @@ export type EventTranscriptRecord = TranscriptRecord & {
   readonly payload: SessionEventPayload
 }
 
-/** Parse an untrusted transcript record, including its event payload. */
+/**
+ * Parse an untrusted transcript record.
+ *
+ * The version is read before the payload is validated. A breaking bump is
+ * exactly the case where the payload shape changed, so validating the payload
+ * first would report a newer record as corrupt data instead of an unreadable
+ * version and bypass the typed migration trigger. Rejecting is the same either
+ * way; only the error is different.
+ */
 export function parseTranscriptRecord(input: unknown): TranscriptRecord {
-  const record = transcriptRecordSchema.parse(input)
-
+  const version = readSchemaVersion(input)
   if (
-    majorOfSchemaVersion(record.schemaVersion) !== majorOfSchemaVersion(TRANSCRIPT_SCHEMA_VERSION)
+    version !== undefined &&
+    majorOfSchemaVersion(version) !== majorOfSchemaVersion(TRANSCRIPT_SCHEMA_VERSION)
   ) {
-    throw new TranscriptSchemaVersionError(record.schemaVersion, TRANSCRIPT_SCHEMA_VERSION)
+    throw new TranscriptSchemaVersionError(version, TRANSCRIPT_SCHEMA_VERSION)
   }
 
-  return record
+  return transcriptRecordSchema.parse(input)
+}
+
+/** Read `schemaVersion` without validating the rest of the record. */
+function readSchemaVersion(input: unknown): string | undefined {
+  if (typeof input !== 'object' || input === null) return undefined
+  const value = (input as { schemaVersion?: unknown }).schemaVersion
+  if (typeof value !== 'string') return undefined
+  return transcriptSchemaVersionSchema.safeParse(value).success ? value : undefined
 }
 
 /**
@@ -169,10 +204,11 @@ export function eventFromTranscriptRecord(record: TranscriptRecord): SessionEven
 /**
  * Value written to `tWall` and `executionId` by normalization.
  *
- * Wall-clock time and execution identity are the only non-reproducible fields
- * in a transcript (§2.3), so they are pinned to constants instead of removed:
- * the schema and every reader stay the same shape, while the normalized bytes
- * contain no wall-clock value and no execution-specific identity.
+ * Wall-clock time, execution identity, and the wall-mode `tSim` are the only
+ * non-reproducible fields in a transcript (§2.3). `tSim` is deterministic for
+ * simulated runs; wall-mode session logs pin it to 0 at write time. Normalization
+ * pins `tWall` and `executionId`, so the normalized bytes contain no wall-clock
+ * value and no execution-specific identity.
  */
 export const NORMALIZED_T_WALL = 0
 export const NORMALIZED_EXECUTION_ID = 'normalized'

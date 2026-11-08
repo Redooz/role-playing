@@ -19,9 +19,31 @@ const root = fileURLToPath(new URL('..', import.meta.url))
 const reportPath = join(root, 'reports', 'mutation', 'mutation.json')
 const baselinePath = join(root, 'evals', 'baselines', 'm1-mutation.json')
 
+/** Read a JSON artifact, turning a missing/invalid file into a gate message. */
+export async function readJson(path) {
+  try {
+    return JSON.parse(await readFile(path, 'utf8'))
+  } catch (error) {
+    throw new Error(
+      `cannot read ${path}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    )
+  }
+}
+
 export async function main() {
-  const report = JSON.parse(await readFile(reportPath, 'utf8'))
-  const baseline = JSON.parse(await readFile(baselinePath, 'utf8'))
+  let report
+  let baseline
+  try {
+    report = await readJson(reportPath)
+    baseline = await readJson(baselinePath)
+  } catch (error) {
+    console.error('mutation floor violated:')
+    console.error(`- ${error instanceof Error ? error.message : String(error)}`)
+    process.exit(1)
+    return
+  }
+
   const { global, packages, failures } = evaluateMutationFloor(report, baseline)
 
   if (failures.length > 0) {

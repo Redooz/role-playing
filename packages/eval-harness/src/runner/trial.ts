@@ -5,30 +5,46 @@ import type { CompletionProvider } from './canned-provider.js'
 /**
  * Per-trial isolation (M0 D3 follow-up, M1 D7).
  *
- * Every trial gets its own simulated clock, RNG stream, provider instance and
- * copy of the task. Nothing a trial can mutate is shared with another trial.
+ * A trial gets its own simulated clock, RNG stream, provider instance, copy of
+ * the task, and (in the runner) a restored `process.env`. That is the isolation
+ * this code provides; it is **not** a claim of full isolation. AGENTS.md lists
+ * the still-open gaps: no per-trial process/worker/container boundary, no
+ * external database reset, no per-trial filesystem workspace, no generic
+ * network-mock or module-cache reset, and no live-provider teardown test against
+ * a real socket.
  *
  * M1 adds the live half: a per-trial timeout for a hung provider or stalled
- * stream, disposal in the runner's `finally`, and an environment snapshot that
- * is restored after every trial. The provider's `dispose()` is what releases
- * sockets, timers and other per-trial resources; the harness proves it is
- * called on success, failure and timeout.
+ * stream, a bounded grace window for the abandoned work to stop, disposal in the
+ * runner's `finally`, and an environment snapshot restored after every trial.
+ * The provider's `dispose()` releases sockets, timers and other per-trial
+ * resources; the harness proves it is called on success, failure and timeout.
  */
 
 const DEFAULT_TRIAL_TIMEOUT_MS = 30_000
+/** How long abandoned work gets to stop before cleanup is declared failed. */
+const DEFAULT_STOP_GRACE_MS = 1_000
 
-/** Thrown when one trial exceeds its budget; the provider or stream is stalled. */
+/**
+ * Thrown when one trial exceeds its budget; the provider or stream is stalled.
+ * `stopped` is false when the work ignored the abort signal and was still running
+ * when the grace window expired, which makes the trial an infrastructure failure
+ * rather than a clean timeout.
+ */
 export class TrialTimeoutError extends Error {
   readonly trialId: string
   readonly timeoutMs: number
+  readonly stopped: boolean
 
-  constructor(trialId: string, timeoutMs: number) {
+  constructor(trialId: string, timeoutMs: number, stopped = true) {
     super(
-      `trial ${trialId} exceeded its ${timeoutMs} ms timeout; the provider or stream is stalled`,
+      stopped
+        ? `trial ${trialId} exceeded its ${timeoutMs} ms timeout; the provider or stream is stalled`
+        : `trial ${trialId} exceeded its ${timeoutMs} ms timeout and did not stop within the grace window; treating the trial as an infrastructure failure`,
     )
     this.name = 'TrialTimeoutError'
     this.trialId = trialId
     this.timeoutMs = timeoutMs
+    this.stopped = stopped
   }
 }
 
@@ -121,8 +137,13 @@ export function createTrialEnvironment(options: CreateTrialEnvironmentOptions): 
 /**
  * Race one trial's work against its wall-clock budget.
  *
- * On timeout the controller is aborted so the provider and replay loop can stop,
- * and a late rejection is attached here so it never becomes an unhandled
+ * On timeout the controller is aborted so the provider and replay loop can stop.
+ * Before rejecting, the abandoned work gets a bounded grace window: if it is
+ * still running when that expires, the error says so and the runner records an
+ * infrastructure failure. Waiting here matters because the runner restores the
+ * environment snapshot and disposes the provider immediately afterwards.
+ *
+ * A late rejection is attached to `workPromise` so it never becomes an unhandled
  * rejection. The caller still disposes the environment in `finally`.
  */
 export async function withTrialTimeout<T>(
@@ -131,6 +152,8 @@ export async function withTrialTimeout<T>(
 ): Promise<T> {
   const controller = new AbortController()
   const workPromise = work(controller.signal)
+  // A request that times out may settle after the caller has moved on.
+  workPromise.catch(() => undefined)
   let timer: NodeJS.Timeout | undefined
   const timeout = new Promise<never>((_resolve, reject) => {
     timer = setTimeout(() => {
@@ -142,7 +165,22 @@ export async function withTrialTimeout<T>(
   try {
     return await Promise.race([workPromise, timeout])
   } catch (error) {
-    if (error instanceof TrialTimeoutError) workPromise.catch(() => undefined)
+    if (error instanceof TrialTimeoutError) {
+      const graceMs = Math.max(1, Math.min(DEFAULT_STOP_GRACE_MS, trial.timeoutMs))
+      // `then` maps both fulfilment and rejection to "settled"; only the grace
+      // timer rejects, so the boolean really means "stopped".
+      const stopped = await settleWithin(
+        workPromise.then(
+          () => true as const,
+          () => true as const,
+        ),
+        graceMs,
+      ).then(
+        () => true,
+        () => false,
+      )
+      throw new TrialTimeoutError(trial.trialId, trial.timeoutMs, stopped)
+    }
     throw error
   } finally {
     if (timer !== undefined) clearTimeout(timer)

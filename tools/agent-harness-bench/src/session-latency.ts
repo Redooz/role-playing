@@ -115,6 +115,7 @@ export async function measureSessionLatency(
 
     let pendingTurn: MutableTurn | undefined
     let completedTurn: MutableTurn | undefined
+    let pendingRequestId: string | undefined
     let sessionFirstChunkAt: number | undefined
     let turnState: { emptyCommit: boolean; cancellation?: string } = { emptyCommit: false }
     let turnSettled = Promise.withResolvers<void>()
@@ -124,6 +125,11 @@ export async function measureSessionLatency(
         const at = now()
 
         switch (event.type) {
+          case 'turn.granted':
+            // The driver tags the model request with this turn id; the timing
+            // carries the same id, so a late entry cannot be attributed by index.
+            pendingRequestId = event.payload.grant.turnId
+            break
           case 'persona.response.chunk':
             if (sessionFirstChunkAt === undefined) {
               sessionFirstChunkAt = at
@@ -162,10 +168,10 @@ export async function measureSessionLatency(
         if (turn > 0 && throttleMs > 0) {
           await new Promise((resolve) => setTimeout(resolve, throttleMs))
         }
-        const timingCount = timings.length
         const errorCount = modelErrors?.length ?? 0
         turnSettled = Promise.withResolvers<void>()
         turnState = { emptyCommit: false }
+        pendingRequestId = undefined
         // Align the turn clock with the provider clock: the utterance is
         // committed synchronously inside send(), before the model request starts.
         pendingTurn = { sessionIndex, turnIndex: turn, utteranceAt: now() }
@@ -175,7 +181,21 @@ export async function measureSessionLatency(
           turnTimeoutMs,
         )
         if (error !== undefined) turnSettled.resolve()
-        await turnSettled.promise
+
+        // Bound this wait too: a driver that resolves send() without a terminal
+        // event must become a recorded failure, not a hung benchmark.
+        const settled = await settleWithin(turnSettled.promise, turnTimeoutMs)
+        if (!settled) {
+          failures.push({
+            sessionIndex,
+            turnIndex: turn,
+            reason: 'timeout',
+            message: `driver did not emit a terminal event within the ${turnTimeoutMs} ms turn timeout`,
+          })
+          pendingTurn = undefined
+          completedTurn = undefined
+          continue
+        }
 
         const sample =
           completedTurn !== undefined && completedTurn.turnIndex === turn
@@ -212,17 +232,23 @@ export async function measureSessionLatency(
           continue
         }
 
-        const timing = timings[timingCount]
+        const timing =
+          pendingRequestId === undefined
+            ? undefined
+            : timings.find((candidate) => candidate.requestId === pendingRequestId)
         if (timing?.firstContentAt !== undefined) {
           const providerTtftMs = timing.firstContentAt - timing.requestStartedAt
           sample.providerTtftMs = providerTtftMs
-          sample.localOverheadMs = sample.ttftMs - providerTtftMs
+          // The two clocks are independently injectable; a negative value would
+          // mean they disagree, not that the driver took negative time.
+          sample.localOverheadMs = Math.max(0, sample.ttftMs - providerTtftMs)
         }
         completedTurn = undefined
       }
     } finally {
       await settleWithin(driver.close(), turnTimeoutMs)
       await settleWithin(consumer, turnTimeoutMs)
+      await settleWithin(Promise.resolve(model.dispose?.()), turnTimeoutMs)
     }
   }
 

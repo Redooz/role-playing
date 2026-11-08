@@ -34,6 +34,7 @@ describe('majorOfSchemaVersion', () => {
   it('rejects a non-version', () => {
     expect(() => majorOfSchemaVersion('v1')).toThrow(/invalid schema version/)
     expect(() => majorOfSchemaVersion('1.1')).toThrow(/invalid schema version/)
+    expect(() => majorOfSchemaVersion('01.2.0')).toThrow(/invalid schema version/)
   })
 })
 
@@ -45,8 +46,14 @@ describe('transcriptSchemaVersionSchema', () => {
   })
 
   it('accepts multiple digits in every position', () => {
-    expect(transcriptSchemaVersionSchema.safeParse('01.1.0').success).toBe(true)
+    expect(transcriptSchemaVersionSchema.safeParse('11.1.10').success).toBe(true)
     expect(transcriptSchemaVersionSchema.safeParse('1.1.10').success).toBe(true)
+  })
+
+  it('rejects leading zeros so a version has one spelling', () => {
+    expect(transcriptSchemaVersionSchema.safeParse('01.1.0').success).toBe(false)
+    expect(transcriptSchemaVersionSchema.safeParse('1.01.0').success).toBe(false)
+    expect(transcriptSchemaVersionSchema.safeParse('1.1.00').success).toBe(false)
   })
 })
 
@@ -69,6 +76,6 @@ describe('isTranscriptSchemaAtLeast', () => {
     expect(isTranscriptSchemaAtLeast('1.1.0x', '1.1.0')).toBe(false)
     expect(isTranscriptSchemaAtLeast('x1.1.0', '1.1.0')).toBe(false)
     expect(isTranscriptSchemaAtLeast('1.1.10', '1.1.9')).toBe(true)
-    expect(isTranscriptSchemaAtLeast('01.1.0', '1.1.0')).toBe(true)
+    expect(isTranscriptSchemaAtLeast('01.1.0', '1.1.0')).toBe(false)
   })
 })

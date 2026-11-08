@@ -130,7 +130,7 @@ export function formatLatencyTable(report: TextLatencyReport): string[] {
   const rows: string[][] = [
     ['metric', 'n', 'p50 ms', 'p95 ms', 'p99 ms', 'min', 'max'],
     summaryRow(
-      'session start -> first chunk (text proxy)',
+      'session start -> first chunk (text proxy; sessions with text)',
       report.metrics.sessionStartToFirstChunkMs,
     ),
     summaryRow('turn utterance -> first chunk (TTFT)', report.metrics.turnTtftMs),

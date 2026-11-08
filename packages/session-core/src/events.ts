@@ -213,6 +213,12 @@ export const personaResponseCancelledPayloadSchema = z.strictObject({
   reason: responseCancellationReasonSchema,
   /** Partial text is preserved as interrupted context (§2.1), never silently lost. */
   partialText: z.string().optional(),
+  /**
+   * Short, sanitized cause for the stop. It is bounded and never carries a raw
+   * provider body, so a provider failure stays diagnosable without leaking
+   * content into a transcript. Additive at schema 1.3.0.
+   */
+  detail: z.string().min(1).max(240).optional(),
 })
 
 /** §3.2/§3.4: partials carry per-response sequence numbers for stale detection. */

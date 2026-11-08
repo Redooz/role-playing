@@ -138,6 +138,42 @@ describe('per-trial isolation', () => {
     expect(signal?.aborted).toBe(true)
   })
 
+  it('waits a bounded grace window for work that ignores the abort signal', async () => {
+    const startedAt = Date.now()
+    let error: unknown
+
+    try {
+      await withTrialTimeout(
+        { trialId: 'trial-2', timeoutMs: 20 },
+        () => new Promise(() => undefined),
+      )
+    } catch (caught) {
+      error = caught
+    }
+
+    expect(error).toBeInstanceOf(TrialTimeoutError)
+    expect((error as TrialTimeoutError).stopped).toBe(false)
+    expect((error as Error).message).toMatch(/did not stop/)
+    expect(Date.now() - startedAt).toBeLessThan(1_000)
+  })
+
+  it('reports a stopped timeout when the work settles after the abort', async () => {
+    let error: unknown
+
+    try {
+      await withTrialTimeout({ trialId: 'trial-3', timeoutMs: 20 }, async (trialSignal) => {
+        await new Promise<void>((resolve) => {
+          trialSignal.addEventListener('abort', () => resolve(), { once: true })
+        })
+      })
+    } catch (caught) {
+      error = caught
+    }
+
+    expect(error).toBeInstanceOf(TrialTimeoutError)
+    expect((error as TrialTimeoutError).stopped).toBe(true)
+  })
+
   it('bounds cleanup that never settles', async () => {
     const startedAt = Date.now()
 
