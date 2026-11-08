@@ -118,6 +118,7 @@ export async function* streamOpenAiCompatible(
     const decoder = new TextDecoder()
     let buffer = ''
     let sawDone = false
+    let sawFinishReason = false
     let usage: TextModelUsage | undefined
 
     try {
@@ -143,6 +144,11 @@ export async function* streamOpenAiCompatible(
           const chunk = parseChunk(data, options.createError)
           usage = readUsage(chunk) ?? usage
           const choice = Array.isArray(chunk.choices) ? chunk.choices[0] : undefined
+          // A non-null finish_reason is also a valid end; some compatible
+          // servers omit the [DONE] sentinel.
+          if (choice?.finish_reason !== undefined && choice.finish_reason !== null) {
+            sawFinishReason = true
+          }
           const text: unknown = choice?.delta?.content
           // A role-only delta may carry `content: null`; the wire is unvalidated
           // JSON, so check the type before treating it as text.
@@ -156,8 +162,10 @@ export async function* streamOpenAiCompatible(
       await reader.cancel().catch(() => undefined)
     }
 
-    if (!sawDone) {
-      throw options.createError(`${providerName} stream ended without a [DONE] marker`)
+    if (!sawDone && !sawFinishReason) {
+      throw options.createError(
+        `${providerName} stream ended without a [DONE] marker or finish_reason`,
+      )
     }
 
     ok = true

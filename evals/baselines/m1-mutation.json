@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
   "suite": "m1-mutation",
-  "generatedAt": "2026-11-08T17:23:04.317Z",
-  "commit": "41614cbd45d68ce9f2e528cf205f49f5e2023f09",
+  "generatedAt": "2026-11-08T17:29:56.463Z",
+  "commit": "1ae344555744e090557cb96ed8f2acce308ecaf3",
   "tool": "@stryker-mutator/core 10.1.1 + @stryker-mutator/vitest-runner 10.1.1",
   "command": "npm run mutation",
   "note": "Measured floor. Timed-out mutants count as killed; runtime/compile errors are excluded. Not a PR gate.",
   "global": {
-    "mutants": 1399,
-    "killed": 1076,
-    "timeout": 18,
-    "survived": 234,
+    "mutants": 1412,
+    "killed": 1086,
+    "timeout": 19,
+    "survived": 236,
     "noCoverage": 54,
     "ignored": 0,
     "errors": 17,
-    "total": 79.16063675832127,
-    "covered": 82.37951807228916
+    "total": 79.21146953405018,
+    "covered": 82.40119313944817
   },
   "packages": {
     "apps/cli": {
@@ -30,20 +30,20 @@
       "covered": 75.77319587628865
     },
     "packages/pipeline": {
-      "mutants": 240,
-      "killed": 162,
+      "mutants": 253,
+      "killed": 173,
       "timeout": 6,
-      "survived": 58,
+      "survived": 60,
       "noCoverage": 14,
       "ignored": 0,
       "errors": 0,
-      "total": 70,
-      "covered": 74.33628318584071
+      "total": 70.7509881422925,
+      "covered": 74.89539748953975
     },
     "packages/session-core": {
       "mutants": 937,
-      "killed": 767,
-      "timeout": 12,
+      "killed": 766,
+      "timeout": 13,
       "survived": 129,
       "noCoverage": 12,
       "ignored": 0,
@@ -65,15 +65,15 @@
       "covered": 73.05389221556887
     },
     "packages/pipeline/src/openai-compatible.ts": {
-      "mutants": 175,
-      "killed": 117,
+      "mutants": 188,
+      "killed": 128,
       "timeout": 6,
-      "survived": 39,
+      "survived": 41,
       "noCoverage": 13,
       "ignored": 0,
       "errors": 0,
-      "total": 70.28571428571428,
-      "covered": 75.92592592592592
+      "total": 71.27659574468085,
+      "covered": 76.57142857142857
     },
     "packages/pipeline/src/openrouter-text.adapter.ts": {
       "mutants": 38,
@@ -143,8 +143,8 @@
     },
     "packages/session-core/src/guards.ts": {
       "mutants": 193,
-      "killed": 168,
-      "timeout": 1,
+      "killed": 167,
+      "timeout": 2,
       "survived": 24,
       "noCoverage": 0,
       "ignored": 0,

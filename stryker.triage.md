@@ -11,9 +11,9 @@ killed and are reported separately, as the M1 plan requires.
 
 | Scope                   | Total  | Covered | Killed | Timeout | Survived | No coverage | Errors |
 | ----------------------- | ------ | ------- | ------ | ------- | -------- | ----------- | ------ |
-| All files               | 79.16% | 82.38%  | 1076   | 18      | 234      | 54          | 17     |
-| `packages/session-core` | 84.67% | 85.79%  | 767    | 12      | 129      | 12          | 17     |
-| `packages/pipeline`     | 70.00% | 74.34%  | 162    | 6       | 58       | 14          | 0      |
+| All files               | 79.21% | 82.40%  | 1086   | 19      | 236      | 54          | 17     |
+| `packages/session-core` | 84.67% | 85.79%  | 766    | 13      | 129      | 12          | 17     |
+| `packages/pipeline`     | 70.75% | 74.90%  | 173    | 6       | 60       | 14          | 0      |
 | `apps/cli`              | 66.22% | 75.77%  | 147    | 0       | 47       | 28          | 0      |
 
 Per-file totals are in `reports/mutation/mutation.json` (git-ignored) and in the
