@@ -3,16 +3,34 @@ import type { Lang, TaskEntry } from '../tasks/schema.js'
 import type { CompletionProvider } from './canned-provider.js'
 
 /**
- * Per-trial isolation (M0 D3 follow-up).
+ * Per-trial isolation (M0 D3 follow-up, M1 D7).
  *
  * Every trial gets its own simulated clock, RNG stream, provider instance and
  * copy of the task. Nothing a trial can mutate is shared with another trial.
  *
- * The harness still has no external environment at M0 (no database, workspace
- * or network), so this is the complete boundary the current replay needs. When
- * an agent harness or a live provider arrives, its per-trial resources are
- * created by the provider factory and released by `dispose()`.
+ * M1 adds the live half: a per-trial timeout for a hung provider or stalled
+ * stream, disposal in the runner's `finally`, and an environment snapshot that
+ * is restored after every trial. The provider's `dispose()` is what releases
+ * sockets, timers and other per-trial resources; the harness proves it is
+ * called on success, failure and timeout.
  */
+
+const DEFAULT_TRIAL_TIMEOUT_MS = 30_000
+
+/** Thrown when one trial exceeds its budget; the provider or stream is stalled. */
+export class TrialTimeoutError extends Error {
+  readonly trialId: string
+  readonly timeoutMs: number
+
+  constructor(trialId: string, timeoutMs: number) {
+    super(
+      `trial ${trialId} exceeded its ${timeoutMs} ms timeout; the provider or stream is stalled`,
+    )
+    this.name = 'TrialTimeoutError'
+    this.trialId = trialId
+    this.timeoutMs = timeoutMs
+  }
+}
 
 /** Builds a new provider for one trial. Must never return a shared instance. */
 export type ProviderFactory = () => CompletionProvider
@@ -27,6 +45,8 @@ export interface TrialEnvironment {
   readonly provider: CompletionProvider
   /** A private copy; mutating it cannot affect another trial. */
   readonly task: TaskEntry
+  /** Wall-clock budget for the trial. */
+  readonly timeoutMs: number
   dispose(): Promise<void>
 }
 
@@ -37,6 +57,8 @@ export interface CreateTrialEnvironmentOptions {
   readonly round: number
   readonly task: TaskEntry
   readonly providerFactory: ProviderFactory
+  /** Trial budget. Defaults to 30 seconds. */
+  readonly timeoutMs?: number
 }
 
 /**
@@ -70,6 +92,11 @@ export function deriveTrialSeed(
  */
 export function createTrialEnvironment(options: CreateTrialEnvironmentOptions): TrialEnvironment {
   const { masterSeed, round, task, providerFactory } = options
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TRIAL_TIMEOUT_MS
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 1) {
+    throw new TypeError(`timeoutMs must be a positive integer: ${timeoutMs}`)
+  }
+
   const seed = deriveTrialSeed(masterSeed, round, task.lang, task.id)
   const trialTask = structuredClone(task)
   const provider = providerFactory()
@@ -81,8 +108,62 @@ export function createTrialEnvironment(options: CreateTrialEnvironmentOptions): 
     random: createSeededRandom(seed),
     provider,
     task: trialTask,
+    timeoutMs,
     async dispose() {
       await provider.dispose?.()
+    },
+  }
+}
+
+/**
+ * Race one trial's work against its wall-clock budget.
+ *
+ * On timeout the stalled work may settle later; the rejection is attached here
+ * so a late provider failure never becomes an unhandled rejection. The caller
+ * still disposes the environment in `finally`.
+ */
+export async function withTrialTimeout<T>(
+  trial: Pick<TrialEnvironment, 'trialId' | 'timeoutMs'>,
+  work: Promise<T>,
+): Promise<T> {
+  let timer: NodeJS.Timeout | undefined
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(
+      () => reject(new TrialTimeoutError(trial.trialId, trial.timeoutMs)),
+      trial.timeoutMs,
+    )
+  })
+
+  try {
+    return await Promise.race([work, timeout])
+  } catch (error) {
+    if (error instanceof TrialTimeoutError) work.catch(() => undefined)
+    throw error
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+  }
+}
+
+/**
+ * Snapshot the process environment so a trial cannot leak variables into the
+ * next one. Restoring removes keys a trial added and resets changed values.
+ */
+export interface EnvironmentSnapshot {
+  restore(): void
+}
+
+export function snapshotEnvironment(source: NodeJS.ProcessEnv = process.env): EnvironmentSnapshot {
+  const snapshot = { ...source }
+
+  return {
+    restore() {
+      for (const key of Object.keys(source)) {
+        if (!Object.hasOwn(snapshot, key)) delete source[key]
+      }
+      for (const [key, value] of Object.entries(snapshot)) {
+        if (value === undefined) delete source[key]
+        else source[key] = value
+      }
     },
   }
 }

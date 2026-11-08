@@ -109,20 +109,30 @@ old synonyms (fixture, repetition, scorer, trace).
 - **Langfuse observes; code decides.** The self-hosted Langfuse instance is the review layer for transcripts, scores and experiment comparison. It never replaces the manifest, the verdict, the baselines, the Jev client or the golden files. There is no custom transcript viewer, grade table, comparison dashboard or results web UI.
 - **Export never changes a verdict.** Langfuse export is opt-in (`LANGFUSE_ENABLED=true`) and runs after `result.json`, the transcripts and `grades.jsonl` are written. A failed export only fails the command when `--require-export` is set. Self-hosted only: never point `LANGFUSE_BASE_URL` at Langfuse Cloud.
 
-## Known trial-isolation gaps (M0 → M1)
+## Trial isolation (M0 → M1)
 
-M0 isolates in-memory trial state only: clock, RNG, provider instance, and task
-copy. These are **not** implemented yet and must arrive with the agent harness:
+Implemented and covered by tests in M1:
 
-- a process, worker, or container boundary per trial;
-- a per-trial timeout and cancellation path for a hung provider or tool;
+- a per-trial clock, RNG stream, provider instance and copy of the task;
+- a per-trial wall-clock timeout and cancellation path (`withTrialTimeout`),
+  including a late provider rejection that is handled instead of becoming an
+  unhandled rejection;
+- provider `dispose()` in `finally`, on success, provider failure and timeout;
+- an environment snapshot restored after every trial;
+- interleaved-trial tests for instance identity, timer teardown, socket teardown,
+  and the absence of unhandled rejections.
+
+Still gaps — do not claim a trial is isolated until every external state it
+touches has a reset path covered by a test:
+
+- a process, worker or container boundary per trial;
 - reset and seeding of an external database;
 - a per-trial filesystem workspace and cleanup of its temporary files;
-- reset of environment variables, network mocks, and module-level caches;
-- verified cleanup of live provider connections and background work.
-
-Do not claim a trial is isolated until every external state it touches has a
-reset path covered by a test.
+- network mocks and module-level caches (no known cache exists today, but there
+  is no generic reset and no test that would catch one);
+- verified cleanup of live provider connections against a real provider. The
+  socket test uses a local server; the Groq and OpenRouter adapters are
+  exercised by unit tests with an injected fetch, not by a live teardown test.
 
 ## Working style
 
