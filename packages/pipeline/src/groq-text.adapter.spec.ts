@@ -100,13 +100,26 @@ describe('Groq text adapter', () => {
     }
   })
 
-  it('rejects a stream that ends without [DONE]', async () => {
+  it('rejects a stream that ends without [DONE] or a finish reason', async () => {
     const model = createGroqTextModel({
       apiKey: API_KEY,
       fetchImpl: async () => sseResponse(['{"choices":[{"delta":{"content":"partial"}}]}']),
     })
 
     await expect(collect(model)).rejects.toBeInstanceOf(GroqTextModelError)
+  })
+
+  it('accepts a stream that ends with a finish reason and no [DONE]', async () => {
+    const model = createGroqTextModel({
+      apiKey: API_KEY,
+      fetchImpl: async () =>
+        sseResponse(['{"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}']),
+    })
+
+    expect(await collect(model)).toEqual([
+      { text: 'ok', done: false },
+      { text: '', done: true },
+    ])
   })
 
   it('rejects a malformed data line instead of skipping it', async () => {
