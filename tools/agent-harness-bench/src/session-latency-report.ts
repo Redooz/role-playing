@@ -25,14 +25,27 @@ export const DEFAULT_TEXT_LATENCY_REPORT_PATH = join(
   'latency.json',
 )
 
-/** Probe path for a comparison model; never overwrites the M1 baseline. */
-export const PROBE_TEXT_LATENCY_REPORT_PATH = join(
-  REPO_ROOT,
-  'evals',
-  'results',
-  'm1-text-latency-probe',
-  'latency.json',
-)
+/** Stable directory-safe slug for a probe model id. */
+export function modelSlug(model: string): string {
+  return model
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+/**
+ * Probe path for a comparison model. Each model gets its own directory so a new
+ * probe never overwrites the previous one or the M1 baseline.
+ */
+export function probeTextLatencyReportPath(model: string): string {
+  return join(
+    REPO_ROOT,
+    'evals',
+    'results',
+    `m1-text-latency-probe-${modelSlug(model)}`,
+    'latency.json',
+  )
+}
 
 export interface TextLatencyReport {
   readonly schemaVersion: 1
