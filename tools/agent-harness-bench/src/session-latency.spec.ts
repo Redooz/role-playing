@@ -122,6 +122,6 @@ describe('text latency measurement', () => {
 
     expect(measurement.turns).toHaveLength(0)
     expect(measurement.failures).toHaveLength(1)
-    expect(measurement.failures[0]?.reason).toBe('cancelled')
+    expect(measurement.failures[0]?.reason).toBe('provider_failure')
   })
 })

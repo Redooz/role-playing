@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  CONTENT_CLASS_RULE_SINCE,
   TRANSCRIPT_SCHEMA_VERSION,
   TRANSCRIPT_SCHEMA_VERSION_POLICY,
+  isTranscriptSchemaAtLeast,
   transcriptSchemaVersionSchema,
 } from './version.js'
 
@@ -18,5 +20,28 @@ describe('transcript schema versioning policy', () => {
   it('requires a task migration note for a breaking change', () => {
     expect(TRANSCRIPT_SCHEMA_VERSION_POLICY.breakingChangeRequiresTaskMigrationNote).toBe(true)
     expect(TRANSCRIPT_SCHEMA_VERSION_POLICY.taskMigrationNotePath).toMatch(/MIGRATIONS\.md$/)
+  })
+})
+
+describe('isTranscriptSchemaAtLeast', () => {
+  it('orders versions numerically, not lexically', () => {
+    expect(isTranscriptSchemaAtLeast('1.0.0', CONTENT_CLASS_RULE_SINCE)).toBe(false)
+    expect(isTranscriptSchemaAtLeast('1.1.0', CONTENT_CLASS_RULE_SINCE)).toBe(true)
+    expect(isTranscriptSchemaAtLeast('1.2.0', CONTENT_CLASS_RULE_SINCE)).toBe(true)
+    expect(isTranscriptSchemaAtLeast('1.10.0', '1.9.0')).toBe(true)
+    expect(isTranscriptSchemaAtLeast('2.0.0', CONTENT_CLASS_RULE_SINCE)).toBe(true)
+  })
+
+  it('treats an invalid version as below every minimum', () => {
+    expect(isTranscriptSchemaAtLeast('v1', CONTENT_CLASS_RULE_SINCE)).toBe(false)
+    expect(isTranscriptSchemaAtLeast('1.1', CONTENT_CLASS_RULE_SINCE)).toBe(false)
+    expect(isTranscriptSchemaAtLeast('1.2.0', '1.1')).toBe(false)
+  })
+
+  it('requires the whole dotted version', () => {
+    expect(isTranscriptSchemaAtLeast('1.1.0x', '1.1.0')).toBe(false)
+    expect(isTranscriptSchemaAtLeast('x1.1.0', '1.1.0')).toBe(false)
+    expect(isTranscriptSchemaAtLeast('1.1.10', '1.1.9')).toBe(true)
+    expect(isTranscriptSchemaAtLeast('01.1.0', '1.1.0')).toBe(true)
   })
 })

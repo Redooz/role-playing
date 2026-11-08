@@ -132,6 +132,47 @@ describe('transcriptRecordSchema', () => {
     ).toBe(true)
   })
 
+  it('keeps a 1.0.0 operational public record readable', () => {
+    expect(
+      transcriptRecordSchema.safeParse({
+        ...record(0),
+        schemaVersion: '1.0.0',
+        contentClass: 'public',
+      }).success,
+    ).toBe(true)
+  })
+
+  it('keeps a 1.0.0 text-bearing public record readable', () => {
+    expect(
+      transcriptRecordSchema.safeParse({
+        ...record(0),
+        schemaVersion: '1.0.0',
+        kind: 'persona.response.chunk',
+        payload: { grantId: 'grant-1', text: 'Hi', sequence: 0 },
+        contentClass: 'public',
+      }).success,
+    ).toBe(true)
+  })
+
+  it('enforces the content-class rule from 1.1.0', () => {
+    expect(
+      transcriptRecordSchema.safeParse({
+        ...record(0),
+        schemaVersion: '1.1.0',
+        contentClass: 'public',
+      }).success,
+    ).toBe(false)
+    expect(
+      transcriptRecordSchema.safeParse({
+        ...record(0),
+        schemaVersion: '1.1.0',
+        kind: 'persona.response.chunk',
+        payload: { grantId: 'grant-1', text: 'Hi', sequence: 0 },
+        contentClass: 'public',
+      }).success,
+    ).toBe(false)
+  })
+
   it('accepts a record without an execution id for backward compatibility', () => {
     const { executionId: _executionId, ...legacy } = record(0)
     expect(transcriptRecordSchema.safeParse(legacy).success).toBe(true)

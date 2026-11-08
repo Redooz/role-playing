@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { resolve } from 'node:path'
+import { isAbsolute, relative, resolve } from 'node:path'
 import { createInterface } from 'node:readline/promises'
 import { parseArgs } from 'node:util'
 import { createGroqTextModel } from '@rp/pipeline'
@@ -38,6 +38,37 @@ Options:
 
 Live mode requires GROQ_API_KEY in the environment (npm loads .env). The key is
 never printed. The model is fixed to openai/gpt-oss-20b.`
+
+/**
+ * A session id becomes a file name, so only path-safe characters are allowed.
+ * The default `randomUUID()` passes; an override that does not is rejected with
+ * exit code 2 before any file is touched.
+ */
+export const SESSION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/
+
+export function isValidSessionId(value: string): boolean {
+  return SESSION_ID_PATTERN.test(value)
+}
+
+/**
+ * Resolve the log file for a session id and reject any path that escapes the
+ * log directory. The id validation already makes traversal impossible; this is
+ * the defence-in-depth check on the resolved path.
+ */
+export function resolveSessionLogPath(logDir: string, sessionId: string): string {
+  if (!isValidSessionId(sessionId)) {
+    throw new Error(`invalid session id "${sessionId}"`)
+  }
+
+  const base = resolve(logDir)
+  const path = resolve(base, `${sessionId}.jsonl`)
+  const relativePath = relative(base, path)
+  if (relativePath === '' || relativePath.startsWith('..') || isAbsolute(relativePath)) {
+    throw new Error(`refusing to write a session log outside "${base}"`)
+  }
+
+  return path
+}
 
 export async function main(argv: readonly string[]): Promise<number> {
   const io: CliIo = {
@@ -92,8 +123,24 @@ export async function main(argv: readonly string[]): Promise<number> {
     return 2
   }
 
-  const sessionId = values['session-id'] ?? randomUUID()
+  const sessionIdOverride = values['session-id']
+  if (sessionIdOverride !== undefined && !isValidSessionId(sessionIdOverride)) {
+    io.err(
+      `error: --session-id must match ${SESSION_ID_PATTERN.source}, got "${sessionIdOverride}"`,
+    )
+    return 2
+  }
+
+  const sessionId = sessionIdOverride ?? randomUUID()
   const logDir = resolve(values['log-dir'] ?? 'sessions')
+
+  let logPath: string
+  try {
+    logPath = resolveSessionLogPath(logDir, sessionId)
+  } catch (error) {
+    io.err(`error: ${error instanceof Error ? error.message : String(error)}`)
+    return 2
+  }
 
   let provider: CliProvider
   let clock: Clock
@@ -137,7 +184,6 @@ export async function main(argv: readonly string[]): Promise<number> {
     ...(values.task === undefined ? {} : { taskId: values.task }),
   }
 
-  const logPath = resolve(logDir, `${sessionId}.jsonl`)
   const log = await createFileSessionLog({
     path: logPath,
     header,

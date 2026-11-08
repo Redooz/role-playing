@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
   "suite": "m1-mutation",
-  "generatedAt": "2026-11-08T00:39:38.017Z",
-  "commit": "277eeba9cc4034beaab4b37ba1be3d58b29c941b",
+  "generatedAt": "2026-11-08T03:18:54.340Z",
+  "commit": "90ab4b6147da0f3f3956457120bec9968bfb7cf1",
   "tool": "@stryker-mutator/core 10.1.1 + @stryker-mutator/vitest-runner 10.1.1",
   "command": "npm run mutation",
   "note": "Measured floor. Timed-out mutants count as killed; runtime/compile errors are excluded. Not a PR gate.",
   "global": {
-    "mutants": 1114,
-    "killed": 783,
-    "timeout": 13,
-    "survived": 223,
+    "mutants": 1153,
+    "killed": 819,
+    "timeout": 14,
+    "survived": 225,
     "noCoverage": 78,
-    "total": 72.56,
-    "covered": 78.12
+    "total": 73.33,
+    "covered": 78.73
   },
   "packages": {
     "apps/cli": {
@@ -35,13 +35,13 @@
       "covered": 73.36
     },
     "packages/session-core": {
-      "mutants": 702,
-      "killed": 537,
-      "timeout": 7,
-      "survived": 116,
+      "mutants": 741,
+      "killed": 573,
+      "timeout": 8,
+      "survived": 118,
       "noCoverage": 25,
-      "total": 79.42,
-      "covered": 82.42
+      "total": 80.25,
+      "covered": 83.12
     }
   },
   "files": {
@@ -91,13 +91,13 @@
       "covered": 77.78
     },
     "packages/session-core/src/transcript.ts": {
-      "mutants": 60,
-      "killed": 45,
+      "mutants": 63,
+      "killed": 48,
       "timeout": 0,
       "survived": 13,
       "noCoverage": 2,
-      "total": 75,
-      "covered": 77.59
+      "total": 76.19,
+      "covered": 78.69
     },
     "apps/cli/src/session-log.adapter.ts": {
       "mutants": 13,
@@ -136,13 +136,13 @@
       "covered": 87.56
     },
     "packages/session-core/src/version.ts": {
-      "mutants": 10,
-      "killed": 4,
-      "timeout": 0,
-      "survived": 6,
+      "mutants": 46,
+      "killed": 37,
+      "timeout": 1,
+      "survived": 8,
       "noCoverage": 0,
-      "total": 40,
-      "covered": 40
+      "total": 82.61,
+      "covered": 82.61
     }
   }
 }

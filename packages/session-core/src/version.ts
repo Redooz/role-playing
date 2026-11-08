@@ -7,8 +7,9 @@ import { z } from 'zod'
  * - **Additive change → minor bump** (`1.0.0` → `1.1.0`). New optional payload
  *   fields, new event types, and widened enums are additive: an existing transcript
  *   still parses, so old tasks and baselines stay readable. `1.1.0` added the
- *   `session.started` event and the optional `executionId` record field;
- *   `1.2.0` added optional `usage` to `persona.response.committed`.
+ *   `session.started` event, the optional `executionId` record field, and the
+ *   content-class rule; `1.2.0` added optional `usage` to
+ *   `persona.response.committed`.
  * - **Breaking change → major bump** (`1.x.y` → `2.0.0`) **and** a task
  *   migration note. Removed or renamed events/fields, changed field meaning,
  *   new required fields, or narrowed enums break readers and therefore require
@@ -20,6 +21,40 @@ import { z } from 'zod'
  * leniently.
  */
 export const TRANSCRIPT_SCHEMA_VERSION = '1.2.0'
+
+/**
+ * First schema version whose records must satisfy the structural content-class
+ * rule in `transcriptRecordSchema`.
+ *
+ * The rule was added in `1.1.0`. Enforcing it on `1.0.0` records too would make a
+ * minor bump behave like a breaking one: a `1.0.0` log that stored an
+ * operational event as `public` was legal then and must stay readable. New
+ * producers always write the current version, so every new record is checked.
+ */
+export const CONTENT_CLASS_RULE_SINCE = '1.1.0'
+
+function parseSchemaVersion(version: string): readonly [number, number, number] | undefined {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version)
+  if (match === null) return undefined
+  return [Number(match[1]), Number(match[2]), Number(match[3])]
+}
+
+/**
+ * Compare a schema version against a minimum. Invalid versions compare as
+ * `false`; the base envelope schema rejects them before a refinement runs.
+ */
+export function isTranscriptSchemaAtLeast(version: string, minimum: string): boolean {
+  const actual = parseSchemaVersion(version)
+  const floor = parseSchemaVersion(minimum)
+  if (actual === undefined || floor === undefined) return false
+
+  for (let index = 0; index < actual.length; index += 1) {
+    const a = actual[index] as number
+    const b = floor[index] as number
+    if (a !== b) return a > b
+  }
+  return true
+}
 
 /**
  * Machine-readable form of the versioning policy above, so tools can assert it

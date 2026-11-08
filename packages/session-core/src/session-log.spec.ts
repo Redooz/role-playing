@@ -110,6 +110,19 @@ describe('session log', () => {
     expect(parseSessionLog(textFor(records, older)).records).toHaveLength(records.length)
   })
 
+  it('replays 1.0.0 records classified under the old, looser rule', () => {
+    const legacyHeader: SessionLogHeader = { ...header, schemaVersion: '1.0.0' }
+    const legacyRecords = recordsFor().map((record) => ({
+      ...record,
+      schemaVersion: '1.0.0',
+      contentClass: 'public' as const,
+    }))
+    const text = textFor(legacyRecords, legacyHeader)
+
+    expect(parseSessionLog(text).records).toHaveLength(legacyRecords.length)
+    expect(replaySessionLog(text).events).toEqual(events)
+  })
+
   it('rejects a log that does not start with a header', () => {
     const records = recordsFor()
     const text = `${records.map(sessionLogRecordLine).join('\n')}\n`
