@@ -8,7 +8,11 @@ import {
   type SessionEventPayload,
 } from './events.js'
 import { checkTranscriptSequence, enforceGuardResult } from './guards.js'
-import { transcriptSchemaVersionSchema } from './version.js'
+import {
+  CONTENT_CLASS_RULE_SINCE,
+  isTranscriptSchemaAtLeast,
+  transcriptSchemaVersionSchema,
+} from './version.js'
 
 /**
  * Append-only transcript records (M0 D2).
@@ -95,13 +99,19 @@ export const transcriptRecordSchema = transcriptRecordBaseSchema.superRefine((re
   // classified as public, and an operational event may not claim to be
   // restricted or public. This makes the M0 `contentClassValid` check
   // structural instead of advisory.
-  const expected = expectedContentClass(record.kind)
-  if (record.contentClass !== expected) {
-    ctx.addIssue({
-      code: 'custom',
-      message: `${record.kind} must be contentClass "${expected}", got "${record.contentClass}"`,
-      path: ['contentClass'],
-    })
+  //
+  // The rule entered at 1.1.0. Applying it to 1.0.0 records would make a minor
+  // bump break old logs, so legacy records stay readable; every new producer
+  // writes a current version and is checked.
+  if (isTranscriptSchemaAtLeast(record.schemaVersion, CONTENT_CLASS_RULE_SINCE)) {
+    const expected = expectedContentClass(record.kind)
+    if (record.contentClass !== expected) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `${record.kind} must be contentClass "${expected}", got "${record.contentClass}"`,
+        path: ['contentClass'],
+      })
+    }
   }
 })
 

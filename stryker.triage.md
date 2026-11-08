@@ -7,12 +7,12 @@ The floor is the **measured** baseline, not a number chosen in advance. The run 
 not a PR gate yet; it is a scheduled/on-demand check. Timed-out mutants count as
 killed and are reported separately, as the M1 plan requires.
 
-## Baseline (2026-11-07)
+## Baseline (2026-11-07, re-measured after PR #5 review fixes)
 
 | Scope                   | Total  | Covered | Killed | Timeout | Survived | No coverage | Errors |
 | ----------------------- | ------ | ------- | ------ | ------- | -------- | ----------- | ------ |
-| All files               | 72.56% | 78.12%  | 783    | 13      | 223      | 78          | 17     |
-| `packages/session-core` | 79.42% | 82.42%  | 537    | 7       | 116      | 25          | 17     |
+| All files               | 73.33% | 78.73%  | 819    | 14      | 225      | 78          | 17     |
+| `packages/session-core` | 80.25% | 83.12%  | 573    | 8       | 118      | 25          | 17     |
 | `packages/pipeline`     | 68.86% | 73.36%  | 151    | 6       | 57       | 14          | 0      |
 | `apps/cli`              | 51.63% | 65.52%  | 95     | 0       | 50       | 39          | 0      |
 
@@ -27,7 +27,9 @@ equivalents. Tests added for this baseline: exact grant-expiry boundary, empty
 chunk, usage carried from an earlier chunk, interrupt before commit, partial
 context, immediate cancel with no empty assistant message, synchronous
 `complete()` throw, non-string chunk, throw after abort, and iterator `return`
-on an aborted stream.
+on an aborted stream. The re-measured baseline also covers the version-gated
+content-class rule (`1.0.0` records stay readable, `1.1.0+` records are checked)
+and the invalid-version ordering of `isTranscriptSchemaAtLeast`.
 
 ### Documented equivalents in `driver.ts`
 

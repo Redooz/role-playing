@@ -1,12 +1,14 @@
 import { execFileSync } from 'node:child_process'
 import { readFile, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
+import { packageOf, scoreMutants } from './mutation-floor.mjs'
 
 /**
  * Record the measured mutation baseline (M1 D9 / gate M1-G6).
  *
  * Run this only after `npm run mutation` on a clean tree. It writes the per-file
- * and per-package scores that `scripts/check-mutation-floor.mjs` enforces.
+ * and per-package scores that `scripts/check-mutation-floor.mjs` enforces, and
+ * refuses to record a baseline with nothing to measure.
  */
 
 const root = resolve(new URL('..', import.meta.url).pathname)
@@ -15,51 +17,16 @@ const baselinePath = join(root, 'evals', 'baselines', 'm1-mutation.json')
 
 const report = JSON.parse(await readFile(reportPath, 'utf8'))
 
-function scoreOf(mutants) {
-  let killed = 0
-  let timeout = 0
-  let survived = 0
-  let noCoverage = 0
-
-  for (const mutant of mutants) {
-    switch (mutant.status) {
-      case 'Killed':
-        killed += 1
-        break
-      case 'Timeout':
-        timeout += 1
-        break
-      case 'Survived':
-        survived += 1
-        break
-      case 'NoCoverage':
-        noCoverage += 1
-        break
-      default:
-        break
-    }
-  }
-
-  const killedTotal = killed + timeout
-  const total = killedTotal + survived + noCoverage
-  const covered = killedTotal + survived
-
-  return {
-    mutants: mutants.length,
-    killed,
-    timeout,
-    survived,
-    noCoverage,
-    total: total === 0 ? 100 : Number(((killedTotal / total) * 100).toFixed(2)),
-    covered: covered === 0 ? 100 : Number(((killedTotal / covered) * 100).toFixed(2)),
-  }
+const allMutants = Object.values(report.files ?? {}).flatMap((file) => file.mutants ?? [])
+const global = scoreMutants(allMutants)
+if (global.total === null || global.covered === null) {
+  console.error('refusing to record a mutation baseline with no scorable mutants')
+  process.exit(1)
 }
 
-function packageOf(file) {
-  if (file.startsWith('packages/session-core/')) return 'packages/session-core'
-  if (file.startsWith('packages/pipeline/')) return 'packages/pipeline'
-  if (file.startsWith('apps/cli/')) return 'apps/cli'
-  return undefined
+function baselineScore(score) {
+  const { mutants, killed, timeout, survived, noCoverage, total, covered } = score
+  return { mutants, killed, timeout, survived, noCoverage, total, covered }
 }
 
 let commit = 'unknown'
@@ -71,9 +38,10 @@ try {
 
 const files = {}
 const byPackage = {}
-for (const [file, data] of Object.entries(report.files)) {
-  const score = scoreOf(data.mutants ?? [])
-  files[file] = score
+for (const [file, data] of Object.entries(report.files ?? {})) {
+  const score = scoreMutants(data.mutants ?? [])
+  files[file] = baselineScore(score)
+
   const packageName = packageOf(file)
   if (packageName === undefined) continue
   byPackage[packageName] ??= []
@@ -82,7 +50,12 @@ for (const [file, data] of Object.entries(report.files)) {
 
 const packages = {}
 for (const [packageName, mutants] of Object.entries(byPackage)) {
-  packages[packageName] = scoreOf(mutants)
+  const score = scoreMutants(mutants)
+  if (score.total === null || score.covered === null) {
+    console.error(`refusing to record an empty floor for ${packageName}`)
+    process.exit(1)
+  }
+  packages[packageName] = baselineScore(score)
 }
 
 const baseline = {
@@ -93,7 +66,7 @@ const baseline = {
   tool: '@stryker-mutator/core 10.1.1 + @stryker-mutator/vitest-runner 10.1.1',
   command: 'npm run mutation',
   note: 'Measured floor. Timed-out mutants count as killed; runtime/compile errors are excluded. Not a PR gate.',
-  global: scoreOf(Object.values(report.files).flatMap((file) => file.mutants ?? [])),
+  global: baselineScore(global),
   packages,
   files,
 }

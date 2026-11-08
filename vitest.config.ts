@@ -12,7 +12,7 @@ export default defineConfig({
         test: {
           name: 'unit',
           environment: 'node',
-          include: ['{apps,packages,tools}/**/*.spec.ts'],
+          include: ['{apps,packages,tools,scripts}/**/*.spec.ts'],
           exclude: ['**/node_modules/**', '**/dist/**', '**/*.bench.spec.ts'],
         },
       },

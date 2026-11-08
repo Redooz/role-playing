@@ -65,7 +65,7 @@ export interface SessionStartSample {
 export interface TurnFailure {
   readonly sessionIndex: number
   readonly turnIndex: number
-  readonly reason: 'timeout' | 'error' | 'cancelled' | 'empty'
+  readonly reason: 'timeout' | 'error' | 'cancelled' | 'provider_failure' | 'empty'
   readonly message?: string
 }
 
@@ -200,7 +200,11 @@ export async function measureSessionLatency(
                   ? 'error'
                   : turnState.emptyCommit
                     ? 'empty'
-                    : 'cancelled',
+                    : turnState.cancellation === 'provider_failure'
+                      ? 'provider_failure'
+                      : turnState.cancellation === 'timeout'
+                        ? 'timeout'
+                        : 'cancelled',
             ...(message === undefined ? {} : { message }),
             ...(error === undefined ? {} : { message: messageOf(error) }),
           })

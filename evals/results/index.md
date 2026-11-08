@@ -20,7 +20,7 @@ it still handle every task it used to?). **Grader** is `code`,
 | 2026-11-07 | `m1-text-latency-probe-google-gemma-4-31b-it` | OpenRouter `google/gemma-4-31b-it` latency probe | capability | code (wall-clock bench) | recorded (probe) | 100 live turns, 0 failures; TTFT p50/p95/p99 635/2123/3944 ms; not the product model |
 | 2026-11-07 | `m1-text-latency-probe-openai-gpt-oss-120b` | OpenRouter `openai/gpt-oss-120b` latency probe | capability | code (wall-clock bench) | recorded (probe) | 100 live turns, 0 failures; TTFT p50/p95/p99 1465/2895/5675 ms; not the product model |
 | 2026-11-07 | `m0-canned-replay` (M1 re-baseline) | canned replay determinism (G1) | regression | code | accepted | 12 trials, 2 runs byte-identical at transcript schema 1.2.0; baseline re-promoted; codeSha `7e7867c` |
-| 2026-11-07 | `m1-mutation` | mutation baseline (M1-G6) | capability | code | accepted (baseline) | global 72.56% total / 78.12% covered; per-package floor frozen; 0 meaningful cancellation survivors |
+| 2026-11-07 | `m1-mutation` | mutation baseline (M1-G6) | capability | code | accepted (baseline) | global 73.33% total / 78.73% covered; per-package floor frozen; 0 meaningful cancellation survivors |
 
 Langfuse experiment links are local to the self-hosted instance:
 `http://127.0.0.1:3000/project/8cdf72afddb90bd4e129b3c7/experiments/results?baseline=<execution-id>`.
