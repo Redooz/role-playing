@@ -1,10 +1,12 @@
 import { canonicalJson } from '@rp/shared'
 import { describe, expect, it } from 'vitest'
+import { ZodError } from 'zod'
 import {
   eventFromTranscriptRecord,
   NORMALIZED_EXECUTION_ID,
   NORMALIZED_T_WALL,
   normalizeTranscriptRecord,
+  normalizeTranscriptRecords,
   normalizedTranscriptJsonl,
   parseTranscriptRecord,
   transcriptRecordSchema,
@@ -111,6 +113,23 @@ describe('transcriptRecordSchema', () => {
     expect(transcriptRecordSchema.safeParse({ ...chunk, contentClass: 'restricted' }).success).toBe(
       true,
     )
+  })
+
+  it.each([
+    ['user.utterance.committed', { text: 'hi' }],
+    ['persona.utterance.partial', { grantId: 'grant-1', text: 'hi', sequence: 0 }],
+    ['persona.response.chunk', { grantId: 'grant-1', text: 'hi', sequence: 0 }],
+    ['persona.response.committed', { grantId: 'grant-1', text: 'hi' }],
+    ['persona.response.cancelled', { grantId: 'grant-1', reason: 'interrupted' }],
+  ])('requires %s to be restricted', (kind, payload) => {
+    const textRecord = { ...record(0), kind, payload }
+
+    expect(
+      transcriptRecordSchema.safeParse({ ...textRecord, contentClass: 'public' }).success,
+    ).toBe(false)
+    expect(
+      transcriptRecordSchema.safeParse({ ...textRecord, contentClass: 'restricted' }).success,
+    ).toBe(true)
   })
 
   it('rejects an operational event classified as public or restricted', () => {
@@ -223,6 +242,14 @@ describe('parseTranscriptRecord', () => {
 
     expect(() => parseTranscriptRecord(v2Chunk)).toThrow(TranscriptSchemaVersionError)
   })
+
+  it('rejects an unusable input as a schema error, not a version or type error', () => {
+    expect(() => parseTranscriptRecord(null)).toThrow(ZodError)
+    expect(() => parseTranscriptRecord({ ...record(0), schemaVersion: undefined })).toThrow(
+      ZodError,
+    )
+    expect(() => parseTranscriptRecord({ ...record(0), schemaVersion: 5 })).toThrow(ZodError)
+  })
 })
 
 describe('eventFromTranscriptRecord', () => {
@@ -258,6 +285,14 @@ describe('normalizeTranscriptRecord', () => {
     const second = { ...record(0), executionId: 'another-execution', tWall: 9_999_999 }
 
     expect(normalizeTranscriptRecord(first)).toEqual(normalizeTranscriptRecord(second))
+  })
+
+  it('normalizes a whole record list', () => {
+    const normalized = normalizeTranscriptRecords([record(0), record(1)])
+
+    expect(normalized).toHaveLength(2)
+    expect(normalized.every((item) => item.tWall === NORMALIZED_T_WALL)).toBe(true)
+    expect(normalized.every((item) => item.executionId === NORMALIZED_EXECUTION_ID)).toBe(true)
   })
 })
 
