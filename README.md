@@ -5,8 +5,9 @@ characters talk with one user in real time, and every change that affects
 behaviour is checked by evals before it is accepted.
 
 M0 (the eval foundation) and M0.1 (the self-hosted Langfuse review layer) are
-complete. **M1** (single-agent text) is in progress: a transport-agnostic
-session driver, a line CLI, an append-only session log and a Groq text adapter.
+complete. **M1** (single-agent text) is complete: a transport-agnostic session driver, a
+line CLI, an append-only session log, a Groq text adapter, trial isolation and a
+frozen mutation floor. Gates M1-G1–G6 are recorded in `evals/decisions.md`.
 There is no audio path yet.
 
 ## Eval vocabulary

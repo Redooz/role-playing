@@ -5,9 +5,11 @@
 A voice role-play platform for practicing workplace English and French. Several AI characters talk with one user in real time. The work is built test-first: every change that affects behavior must be checked by evals before it is accepted.
 
 **M0** (the eval foundation) and **M0.1** (the self-hosted Langfuse review
-layer) are complete. **M1** (single-agent text) is in progress: the session
-driver, the line CLI, the session log and the Groq text adapter exist. Do not
-invent commands, folders, or build steps that do not exist.
+layer) are complete. **M1** (single-agent text) is complete: the transport-agnostic
+session driver, the line CLI, the append-only session log, the Groq text adapter,
+trial isolation and the mutation floor all exist. Gates M1-G1–G6 are recorded in
+`evals/decisions.md`. Do not invent commands, folders, or build steps that do not
+exist.
 
 ## Eval vocabulary
 
