@@ -7,14 +7,14 @@ The floor is the **measured** baseline, not a number chosen in advance. The run 
 not a PR gate yet; it is a scheduled/on-demand check. Timed-out mutants count as
 killed and are reported separately, as the M1 plan requires.
 
-## Baseline (2026-11-08, after the code-review fixes)
+## Baseline (2026-11-08, after the round-2 review fixes)
 
 | Scope                   | Total  | Covered | Killed | Timeout | Survived | No coverage | Errors |
 | ----------------------- | ------ | ------- | ------ | ------- | -------- | ----------- | ------ |
-| All files               | 77.68% | 81.20%  | 932    | 18      | 220      | 53          | 17     |
-| `packages/session-core` | 83.58% | 84.85%  | 660    | 12      | 120      | 12          | 17     |
-| `packages/pipeline`     | 68.86% | 73.36%  | 151    | 6       | 57       | 14          | 0      |
-| `apps/cli`              | 63.35% | 73.78%  | 121    | 0       | 43       | 27          | 0      |
+| All files               | 79.16% | 82.38%  | 1076   | 18      | 234      | 54          | 17     |
+| `packages/session-core` | 84.67% | 85.79%  | 767    | 12      | 129      | 12          | 17     |
+| `packages/pipeline`     | 70.00% | 74.34%  | 162    | 6       | 58       | 14          | 0      |
+| `apps/cli`              | 66.22% | 75.77%  | 147    | 0       | 47       | 28          | 0      |
 
 Per-file totals are in `reports/mutation/mutation.json` (git-ignored) and in the
 M1-G6 row in `evals/decisions.md`.
@@ -22,34 +22,36 @@ M1-G6 row in `evals/decisions.md`.
 ### Cancellation invariants
 
 `packages/session-core/src/driver.ts` has **no meaningful survivors** in the
-cancellation invariants. Its remaining 35 survivors are the equivalent fast
+cancellation invariants. Its remaining 40 survivors are the equivalent fast
 paths and diagnostic strings recorded below. Tests added for this baseline
-include exact grant expiry, a silent provider with a non-zero starting clock,
-interrupt of a provider that ignores the abort signal, a chunk arriving after
-the abort, bounded iterator close, timer cleanup, the history cap, abort-signal
-delivery, empty-chunk skipping, and queue delivery/close/failure. It also covers
-the version-gated content-class rule, per-record major rejection, and the
-invalid-version ordering of `isTranscriptSchemaAtLeast`.
+include exact grant expiry and abort on clock expiry, a silent provider with a
+non-zero starting clock, interrupt of a provider that ignores the abort signal,
+a chunk arriving after the abort, bounded iterator close, timer cleanup, the
+history cap and user-first trimming, abort-signal delivery, empty-chunk
+skipping, queue overflow, a shared closing promise, grant-TTL validation, and
+the bounded provider-failure detail. It also covers the content-class rule for
+every text-bearing event kind, per-record major rejection, the version-before-
+payload parse order, and the invalid-version ordering of
+`isTranscriptSchemaAtLeast`.
 
 ### Documented equivalents in `driver.ts`
 
-| Lines    | Mutant                              | Why it is equivalent                                                                                   |
-| -------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| 33,39,40 | error message/name strings          | Diagnostics only; `instanceof` classifies errors, not the text.                                        |
-| 84,90,93 | `settleWithin` timer clear          | The timer is always defined on entry; clearing an already-cleared timer is harmless.                   |
-| 119,127  | queue closed/fail early returns     | Closing or failing an already terminal queue is idempotent.                                            |
-| 206,211  | send closed checks                  | A synchronous close is caught by the queue; a late close is caught by the second check.                |
-| 212,215  | empty-utterance message / interrupt | The same value is rejected by `trim()`; the message is diagnostic. Interrupting while idle is a no-op. |
-| 216,247  | second closed check / interrupt     | Race guards after an awaited interrupt; the first checks cover every synchronous caller.               |
-| 261      | history trim overflow               | A negative or zero overflow makes `splice` a no-op; the guard is a fast path.                          |
-| 307,310  | deadline/abort promise setup        | The promise value is only a discriminant; the pre-resolved abort fast path lands in the same catch.    |
-| 314      | abort listener literals             | `{ once: true }`, the resolve value and the boolean are equivalent for the one-shot race.              |
-| 318,330  | loop-top abort / abort race         | The `next()` race and the catch classify the same interruption when the fast path is removed.          |
-| 338      | aborted branch                      | Removing the branch falls through to a TypeError caught as `interrupted`; the outcome is identical.    |
-| 352,356  | provider-failure reason             | The final reason mapping normalizes both sentinels.                                                    |
-| 377,382  | outcome sentinel strings            | The final mapping turns every non-timeout/non-interrupted outcome into `provider_failure`.             |
-| 384      | timer clear guard                   | The deadline timer is always defined at this point.                                                    |
-| 388      | optional iterator close             | `closeIterator` and `return` are defined on every covered path; the optional guards are defensive.     |
+Line numbers are from this run.
+
+| Lines                   | Mutant                           | Why it is equivalent                                                                                                 |
+| ----------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| 33,39,40                | error message/name strings       | Diagnostics only; `instanceof` classifies errors, not the text.                                                      |
+| 92,98,101               | `settleWithin` timer clear       | The timer is always defined on entry; clearing an already-cleared timer is harmless.                                 |
+| 109,110                 | failure-detail formatting        | Diagnostic only. The tests pin a single line and the 200-character bound; the rest changes spelling.                 |
+| 146                     | queue waiter fast path           | The pending-reader and buffered paths are both tested; the remaining branch is a fast path.                          |
+| 158,166                 | queue closed/fail early returns  | Closing or failing an already terminal queue is idempotent.                                                          |
+| 244                     | queue-limit defaulting           | The bound is tested directly on the queue; the default only differs for an invalid zero limit, which throws.         |
+| 252,257,258             | send closed/empty checks         | A synchronous close is caught by the queue; the same empty value is rejected by `trim()`; the message is diagnostic. |
+| 261,262                 | interrupt/second closed check    | Race guards after an awaited interrupt; the first checks cover every synchronous caller.                             |
+| 293,310,315             | history trim fast paths          | A non-positive overflow makes `splice` a no-op; the assistant-first loop is covered by the max-4 test.               |
+| 367,370,374,378         | cancellation detail strings      | The final reason mapping normalizes the sentinels; the detail branches are diagnostic and separately tested.         |
+| 393,401,415,420         | iterator close/outcome sentinels | The final mapping turns every non-timeout/non-interrupted outcome into `provider_failure`.                           |
+| 442,448,451,455,459,492 | reason/detail/close paths        | The provider-failure and timeout reasons are asserted; the optional iterator close is defensive.                     |
 
 ### `events.ts` runtime errors
 
