@@ -206,9 +206,42 @@ describe('text session driver', () => {
     const committed = events.find((event) => event.type === 'persona.response.committed')
     expect(committed?.payload).toEqual({ grantId: 'session-1-grant-1', text: 'Good morning' })
 
+    const user = events.find((event) => event.type === 'user.utterance.committed')
+    expect(user?.payload).toEqual({ text: 'Hi there' })
+    const opened = events.find((event) => event.type === 'turn.opened')
+    expect(opened?.payload).toEqual({ turnId: 'session-1-turn-1' })
+    const granted = events.find((event) => event.type === 'turn.granted')
+    expect(granted?.payload).toMatchObject({
+      grant: { turnId: 'session-1-turn-1', personaId: 'persona-1' },
+    })
+
     const cancelled = events.filter((event) => event.type === 'persona.response.cancelled')
     expect(cancelled).toHaveLength(0)
     expect(guardTurnEvents(events).ok).toBe(true)
+  })
+
+  it('uses the injected persona id and clock mode', async () => {
+    const driver = createTextSessionDriver({
+      sessionId: 'session-1',
+      lang: 'en',
+      clockMode: 'wall',
+      personaId: 'tutor',
+      clock: new FakeClock(0),
+      model: scriptedModel({ chunks: ['ok'] }),
+    })
+    const events: SessionEvent[] = []
+    const consumer = (async () => {
+      for await (const event of driver.events) events.push(event)
+    })()
+
+    await driver.send('go')
+    await driver.close()
+    await consumer
+
+    expect(events[0]?.payload).toMatchObject({ clockMode: 'wall' })
+    expect(events.find((event) => event.type === 'turn.granted')?.payload).toMatchObject({
+      grant: { personaId: 'tutor' },
+    })
   })
 
   it('sends the conversation so far to the model', async () => {
@@ -253,6 +286,11 @@ describe('text session driver', () => {
     await harness.driver.send('again')
     await runToEnd(harness)
 
+    expect(model.requests[1]?.messages).toEqual([
+      { role: 'user', content: 'go' },
+      { role: 'assistant', content: 'One two ' },
+      { role: 'user', content: 'again' },
+    ])
     const committed = harness.events.filter((event) => event.type === 'persona.response.committed')
     expect(committed).toHaveLength(1)
     expect(committed[0]?.payload).toMatchObject({ text: 'One two three' })
@@ -381,6 +419,148 @@ describe('text session driver', () => {
     })
   })
 
+  it('cancels at the exact grant expiry boundary', async () => {
+    const clock = new FakeClock(0)
+    const model = scriptedModel({
+      chunks: ['one'],
+      beforeChunk: async () => {
+        await clock.advance(10)
+      },
+    })
+    const harness = openSession(model, { clock, grantTtlMs: 10 })
+
+    await harness.driver.send('go')
+    await runToEnd(harness)
+
+    expect(
+      harness.events.find((event) => event.type === 'persona.response.cancelled')?.payload,
+    ).toMatchObject({ reason: 'timeout', partialText: 'one' })
+    expect(harness.events.some((event) => event.type === 'persona.response.committed')).toBe(false)
+  })
+
+  it('ignores an empty chunk without creating a sequence gap', async () => {
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'empty-chunk',
+      async *complete() {
+        yield { text: '', done: false }
+        yield { text: 'ok', done: true }
+      },
+    }
+    const harness = openSession(model)
+
+    await harness.driver.send('go')
+    await runToEnd(harness)
+
+    expect(chunks(harness.events)).toEqual(['ok'])
+    expect(
+      harness.events.find((event) => event.type === 'persona.response.committed')?.payload,
+    ).toMatchObject({ text: 'ok' })
+  })
+
+  it('keeps usage from an earlier chunk when the final chunk has none', async () => {
+    const usage = { inputTokens: 1, outputTokens: 2 }
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'usage-earlier',
+      async *complete() {
+        yield { text: 'a', done: false, usage }
+        yield { text: 'b', done: true }
+      },
+    }
+    const harness = openSession(model)
+
+    await harness.driver.send('go')
+    await runToEnd(harness)
+
+    expect(
+      harness.events.find((event) => event.type === 'persona.response.committed')?.payload,
+    ).toMatchObject({ text: 'ab', usage })
+  })
+
+  it('cancels when the interrupt lands before the commit', async () => {
+    let abort: () => void = () => undefined
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'abort-before-commit',
+      async *complete() {
+        yield { text: 'done', done: true }
+        abort()
+      },
+    }
+    const harness = openSession(model)
+    abort = () => void harness.driver.interrupt()
+
+    await harness.driver.send('go')
+    await runToEnd(harness)
+
+    expect(
+      harness.events.find((event) => event.type === 'persona.response.cancelled')?.payload,
+    ).toMatchObject({ reason: 'interrupted', partialText: 'done' })
+    expect(harness.events.some((event) => event.type === 'persona.response.committed')).toBe(false)
+  })
+
+  it('does not append an empty assistant message after an immediate cancel', async () => {
+    const requests: TextModelRequest[] = []
+    let call = 0
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'hang-first',
+      async *complete(request, options) {
+        requests.push(request)
+        call += 1
+        if (call === 1) {
+          await new Promise<void>((resolve) => {
+            if (options?.signal?.aborted === true) {
+              resolve()
+              return
+            }
+            options?.signal?.addEventListener('abort', () => resolve(), { once: true })
+          })
+          return
+        }
+        yield { text: 'ok', done: true }
+      },
+    }
+    const harness = openSession(model)
+    let interrupted = false
+
+    harness.onEvent((event) => {
+      if (interrupted || event.type !== 'persona.response.started') return
+      interrupted = true
+      void harness.driver.interrupt()
+    })
+
+    await harness.driver.send('first')
+    await harness.driver.send('second')
+    await runToEnd(harness)
+
+    expect(requests[1]?.messages).toEqual([
+      { role: 'user', content: 'first' },
+      { role: 'user', content: 'second' },
+    ])
+    const cancelled = harness.events.find((event) => event.type === 'persona.response.cancelled')
+    expect(cancelled?.payload).not.toHaveProperty('partialText')
+  })
+
+  it('treats a synchronous complete() throw as a provider failure', async () => {
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'sync-throw',
+      complete() {
+        throw new Error('no iterator')
+      },
+    }
+    const harness = openSession(model)
+
+    await harness.driver.send('go')
+    await runToEnd(harness)
+
+    expect(
+      harness.events.find((event) => event.type === 'persona.response.cancelled')?.payload,
+    ).toMatchObject({ reason: 'provider_failure' })
+  })
+
   it('does nothing when interrupted while idle', async () => {
     const harness = openSession(scriptedModel({ chunks: ['One'] }))
 
@@ -442,6 +622,103 @@ describe('text session driver', () => {
       harness.events.find((event) => event.type === 'persona.response.cancelled')?.payload,
     ).toMatchObject({ reason: 'provider_failure' })
     expect(harness.events.some((event) => event.type === 'persona.response.committed')).toBe(false)
+  })
+
+  it('treats a non-string chunk as a provider failure', async () => {
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'bad-chunk',
+      async *complete() {
+        yield { text: 42 as unknown as string, done: false }
+        yield { text: 'ok', done: true }
+      },
+    }
+    const harness = openSession(model)
+
+    await harness.driver.send('go')
+    await runToEnd(harness)
+
+    expect(
+      harness.events.find((event) => event.type === 'persona.response.cancelled')?.payload,
+    ).toMatchObject({ reason: 'provider_failure' })
+  })
+
+  it('classifies a provider throw after an interrupt as interrupted', async () => {
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'throw-on-abort',
+      async *complete(_request, options) {
+        yield { text: 'one', done: false }
+        await new Promise<void>((resolve) => {
+          if (options?.signal?.aborted === true) {
+            resolve()
+            return
+          }
+          options?.signal?.addEventListener('abort', () => resolve(), { once: true })
+        })
+        throw new Error('stream broke while aborting')
+      },
+    }
+    const harness = openSession(model)
+
+    harness.onEvent((event) => {
+      if (event.type === 'persona.response.chunk') void harness.driver.interrupt()
+    })
+
+    await harness.driver.send('go')
+    await runToEnd(harness)
+
+    expect(
+      harness.events.find((event) => event.type === 'persona.response.cancelled')?.payload,
+    ).toMatchObject({ reason: 'interrupted', partialText: 'one' })
+  })
+
+  it('calls the iterator return when an aborted stream closes', async () => {
+    let returned = false
+    let firstChunkSent = false
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'return-on-abort',
+      complete(_request, options) {
+        return {
+          [Symbol.asyncIterator]() {
+            return {
+              async next(): Promise<IteratorResult<TextModelChunk>> {
+                if (!firstChunkSent) {
+                  firstChunkSent = true
+                  return { done: false, value: { text: 'one', done: false } }
+                }
+                await new Promise<void>((resolve) => {
+                  if (options?.signal?.aborted === true) {
+                    resolve()
+                    return
+                  }
+                  options?.signal?.addEventListener('abort', () => resolve(), { once: true })
+                })
+                return { done: true, value: undefined }
+              },
+              return(): Promise<IteratorResult<TextModelChunk>> {
+                returned = true
+                return Promise.resolve({ done: true, value: undefined })
+              },
+            }
+          },
+        }
+      },
+    }
+    const harness = openSession(model)
+
+    harness.onEvent((event) => {
+      if (event.type === 'persona.response.chunk') void harness.driver.interrupt()
+    })
+
+    await harness.driver.send('go')
+    await runToEnd(harness)
+
+    expect(returned).toBe(true)
+    expect(
+      harness.events.find((event) => event.type === 'persona.response.cancelled')?.payload,
+    ).toMatchObject({ reason: 'interrupted', partialText: 'one' })
   })
 
   it('cancels a reply that outlives its grant', async () => {
