@@ -13,7 +13,7 @@ import {
 import { FakeClock, SystemClock, type Clock } from '@rp/shared'
 import { createCannedDemoModel } from './canned-demo.adapter.js'
 import { runCli, type CliIo, type CliProvider } from './cli-main.js'
-import { createFileSessionLog } from './session-log.adapter.js'
+import { createFileSessionLog, type SessionLog } from './session-log.adapter.js'
 
 /**
  * Composition root for the text session CLI (M1 D4/D6).
@@ -123,6 +123,11 @@ export async function main(argv: readonly string[]): Promise<number> {
     return 2
   }
 
+  if (values.task !== undefined && values.task.trim() === '') {
+    io.err('error: --task must not be empty')
+    return 2
+  }
+
   const sessionIdOverride = values['session-id']
   if (sessionIdOverride !== undefined && !isValidSessionId(sessionIdOverride)) {
     io.err(
@@ -184,12 +189,20 @@ export async function main(argv: readonly string[]): Promise<number> {
     ...(values.task === undefined ? {} : { taskId: values.task }),
   }
 
-  const log = await createFileSessionLog({
-    path: logPath,
-    header,
-    clock,
-    wallClock: () => Date.now(),
-  })
+  let log: SessionLog
+  try {
+    log = await createFileSessionLog({
+      path: logPath,
+      header,
+      clock,
+      wallClock: () => Date.now(),
+    })
+  } catch (error) {
+    io.err(
+      `error: could not create the session log: ${error instanceof Error ? error.message : String(error)}`,
+    )
+    return 2
+  }
 
   const rl = createInterface({
     input: process.stdin,

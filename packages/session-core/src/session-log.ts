@@ -6,9 +6,14 @@ import {
   expectedContentClass,
   normalizedTranscriptJsonl,
   parseTranscriptRecord,
+  TranscriptSchemaVersionError,
   type TranscriptRecord,
 } from './transcript.js'
-import { TRANSCRIPT_SCHEMA_VERSION, transcriptSchemaVersionSchema } from './version.js'
+import {
+  TRANSCRIPT_SCHEMA_VERSION,
+  majorOfSchemaVersion,
+  transcriptSchemaVersionSchema,
+} from './version.js'
 
 /**
  * Append-only session log (M1 D3).
@@ -112,12 +117,6 @@ export interface ReplayedSession extends ParsedSessionLog {
   readonly jsonl: string
 }
 
-function majorOf(version: string): string {
-  const [major] = version.split('.')
-  if (major === undefined) throw new SessionLogFormatError(`invalid schema version "${version}"`)
-  return major
-}
-
 /**
  * Parse a log. Throws on a missing/invalid header, a malformed interior line,
  * a non-event record, or an unreadable major version. An incomplete final line
@@ -146,7 +145,9 @@ export function parseSessionLog(text: string): ParsedSessionLog {
   }
   const header = headerResult.data
 
-  if (majorOf(header.schemaVersion) !== majorOf(TRANSCRIPT_SCHEMA_VERSION)) {
+  if (
+    majorOfSchemaVersion(header.schemaVersion) !== majorOfSchemaVersion(TRANSCRIPT_SCHEMA_VERSION)
+  ) {
     throw new SessionLogVersionError(header.schemaVersion, TRANSCRIPT_SCHEMA_VERSION)
   }
 
@@ -171,10 +172,27 @@ export function parseSessionLog(text: string): ParsedSessionLog {
       throw new SessionLogFormatError(`session log line ${index + 1} is not valid JSON`)
     }
 
-    records.push(parseTranscriptRecord(parsedLine))
+    records.push(parseRecord(parsedLine, index + 1))
   }
 
   return { header, records, truncated }
+}
+
+function parseRecord(line: unknown, lineNumber: number): TranscriptRecord {
+  try {
+    return parseTranscriptRecord(line)
+  } catch (error) {
+    if (error instanceof TranscriptSchemaVersionError) {
+      throw new SessionLogVersionError(error.version, error.expectedVersion)
+    }
+    throw new SessionLogFormatError(
+      `session log line ${lineNumber} is not a valid transcript record: ${messageOf(error)}`,
+    )
+  }
+}
+
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }
 
 /**

@@ -45,7 +45,10 @@ export interface CompletionProvider {
   readonly kind: 'canned' | 'live'
   /** Label recorded with the run. Never contains secrets. */
   readonly label: string
-  complete(request: CompletionRequest): AsyncIterable<CompletionChunk>
+  complete(
+    request: CompletionRequest,
+    options?: { readonly signal?: AbortSignal },
+  ): AsyncIterable<CompletionChunk>
   /**
    * Release any per-trial resource (connection, worker, temp file). The
    * evaluation harness calls this once after every trial, whether the trial
@@ -144,11 +147,11 @@ export function createCannedProvider(
   return {
     kind: 'canned',
     label,
-    complete(request) {
+    complete(request, options) {
       const hash = cannedRequestHash(request)
       const entry = byHash.get(hash)
       if (entry === undefined) throw new CannedProviderMissError(request, hash)
-      return replayChunks(entry.chunks)
+      return replayChunks(entry.chunks, options?.signal)
     },
   }
 }
@@ -171,8 +174,20 @@ export function createLiveProvider(label: string): CompletionProvider {
   }
 }
 
-async function* replayChunks(chunks: readonly string[]): AsyncIterable<CompletionChunk> {
+async function* replayChunks(
+  chunks: readonly string[],
+  signal?: AbortSignal,
+): AsyncIterable<CompletionChunk> {
   for (const [index, text] of chunks.entries()) {
+    if (signal?.aborted === true) throw new ReplayAbortedError()
     yield { text, done: index === chunks.length - 1 }
+  }
+}
+
+/** The caller's budget expired while a canned response was streaming. */
+export class ReplayAbortedError extends Error {
+  constructor() {
+    super('canned replay was aborted')
+    this.name = 'ReplayAbortedError'
   }
 }

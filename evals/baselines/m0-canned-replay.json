@@ -208,10 +208,10 @@
       "taskId": "fr-b2-refuser-reunion-003",
       "lang": "fr",
       "ok": true,
-      "records": 29,
-      "transcriptSha256": "ea401487c04b79d0776378f65225d637cffb9d88733d5e5123725950d3f51615",
+      "records": 26,
+      "transcriptSha256": "f3ab31712077bf7c1bd2f2b9a29a566d1a5df724f76cf55166569229c9355319",
       "transcriptPath": "transcripts/round-0/fr/fr-b2-refuser-reunion-003.jsonl",
-      "simDurationMs": 1980,
+      "simDurationMs": 1950,
       "providerOutage": false
     },
     {
@@ -219,10 +219,10 @@
       "taskId": "fr-b2-point-matin-002",
       "lang": "fr",
       "ok": true,
-      "records": 28,
-      "transcriptSha256": "312264dce385be5622dce092f162991563c0034b8d7bd5b01902f2008e3095cb",
+      "records": 25,
+      "transcriptSha256": "4343f07ded9fd14a258eda6144bfa1de4e979a13c19961eadcb87227fd08fa66",
       "transcriptPath": "transcripts/round-0/fr/fr-b2-point-matin-002.jsonl",
-      "simDurationMs": 1960,
+      "simDurationMs": 1930,
       "providerOutage": false
     },
     {
@@ -230,10 +230,10 @@
       "taskId": "fr-b1-rapport-delai-001",
       "lang": "fr",
       "ok": true,
-      "records": 28,
-      "transcriptSha256": "233d74e031c777826b68c41b7974f083cfbb83d05325c8cbf5318edc453fa287",
+      "records": 25,
+      "transcriptSha256": "2d40dae2afc03df28e62b94c18640d95a4df50f85689890087e83f4565889e06",
       "transcriptPath": "transcripts/round-0/fr/fr-b1-rapport-delai-001.jsonl",
-      "simDurationMs": 1960,
+      "simDurationMs": 1930,
       "providerOutage": false
     },
     {
@@ -241,10 +241,10 @@
       "taskId": "en-b2-standup-clarify-002",
       "lang": "en",
       "ok": true,
-      "records": 28,
-      "transcriptSha256": "af87b13e5e89a707e7c94ec37318ffa35b3bee13bfaf4236449351f7816af5d9",
+      "records": 25,
+      "transcriptSha256": "4bb908ef747c05c7e90e17ba88a2124e07714478e5d70bda04f3f3eb1d99d714",
       "transcriptPath": "transcripts/round-0/en/en-b2-standup-clarify-002.jsonl",
-      "simDurationMs": 1960,
+      "simDurationMs": 1930,
       "providerOutage": false
     },
     {
@@ -252,10 +252,10 @@
       "taskId": "en-b2-decline-meeting-003",
       "lang": "en",
       "ok": true,
-      "records": 29,
-      "transcriptSha256": "74b57f2db7c68053e735d4132e363f73d86eb234e1c470ee8969df40a712038f",
+      "records": 26,
+      "transcriptSha256": "0c71b8e20e1b43d4f3592350d877acd51aaf09eb53002861669c59b54b3308ab",
       "transcriptPath": "transcripts/round-0/en/en-b2-decline-meeting-003.jsonl",
-      "simDurationMs": 1980,
+      "simDurationMs": 1950,
       "providerOutage": false
     },
     {
@@ -263,10 +263,10 @@
       "taskId": "en-b1-report-deadline-001",
       "lang": "en",
       "ok": true,
-      "records": 29,
-      "transcriptSha256": "cfa891ac52d101739eb944f4ef4fe9f650362e09d03f2b80adc8fcfcd3af0325",
+      "records": 26,
+      "transcriptSha256": "9d48d13f4d96b0af3e8cb7db9b07425fc9e7d5c721c0790ed097fa985ba70d54",
       "transcriptPath": "transcripts/round-0/en/en-b1-report-deadline-001.jsonl",
-      "simDurationMs": 1980,
+      "simDurationMs": 1950,
       "providerOutage": false
     },
     {
@@ -274,10 +274,10 @@
       "taskId": "fr-b2-refuser-reunion-003",
       "lang": "fr",
       "ok": true,
-      "records": 29,
-      "transcriptSha256": "ea401487c04b79d0776378f65225d637cffb9d88733d5e5123725950d3f51615",
+      "records": 26,
+      "transcriptSha256": "f3ab31712077bf7c1bd2f2b9a29a566d1a5df724f76cf55166569229c9355319",
       "transcriptPath": "transcripts/round-1/fr/fr-b2-refuser-reunion-003.jsonl",
-      "simDurationMs": 1980,
+      "simDurationMs": 1950,
       "providerOutage": false
     },
     {
@@ -285,10 +285,10 @@
       "taskId": "fr-b2-point-matin-002",
       "lang": "fr",
       "ok": true,
-      "records": 28,
-      "transcriptSha256": "312264dce385be5622dce092f162991563c0034b8d7bd5b01902f2008e3095cb",
+      "records": 25,
+      "transcriptSha256": "4343f07ded9fd14a258eda6144bfa1de4e979a13c19961eadcb87227fd08fa66",
       "transcriptPath": "transcripts/round-1/fr/fr-b2-point-matin-002.jsonl",
-      "simDurationMs": 1960,
+      "simDurationMs": 1930,
       "providerOutage": false
     },
     {
@@ -296,10 +296,10 @@
       "taskId": "fr-b1-rapport-delai-001",
       "lang": "fr",
       "ok": true,
-      "records": 28,
-      "transcriptSha256": "233d74e031c777826b68c41b7974f083cfbb83d05325c8cbf5318edc453fa287",
+      "records": 25,
+      "transcriptSha256": "2d40dae2afc03df28e62b94c18640d95a4df50f85689890087e83f4565889e06",
       "transcriptPath": "transcripts/round-1/fr/fr-b1-rapport-delai-001.jsonl",
-      "simDurationMs": 1960,
+      "simDurationMs": 1930,
       "providerOutage": false
     },
     {
@@ -307,10 +307,10 @@
       "taskId": "en-b2-standup-clarify-002",
       "lang": "en",
       "ok": true,
-      "records": 28,
-      "transcriptSha256": "af87b13e5e89a707e7c94ec37318ffa35b3bee13bfaf4236449351f7816af5d9",
+      "records": 25,
+      "transcriptSha256": "4bb908ef747c05c7e90e17ba88a2124e07714478e5d70bda04f3f3eb1d99d714",
       "transcriptPath": "transcripts/round-1/en/en-b2-standup-clarify-002.jsonl",
-      "simDurationMs": 1960,
+      "simDurationMs": 1930,
       "providerOutage": false
     },
     {
@@ -318,10 +318,10 @@
       "taskId": "en-b2-decline-meeting-003",
       "lang": "en",
       "ok": true,
-      "records": 29,
-      "transcriptSha256": "74b57f2db7c68053e735d4132e363f73d86eb234e1c470ee8969df40a712038f",
+      "records": 26,
+      "transcriptSha256": "0c71b8e20e1b43d4f3592350d877acd51aaf09eb53002861669c59b54b3308ab",
       "transcriptPath": "transcripts/round-1/en/en-b2-decline-meeting-003.jsonl",
-      "simDurationMs": 1980,
+      "simDurationMs": 1950,
       "providerOutage": false
     },
     {
@@ -329,10 +329,10 @@
       "taskId": "en-b1-report-deadline-001",
       "lang": "en",
       "ok": true,
-      "records": 29,
-      "transcriptSha256": "cfa891ac52d101739eb944f4ef4fe9f650362e09d03f2b80adc8fcfcd3af0325",
+      "records": 26,
+      "transcriptSha256": "9d48d13f4d96b0af3e8cb7db9b07425fc9e7d5c721c0790ed097fa985ba70d54",
       "transcriptPath": "transcripts/round-1/en/en-b1-report-deadline-001.jsonl",
-      "simDurationMs": 1980,
+      "simDurationMs": 1950,
       "providerOutage": false
     }
   ],
@@ -342,84 +342,84 @@
       "lang": "fr",
       "round": 0,
       "path": "transcripts/round-0/fr/fr-b2-refuser-reunion-003.jsonl",
-      "sha256": "ea401487c04b79d0776378f65225d637cffb9d88733d5e5123725950d3f51615"
+      "sha256": "f3ab31712077bf7c1bd2f2b9a29a566d1a5df724f76cf55166569229c9355319"
     },
     {
       "taskId": "fr-b2-point-matin-002",
       "lang": "fr",
       "round": 0,
       "path": "transcripts/round-0/fr/fr-b2-point-matin-002.jsonl",
-      "sha256": "312264dce385be5622dce092f162991563c0034b8d7bd5b01902f2008e3095cb"
+      "sha256": "4343f07ded9fd14a258eda6144bfa1de4e979a13c19961eadcb87227fd08fa66"
     },
     {
       "taskId": "fr-b1-rapport-delai-001",
       "lang": "fr",
       "round": 0,
       "path": "transcripts/round-0/fr/fr-b1-rapport-delai-001.jsonl",
-      "sha256": "233d74e031c777826b68c41b7974f083cfbb83d05325c8cbf5318edc453fa287"
+      "sha256": "2d40dae2afc03df28e62b94c18640d95a4df50f85689890087e83f4565889e06"
     },
     {
       "taskId": "en-b2-standup-clarify-002",
       "lang": "en",
       "round": 0,
       "path": "transcripts/round-0/en/en-b2-standup-clarify-002.jsonl",
-      "sha256": "af87b13e5e89a707e7c94ec37318ffa35b3bee13bfaf4236449351f7816af5d9"
+      "sha256": "4bb908ef747c05c7e90e17ba88a2124e07714478e5d70bda04f3f3eb1d99d714"
     },
     {
       "taskId": "en-b2-decline-meeting-003",
       "lang": "en",
       "round": 0,
       "path": "transcripts/round-0/en/en-b2-decline-meeting-003.jsonl",
-      "sha256": "74b57f2db7c68053e735d4132e363f73d86eb234e1c470ee8969df40a712038f"
+      "sha256": "0c71b8e20e1b43d4f3592350d877acd51aaf09eb53002861669c59b54b3308ab"
     },
     {
       "taskId": "en-b1-report-deadline-001",
       "lang": "en",
       "round": 0,
       "path": "transcripts/round-0/en/en-b1-report-deadline-001.jsonl",
-      "sha256": "cfa891ac52d101739eb944f4ef4fe9f650362e09d03f2b80adc8fcfcd3af0325"
+      "sha256": "9d48d13f4d96b0af3e8cb7db9b07425fc9e7d5c721c0790ed097fa985ba70d54"
     },
     {
       "taskId": "fr-b2-refuser-reunion-003",
       "lang": "fr",
       "round": 1,
       "path": "transcripts/round-1/fr/fr-b2-refuser-reunion-003.jsonl",
-      "sha256": "ea401487c04b79d0776378f65225d637cffb9d88733d5e5123725950d3f51615"
+      "sha256": "f3ab31712077bf7c1bd2f2b9a29a566d1a5df724f76cf55166569229c9355319"
     },
     {
       "taskId": "fr-b2-point-matin-002",
       "lang": "fr",
       "round": 1,
       "path": "transcripts/round-1/fr/fr-b2-point-matin-002.jsonl",
-      "sha256": "312264dce385be5622dce092f162991563c0034b8d7bd5b01902f2008e3095cb"
+      "sha256": "4343f07ded9fd14a258eda6144bfa1de4e979a13c19961eadcb87227fd08fa66"
     },
     {
       "taskId": "fr-b1-rapport-delai-001",
       "lang": "fr",
       "round": 1,
       "path": "transcripts/round-1/fr/fr-b1-rapport-delai-001.jsonl",
-      "sha256": "233d74e031c777826b68c41b7974f083cfbb83d05325c8cbf5318edc453fa287"
+      "sha256": "2d40dae2afc03df28e62b94c18640d95a4df50f85689890087e83f4565889e06"
     },
     {
       "taskId": "en-b2-standup-clarify-002",
       "lang": "en",
       "round": 1,
       "path": "transcripts/round-1/en/en-b2-standup-clarify-002.jsonl",
-      "sha256": "af87b13e5e89a707e7c94ec37318ffa35b3bee13bfaf4236449351f7816af5d9"
+      "sha256": "4bb908ef747c05c7e90e17ba88a2124e07714478e5d70bda04f3f3eb1d99d714"
     },
     {
       "taskId": "en-b2-decline-meeting-003",
       "lang": "en",
       "round": 1,
       "path": "transcripts/round-1/en/en-b2-decline-meeting-003.jsonl",
-      "sha256": "74b57f2db7c68053e735d4132e363f73d86eb234e1c470ee8969df40a712038f"
+      "sha256": "0c71b8e20e1b43d4f3592350d877acd51aaf09eb53002861669c59b54b3308ab"
     },
     {
       "taskId": "en-b1-report-deadline-001",
       "lang": "en",
       "round": 1,
       "path": "transcripts/round-1/en/en-b1-report-deadline-001.jsonl",
-      "sha256": "cfa891ac52d101739eb944f4ef4fe9f650362e09d03f2b80adc8fcfcd3af0325"
+      "sha256": "9d48d13f4d96b0af3e8cb7db9b07425fc9e7d5c721c0790ed097fa985ba70d54"
     }
   ],
   "summary": {
@@ -432,7 +432,7 @@
     "failedTrials": 0
   },
   "versions": {
-    "codeSha": "7e7867c63bef73dc5d3485545850ec4bd813697b",
+    "codeSha": "f8683a49975a3d39060c149b912d28b1225c23a2",
     "transcriptSchemaVersion": "1.2.0",
     "taskDataset": "synthetic-workplace",
     "taskVersion": "v1",
@@ -442,6 +442,6 @@
     "rubricVersion": "m0-harness-v1",
     "seed": 20261025
   },
-  "startedAt": "2026-11-08T00:27:47.000Z",
-  "finishedAt": "2026-11-08T00:27:47.029Z"
+  "startedAt": "2026-11-08T16:12:10.916Z",
+  "finishedAt": "2026-11-08T16:12:10.947Z"
 }

@@ -1,29 +1,33 @@
 {
   "schemaVersion": 1,
   "suite": "m1-mutation",
-  "generatedAt": "2026-11-08T03:18:54.340Z",
-  "commit": "90ab4b6147da0f3f3956457120bec9968bfb7cf1",
+  "generatedAt": "2026-11-08T16:36:08.779Z",
+  "commit": "f8683a49975a3d39060c149b912d28b1225c23a2",
   "tool": "@stryker-mutator/core 10.1.1 + @stryker-mutator/vitest-runner 10.1.1",
   "command": "npm run mutation",
   "note": "Measured floor. Timed-out mutants count as killed; runtime/compile errors are excluded. Not a PR gate.",
   "global": {
-    "mutants": 1153,
-    "killed": 819,
-    "timeout": 14,
-    "survived": 225,
-    "noCoverage": 78,
-    "total": 73.33,
-    "covered": 78.73
+    "mutants": 1240,
+    "killed": 932,
+    "timeout": 18,
+    "survived": 220,
+    "noCoverage": 53,
+    "ignored": 0,
+    "errors": 17,
+    "total": 77.6778413736713,
+    "covered": 81.19658119658119
   },
   "packages": {
     "apps/cli": {
-      "mutants": 184,
-      "killed": 95,
+      "mutants": 191,
+      "killed": 121,
       "timeout": 0,
-      "survived": 50,
-      "noCoverage": 39,
-      "total": 51.63,
-      "covered": 65.52
+      "survived": 43,
+      "noCoverage": 27,
+      "ignored": 0,
+      "errors": 0,
+      "total": 63.35078534031413,
+      "covered": 73.78048780487805
     },
     "packages/pipeline": {
       "mutants": 228,
@@ -31,28 +35,34 @@
       "timeout": 6,
       "survived": 57,
       "noCoverage": 14,
-      "total": 68.86,
-      "covered": 73.36
+      "ignored": 0,
+      "errors": 0,
+      "total": 68.85964912280701,
+      "covered": 73.36448598130842
     },
     "packages/session-core": {
-      "mutants": 741,
-      "killed": 573,
-      "timeout": 8,
-      "survived": 118,
-      "noCoverage": 25,
-      "total": 80.25,
-      "covered": 83.12
+      "mutants": 821,
+      "killed": 660,
+      "timeout": 12,
+      "survived": 120,
+      "noCoverage": 12,
+      "ignored": 0,
+      "errors": 17,
+      "total": 83.5820895522388,
+      "covered": 84.84848484848484
     }
   },
   "files": {
     "apps/cli/src/cli-main.ts": {
-      "mutants": 171,
-      "killed": 84,
+      "mutants": 178,
+      "killed": 110,
       "timeout": 0,
-      "survived": 48,
-      "noCoverage": 39,
-      "total": 49.12,
-      "covered": 63.64
+      "survived": 41,
+      "noCoverage": 27,
+      "ignored": 0,
+      "errors": 0,
+      "total": 61.79775280898876,
+      "covered": 72.84768211920529
     },
     "packages/pipeline/src/openai-compatible.ts": {
       "mutants": 163,
@@ -60,8 +70,10 @@
       "timeout": 6,
       "survived": 38,
       "noCoverage": 13,
-      "total": 68.71,
-      "covered": 74.67
+      "ignored": 0,
+      "errors": 0,
+      "total": 68.71165644171779,
+      "covered": 74.66666666666667
     },
     "packages/pipeline/src/openrouter-text.adapter.ts": {
       "mutants": 38,
@@ -69,35 +81,43 @@
       "timeout": 0,
       "survived": 10,
       "noCoverage": 1,
-      "total": 71.05,
-      "covered": 72.97
+      "ignored": 0,
+      "errors": 0,
+      "total": 71.05263157894737,
+      "covered": 72.97297297297297
     },
     "packages/session-core/src/driver.ts": {
-      "mutants": 237,
-      "killed": 193,
-      "timeout": 5,
-      "survived": 21,
-      "noCoverage": 18,
-      "total": 83.54,
-      "covered": 90.41
+      "mutants": 301,
+      "killed": 250,
+      "timeout": 9,
+      "survived": 35,
+      "noCoverage": 7,
+      "ignored": 0,
+      "errors": 0,
+      "total": 86.04651162790698,
+      "covered": 88.09523809523809
     },
     "packages/session-core/src/session-log.ts": {
-      "mutants": 95,
-      "killed": 70,
+      "mutants": 98,
+      "killed": 85,
       "timeout": 0,
-      "survived": 20,
-      "noCoverage": 5,
-      "total": 73.68,
-      "covered": 77.78
+      "survived": 10,
+      "noCoverage": 3,
+      "ignored": 0,
+      "errors": 0,
+      "total": 86.73469387755102,
+      "covered": 89.47368421052632
     },
     "packages/session-core/src/transcript.ts": {
-      "mutants": 63,
-      "killed": 48,
+      "mutants": 71,
+      "killed": 54,
       "timeout": 0,
-      "survived": 13,
+      "survived": 15,
       "noCoverage": 2,
-      "total": 76.19,
-      "covered": 78.69
+      "ignored": 0,
+      "errors": 0,
+      "total": 76.05633802816901,
+      "covered": 78.26086956521739
     },
     "apps/cli/src/session-log.adapter.ts": {
       "mutants": 13,
@@ -105,8 +125,10 @@
       "timeout": 0,
       "survived": 2,
       "noCoverage": 0,
-      "total": 84.62,
-      "covered": 84.62
+      "ignored": 0,
+      "errors": 0,
+      "total": 84.61538461538461,
+      "covered": 84.61538461538461
     },
     "packages/pipeline/src/groq-text.adapter.ts": {
       "mutants": 27,
@@ -114,8 +136,10 @@
       "timeout": 0,
       "survived": 9,
       "noCoverage": 0,
-      "total": 66.67,
-      "covered": 66.67
+      "ignored": 0,
+      "errors": 0,
+      "total": 66.66666666666666,
+      "covered": 66.66666666666666
     },
     "packages/session-core/src/events.ts": {
       "mutants": 107,
@@ -123,8 +147,10 @@
       "timeout": 0,
       "survived": 32,
       "noCoverage": 0,
-      "total": 64.44,
-      "covered": 64.44
+      "ignored": 0,
+      "errors": 17,
+      "total": 64.44444444444444,
+      "covered": 64.44444444444444
     },
     "packages/session-core/src/guards.ts": {
       "mutants": 193,
@@ -132,17 +158,21 @@
       "timeout": 2,
       "survived": 24,
       "noCoverage": 0,
-      "total": 87.56,
-      "covered": 87.56
+      "ignored": 0,
+      "errors": 0,
+      "total": 87.56476683937824,
+      "covered": 87.56476683937824
     },
     "packages/session-core/src/version.ts": {
-      "mutants": 46,
-      "killed": 37,
+      "mutants": 51,
+      "killed": 46,
       "timeout": 1,
-      "survived": 8,
+      "survived": 4,
       "noCoverage": 0,
-      "total": 82.61,
-      "covered": 82.61
+      "ignored": 0,
+      "errors": 0,
+      "total": 92.15686274509804,
+      "covered": 92.15686274509804
     }
   }
 }

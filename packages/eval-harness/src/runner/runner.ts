@@ -43,6 +43,7 @@ import { createDeterministicInvariantGrader, type Grader, type TrialRecord } fro
 import {
   TrialTimeoutError,
   createTrialEnvironment,
+  settleWithin,
   snapshotEnvironment,
   withTrialTimeout,
   type ProviderFactory,
@@ -79,6 +80,9 @@ export interface LoadedTask {
   /** Path relative to the repository root, using `/` separators. */
   readonly relativePath: string
 }
+
+/** Cleanup may not take longer than this; a stuck dispose fails the trial. */
+const DISPOSE_TIMEOUT_MS = 5_000
 
 export interface ExecuteRunOptions {
   /** Repository root: the directory containing `evals/`. */
@@ -216,6 +220,7 @@ export async function executeRun(options: ExecuteRunOptions): Promise<Evaluation
     for (const { task } of orderedTasks) {
       let environment: TrialEnvironment | undefined
       const environmentSnapshot = snapshotEnvironment()
+      let disposeFailure: unknown
 
       try {
         environment = createTrialEnvironment({
@@ -225,16 +230,19 @@ export async function executeRun(options: ExecuteRunOptions): Promise<Evaluation
           providerFactory,
           ...(options.trialTimeoutMs === undefined ? {} : { timeoutMs: options.trialTimeoutMs }),
         })
+        const trial = environment
 
-        const replayPromise = replayTask({
-          runId: manifest.run.runId,
-          executionId,
-          task: environment.task,
-          clock: environment.clock,
-          provider: environment.provider,
-          wallNow: wallClock,
-        })
-        const replayed = await withTrialTimeout(environment, replayPromise)
+        const replayed = await withTrialTimeout(trial, (signal) =>
+          replayTask({
+            runId: manifest.run.runId,
+            executionId,
+            task: trial.task,
+            clock: trial.clock,
+            provider: trial.provider,
+            wallNow: wallClock,
+            signal,
+          }),
+        )
 
         const events: SessionEvent[] = []
         for (const record of replayed.records) {
@@ -296,11 +304,28 @@ export async function executeRun(options: ExecuteRunOptions): Promise<Evaluation
         trials.push(failedTrial(round, task, error))
         roundFailed = true
       } finally {
-        try {
-          await environment?.dispose()
-        } finally {
-          environmentSnapshot.restore()
+        if (environment !== undefined) {
+          try {
+            await settleWithin(
+              environment.dispose(),
+              DISPOSE_TIMEOUT_MS,
+              `trial ${environment.trialId} cleanup exceeded ${DISPOSE_TIMEOUT_MS} ms`,
+            )
+          } catch (error) {
+            disposeFailure = error
+          }
         }
+        environmentSnapshot.restore()
+      }
+
+      if (disposeFailure !== undefined) {
+        roundFailed = true
+        const index = trials.findLastIndex(
+          (trial) => trial.round === round && trial.taskId === task.id && trial.lang === task.lang,
+        )
+        const failed = failedTrial(round, task, disposeFailure)
+        if (index === -1) trials.push(failed)
+        else trials[index] = failed
       }
     }
 

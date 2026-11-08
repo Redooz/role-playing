@@ -4,6 +4,7 @@ import {
   TRANSCRIPT_SCHEMA_VERSION,
   TRANSCRIPT_SCHEMA_VERSION_POLICY,
   isTranscriptSchemaAtLeast,
+  majorOfSchemaVersion,
   transcriptSchemaVersionSchema,
 } from './version.js'
 
@@ -20,6 +21,32 @@ describe('transcript schema versioning policy', () => {
   it('requires a task migration note for a breaking change', () => {
     expect(TRANSCRIPT_SCHEMA_VERSION_POLICY.breakingChangeRequiresTaskMigrationNote).toBe(true)
     expect(TRANSCRIPT_SCHEMA_VERSION_POLICY.taskMigrationNotePath).toMatch(/MIGRATIONS\.md$/)
+  })
+})
+
+describe('majorOfSchemaVersion', () => {
+  it('returns the leading version number', () => {
+    expect(majorOfSchemaVersion('1.2.0')).toBe(1)
+    expect(majorOfSchemaVersion('2.0.0')).toBe(2)
+    expect(majorOfSchemaVersion('10.0.0')).toBe(10)
+  })
+
+  it('rejects a non-version', () => {
+    expect(() => majorOfSchemaVersion('v1')).toThrow(/invalid schema version/)
+    expect(() => majorOfSchemaVersion('1.1')).toThrow(/invalid schema version/)
+  })
+})
+
+describe('transcriptSchemaVersionSchema', () => {
+  it('requires the whole dotted version', () => {
+    for (const invalid of ['1.0.0x', 'x1.0.0', '1.0', 'v1.0.0']) {
+      expect(transcriptSchemaVersionSchema.safeParse(invalid).success).toBe(false)
+    }
+  })
+
+  it('accepts multiple digits in every position', () => {
+    expect(transcriptSchemaVersionSchema.safeParse('01.1.0').success).toBe(true)
+    expect(transcriptSchemaVersionSchema.safeParse('1.1.10').success).toBe(true)
   })
 })
 

@@ -22,9 +22,9 @@ import type { TextModelChunk, TextModelMessage, TextModelPort } from './model-po
  * one would make every transcript fail the §3.2 guard. Grant issuance here is
  * bookkeeping, not a second speaker being chosen.
  *
- * The driver never reads the wall clock. It reads the injected `Clock` for grant
- * expiry only; the consumer stamps transcript timestamps. It has no module-level
- * randomness and makes no random choice in M1.
+ * The driver reads the injected `Clock` for grant expiry and uses a wall-clock
+ * timer only to enforce that expiry against a silent provider. It has no
+ * module-level randomness and makes no random choice in M1.
  */
 
 export class SessionDriverError extends Error {
@@ -55,6 +55,12 @@ export interface CreateTextSessionDriverOptions {
   readonly personaId?: string
   /** Implicit grant lifetime. Defaults to 60 seconds of injected clock time. */
   readonly grantTtlMs?: number
+  /**
+   * Keep at most this many recent messages in the model context. Defaults to
+   * 200. Older messages are dropped so a long live session cannot grow without
+   * bound; M1 has no summarisation policy.
+   */
+  readonly maxHistoryMessages?: number
 }
 
 export interface SessionDriver {
@@ -70,6 +76,23 @@ export interface SessionDriver {
 }
 
 const DEFAULT_GRANT_TTL_MS = 60_000
+const DEFAULT_MAX_HISTORY_MESSAGES = 200
+/** How long a cancelled stream may take to close before the driver moves on. */
+const MAX_ITERATOR_CLOSE_MS = 1_000
+
+/** Resolve when `promise` settles or after `ms`, whichever happens first. */
+async function settleWithin(promise: Promise<unknown>, ms: number): Promise<void> {
+  let timer: NodeJS.Timeout | undefined
+  const timeout = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, ms)
+  })
+
+  try {
+    await Promise.race([promise, timeout])
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+  }
+}
 const DEFAULT_PERSONA_ID = 'persona-1'
 
 /**
@@ -156,6 +179,7 @@ class TextSessionDriver implements SessionDriver {
   readonly #lang: SessionLanguage
   readonly #personaId: string
   readonly #grantTtlMs: number
+  readonly #maxHistoryMessages: number
   readonly #messages: TextModelMessage[] = []
 
   #closed = false
@@ -169,6 +193,10 @@ class TextSessionDriver implements SessionDriver {
     this.#lang = options.lang
     this.#personaId = options.personaId ?? DEFAULT_PERSONA_ID
     this.#grantTtlMs = options.grantTtlMs ?? DEFAULT_GRANT_TTL_MS
+    this.#maxHistoryMessages = options.maxHistoryMessages ?? DEFAULT_MAX_HISTORY_MESSAGES
+    if (!Number.isInteger(this.#maxHistoryMessages) || this.#maxHistoryMessages < 1) {
+      throw new SessionDriverError('maxHistoryMessages must be a positive integer')
+    }
     this.events = this.#queue
 
     this.#emit('session.started', {
@@ -188,7 +216,7 @@ class TextSessionDriver implements SessionDriver {
     if (this.#closed) throw new SessionClosedError()
 
     this.#emit('user.utterance.committed', { text })
-    this.#messages.push({ role: 'user', content: text })
+    this.#appendMessage({ role: 'user', content: text })
 
     this.#turnCounter += 1
     const turnId = `${this.sessionId}-turn-${this.#turnCounter}`
@@ -227,6 +255,12 @@ class TextSessionDriver implements SessionDriver {
     this.#queue.push({ type, payload } as SessionEvent)
   }
 
+  #appendMessage(message: TextModelMessage): void {
+    this.#messages.push(message)
+    const overflow = this.#messages.length - this.#maxHistoryMessages
+    if (overflow > 0) this.#messages.splice(0, overflow)
+  }
+
   async #runTurn(turn: { turnId: string; grantId: string; expiresAtMs: number }): Promise<void> {
     const controller = new AbortController()
     let resolveDone: () => void = () => undefined
@@ -255,6 +289,7 @@ class TextSessionDriver implements SessionDriver {
     let usage: TextModelUsage | undefined
     let outcome: TurnOutcome = 'committed'
     let iterator: AsyncIterator<TextModelChunk> | undefined
+    let deadlineTimer: NodeJS.Timeout | undefined
 
     try {
       iterator = this.#model
@@ -263,6 +298,21 @@ class TextSessionDriver implements SessionDriver {
           { signal: controller.signal },
         )
         [Symbol.asyncIterator]()
+
+      // A grant is a real deadline, not only a boundary check. The timer ends a
+      // silent provider; the abort promise ends an in-flight read when the caller
+      // interrupts, even if the provider ignores the abort signal.
+      const remainingMs = Math.max(0, turn.expiresAtMs - this.#clock.now())
+      const deadline = new Promise<'deadline'>((resolve) => {
+        deadlineTimer = setTimeout(() => resolve('deadline'), remainingMs)
+      })
+      const aborted = new Promise<'aborted'>((resolve) => {
+        if (controller.signal.aborted) {
+          resolve('aborted')
+          return
+        }
+        controller.signal.addEventListener('abort', () => resolve('aborted'), { once: true })
+      })
 
       while (true) {
         if (controller.signal.aborted) {
@@ -274,10 +324,25 @@ class TextSessionDriver implements SessionDriver {
           break
         }
 
-        const next = await iterator.next()
-        if (next.done === true) break
+        const next = await Promise.race([
+          iterator.next().then((value) => ({ kind: 'next' as const, value })),
+          deadline.then(() => ({ kind: 'deadline' as const })),
+          aborted.then(() => ({ kind: 'aborted' as const })),
+        ])
 
-        const chunk = next.value
+        if (next.kind === 'deadline') {
+          controller.abort()
+          outcome = 'timeout'
+          break
+        }
+        if (next.kind === 'aborted') {
+          outcome = 'interrupted'
+          break
+        }
+
+        if (next.value.done === true) break
+
+        const chunk = next.value.value
         if (controller.signal.aborted) {
           outcome = 'interrupted'
           break
@@ -316,13 +381,16 @@ class TextSessionDriver implements SessionDriver {
       // fabricated or empty committed one. The caller decides whether to retry.
       outcome = controller.signal.aborted ? 'interrupted' : 'provider_failure'
     } finally {
-      if (iterator?.return !== undefined) {
+      if (deadlineTimer !== undefined) clearTimeout(deadlineTimer)
+      const closeIterator = iterator
+      const close = (async () => {
         try {
-          await iterator.return()
+          await closeIterator?.return?.()
         } catch {
           // A failing close after a failed stream must not mask the outcome.
         }
-      }
+      })()
+      await settleWithin(close, MAX_ITERATOR_CLOSE_MS)
     }
 
     if (outcome === 'committed') {
@@ -331,13 +399,13 @@ class TextSessionDriver implements SessionDriver {
         text,
         ...(usage === undefined ? {} : { usage }),
       })
-      this.#messages.push({ role: 'assistant', content: text })
+      this.#appendMessage({ role: 'assistant', content: text })
       return
     }
 
     // Partial output is preserved as context and marked interrupted (§2.1), so
     // the next turn can see what was already said.
-    if (text.length > 0) this.#messages.push({ role: 'assistant', content: text })
+    if (text.length > 0) this.#appendMessage({ role: 'assistant', content: text })
 
     const reason =
       outcome === 'timeout'

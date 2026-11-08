@@ -11,6 +11,7 @@ export function scoreMutants(mutants) {
   let timeout = 0
   let survived = 0
   let noCoverage = 0
+  let ignored = 0
   let errors = 0
 
   for (const mutant of mutants) {
@@ -26,6 +27,9 @@ export function scoreMutants(mutants) {
         break
       case 'NoCoverage':
         noCoverage += 1
+        break
+      case 'Ignored':
+        ignored += 1
         break
       default:
         // RuntimeError/CompileError are excluded from both scores.
@@ -44,10 +48,11 @@ export function scoreMutants(mutants) {
     timeout,
     survived,
     noCoverage,
+    ignored,
     errors,
     scored,
-    total: scored === 0 ? null : Number(((killedTotal / scored) * 100).toFixed(2)),
-    covered: covered === 0 ? null : Number(((killedTotal / covered) * 100).toFixed(2)),
+    total: scored === 0 ? null : (killedTotal / scored) * 100,
+    covered: covered === 0 ? null : (killedTotal / covered) * 100,
   }
 }
 
@@ -56,6 +61,10 @@ export function packageOf(file) {
   if (file.startsWith('packages/pipeline/')) return 'packages/pipeline'
   if (file.startsWith('apps/cli/')) return 'apps/cli'
   return undefined
+}
+
+function percent(value) {
+  return Number(value).toFixed(2)
 }
 
 /**
@@ -90,10 +99,14 @@ export function evaluateMutationFloor(report, baseline) {
     failures.push('mutation report contains no scorable mutants')
   } else {
     if (global.total < baseline.global.total) {
-      failures.push(`global total ${global.total}% < floor ${baseline.global.total}%`)
+      failures.push(
+        `global total ${percent(global.total)}% < floor ${percent(baseline.global.total)}%`,
+      )
     }
     if (global.covered < baseline.global.covered) {
-      failures.push(`global covered ${global.covered}% < floor ${baseline.global.covered}%`)
+      failures.push(
+        `global covered ${percent(global.covered)}% < floor ${percent(baseline.global.covered)}%`,
+      )
     }
   }
 
@@ -121,10 +134,14 @@ export function evaluateMutationFloor(report, baseline) {
       continue
     }
     if (actual.total < floor.total) {
-      failures.push(`${packageName} total ${actual.total}% < floor ${floor.total}%`)
+      failures.push(
+        `${packageName} total ${percent(actual.total)}% < floor ${percent(floor.total)}%`,
+      )
     }
     if (actual.covered < floor.covered) {
-      failures.push(`${packageName} covered ${actual.covered}% < floor ${floor.covered}%`)
+      failures.push(
+        `${packageName} covered ${percent(actual.covered)}% < floor ${percent(floor.covered)}%`,
+      )
     }
   }
 

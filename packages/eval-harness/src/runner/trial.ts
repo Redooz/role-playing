@@ -100,6 +100,7 @@ export function createTrialEnvironment(options: CreateTrialEnvironmentOptions): 
   const seed = deriveTrialSeed(masterSeed, round, task.lang, task.id)
   const trialTask = structuredClone(task)
   const provider = providerFactory()
+  let disposed = false
 
   return {
     trialId: `${round}:${task.lang}:${task.id}`,
@@ -110,6 +111,8 @@ export function createTrialEnvironment(options: CreateTrialEnvironmentOptions): 
     task: trialTask,
     timeoutMs,
     async dispose() {
+      if (disposed) return
+      disposed = true
       await provider.dispose?.()
     },
   }
@@ -118,27 +121,51 @@ export function createTrialEnvironment(options: CreateTrialEnvironmentOptions): 
 /**
  * Race one trial's work against its wall-clock budget.
  *
- * On timeout the stalled work may settle later; the rejection is attached here
- * so a late provider failure never becomes an unhandled rejection. The caller
- * still disposes the environment in `finally`.
+ * On timeout the controller is aborted so the provider and replay loop can stop,
+ * and a late rejection is attached here so it never becomes an unhandled
+ * rejection. The caller still disposes the environment in `finally`.
  */
 export async function withTrialTimeout<T>(
   trial: Pick<TrialEnvironment, 'trialId' | 'timeoutMs'>,
-  work: Promise<T>,
+  work: (signal: AbortSignal) => Promise<T>,
 ): Promise<T> {
+  const controller = new AbortController()
+  const workPromise = work(controller.signal)
   let timer: NodeJS.Timeout | undefined
   const timeout = new Promise<never>((_resolve, reject) => {
-    timer = setTimeout(
-      () => reject(new TrialTimeoutError(trial.trialId, trial.timeoutMs)),
-      trial.timeoutMs,
-    )
+    timer = setTimeout(() => {
+      controller.abort()
+      reject(new TrialTimeoutError(trial.trialId, trial.timeoutMs))
+    }, trial.timeoutMs)
   })
 
   try {
-    return await Promise.race([work, timeout])
+    return await Promise.race([workPromise, timeout])
   } catch (error) {
-    if (error instanceof TrialTimeoutError) work.catch(() => undefined)
+    if (error instanceof TrialTimeoutError) workPromise.catch(() => undefined)
     throw error
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+  }
+}
+
+/**
+ * Wait for a promise, but never longer than `ms`. Rejects when the limit is
+ * reached. Used for cleanup that must not re-introduce a hang.
+ */
+export async function settleWithin<T>(
+  promise: Promise<T>,
+  ms: number,
+  message = `operation did not settle within ${ms} ms`,
+): Promise<T> {
+  promise.catch(() => undefined)
+  let timer: NodeJS.Timeout | undefined
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms)
+  })
+
+  try {
+    return await Promise.race([promise, timeout])
   } finally {
     if (timer !== undefined) clearTimeout(timer)
   }

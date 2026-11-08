@@ -7,14 +7,14 @@ The floor is the **measured** baseline, not a number chosen in advance. The run 
 not a PR gate yet; it is a scheduled/on-demand check. Timed-out mutants count as
 killed and are reported separately, as the M1 plan requires.
 
-## Baseline (2026-11-07, re-measured after PR #5 review fixes)
+## Baseline (2026-11-08, after the code-review fixes)
 
 | Scope                   | Total  | Covered | Killed | Timeout | Survived | No coverage | Errors |
 | ----------------------- | ------ | ------- | ------ | ------- | -------- | ----------- | ------ |
-| All files               | 73.33% | 78.73%  | 819    | 14      | 225      | 78          | 17     |
-| `packages/session-core` | 80.25% | 83.12%  | 573    | 8       | 118      | 25          | 17     |
+| All files               | 77.68% | 81.20%  | 932    | 18      | 220      | 53          | 17     |
+| `packages/session-core` | 83.58% | 84.85%  | 660    | 12      | 120      | 12          | 17     |
 | `packages/pipeline`     | 68.86% | 73.36%  | 151    | 6       | 57       | 14          | 0      |
-| `apps/cli`              | 51.63% | 65.52%  | 95     | 0       | 50       | 39          | 0      |
+| `apps/cli`              | 63.35% | 73.78%  | 121    | 0       | 43       | 27          | 0      |
 
 Per-file totals are in `reports/mutation/mutation.json` (git-ignored) and in the
 M1-G6 row in `evals/decisions.md`.
@@ -22,40 +22,34 @@ M1-G6 row in `evals/decisions.md`.
 ### Cancellation invariants
 
 `packages/session-core/src/driver.ts` has **no meaningful survivors** in the
-cancellation invariants. Its remaining 21 survivors are recorded below as
-equivalents. Tests added for this baseline: exact grant-expiry boundary, empty
-chunk, usage carried from an earlier chunk, interrupt before commit, partial
-context, immediate cancel with no empty assistant message, synchronous
-`complete()` throw, non-string chunk, throw after abort, and iterator `return`
-on an aborted stream. The re-measured baseline also covers the version-gated
-content-class rule (`1.0.0` records stay readable, `1.1.0+` records are checked)
-and the invalid-version ordering of `isTranscriptSchemaAtLeast`.
+cancellation invariants. Its remaining 35 survivors are the equivalent fast
+paths and diagnostic strings recorded below. Tests added for this baseline
+include exact grant expiry, a silent provider with a non-zero starting clock,
+interrupt of a provider that ignores the abort signal, a chunk arriving after
+the abort, bounded iterator close, timer cleanup, the history cap, abort-signal
+delivery, empty-chunk skipping, and queue delivery/close/failure. It also covers
+the version-gated content-class rule, per-record major rejection, and the
+invalid-version ordering of `isTranscriptSchemaAtLeast`.
 
 ### Documented equivalents in `driver.ts`
 
-| Line | Mutant                    | Why it is equivalent                                                                                            |
-| ---- | ------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| 33   | error message string      | Diagnostics only; no control flow depends on the message.                                                       |
-| 39   | error message string      | Same.                                                                                                           |
-| 40   | error `name` string       | `instanceof` is used for classification, not `name`.                                                            |
-| 86   | queue closed check        | A closed queue drops pushes; no observer can see the difference.                                                |
-| 96   | queue close early return  | Closing an already closed queue is idempotent.                                                                  |
-| 116  | failure check             | A closed queue with no failure resolves `done`; the failure path is already terminal.                           |
-| 178  | `taskId` ternary          | `taskId: undefined` and an absent key are the same to the optional schema and to `toEqual`.                     |
-| 183  | first closed check        | The second closed check (`188`) catches the same call sequence; the queue is also closed.                       |
-| 184  | empty-string literal      | The same value is rejected by `trim()`; the message is diagnostic.                                              |
-| 187  | interrupt active check    | Interrupting while idle is a documented no-op.                                                                  |
-| 188  | second closed check       | A race guard after an awaited interrupt; the first check covers every synchronous caller.                       |
-| 219  | close early return        | A second `session.completed` is dropped by the already-closed queue.                                            |
-| 268  | loop-top abort check      | The post-`next()` check and the catch handle abort-respecting providers; the loop-top check is a fast path.     |
-| 287  | `outcome` sentinel        | The final reason mapping turns every non-timeout/non-interrupted outcome into `provider_failure`.               |
-| 291  | `outcome` sentinel        | Same.                                                                                                           |
-| 308  | inner committed check     | Once the loop exits, the outcome is committed or already classified; the guard is redundant.                    |
-| 312  | `outcome` sentinel        | Same reason mapping as 287.                                                                                     |
-| 317  | `provider_failure` string | The final mapping normalizes it; the interrupted branch is asserted separately.                                 |
-| 319  | `iterator.return` guard   | A missing `return` is optional; the inner `try` swallows a TypeError when the guard is bypassed.                |
-| 319  | `iterator.return` guard   | Same; removing the call only matters for a provider whose `return` has side effects, which the contract allows. |
-| 332  | usage spread              | `usage: undefined` is optional to the schema and to `toEqual`; the JSON writer drops it.                        |
+| Lines    | Mutant                              | Why it is equivalent                                                                                   |
+| -------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| 33,39,40 | error message/name strings          | Diagnostics only; `instanceof` classifies errors, not the text.                                        |
+| 84,90,93 | `settleWithin` timer clear          | The timer is always defined on entry; clearing an already-cleared timer is harmless.                   |
+| 119,127  | queue closed/fail early returns     | Closing or failing an already terminal queue is idempotent.                                            |
+| 206,211  | send closed checks                  | A synchronous close is caught by the queue; a late close is caught by the second check.                |
+| 212,215  | empty-utterance message / interrupt | The same value is rejected by `trim()`; the message is diagnostic. Interrupting while idle is a no-op. |
+| 216,247  | second closed check / interrupt     | Race guards after an awaited interrupt; the first checks cover every synchronous caller.               |
+| 261      | history trim overflow               | A negative or zero overflow makes `splice` a no-op; the guard is a fast path.                          |
+| 307,310  | deadline/abort promise setup        | The promise value is only a discriminant; the pre-resolved abort fast path lands in the same catch.    |
+| 314      | abort listener literals             | `{ once: true }`, the resolve value and the boolean are equivalent for the one-shot race.              |
+| 318,330  | loop-top abort / abort race         | The `next()` race and the catch classify the same interruption when the fast path is removed.          |
+| 338      | aborted branch                      | Removing the branch falls through to a TypeError caught as `interrupted`; the outcome is identical.    |
+| 352,356  | provider-failure reason             | The final reason mapping normalizes both sentinels.                                                    |
+| 377,382  | outcome sentinel strings            | The final mapping turns every non-timeout/non-interrupted outcome into `provider_failure`.             |
+| 384      | timer clear guard                   | The deadline timer is always defined at this point.                                                    |
+| 388      | optional iterator close             | `closeIterator` and `return` are defined on every covered path; the optional guards are defensive.     |
 
 ### `events.ts` runtime errors
 

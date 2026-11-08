@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { readFile, writeFile } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { packageOf, scoreMutants } from './mutation-floor.mjs'
 
 /**
@@ -11,7 +12,7 @@ import { packageOf, scoreMutants } from './mutation-floor.mjs'
  * refuses to record a baseline with nothing to measure.
  */
 
-const root = resolve(new URL('..', import.meta.url).pathname)
+const root = fileURLToPath(new URL('..', import.meta.url))
 const reportPath = join(root, 'reports', 'mutation', 'mutation.json')
 const baselinePath = join(root, 'evals', 'baselines', 'm1-mutation.json')
 
@@ -25,8 +26,8 @@ if (global.total === null || global.covered === null) {
 }
 
 function baselineScore(score) {
-  const { mutants, killed, timeout, survived, noCoverage, total, covered } = score
-  return { mutants, killed, timeout, survived, noCoverage, total, covered }
+  const { mutants, killed, timeout, survived, noCoverage, ignored, errors, total, covered } = score
+  return { mutants, killed, timeout, survived, noCoverage, ignored, errors, total, covered }
 }
 
 let commit = 'unknown'
@@ -74,8 +75,10 @@ const baseline = {
 await writeFile(baselinePath, `${JSON.stringify(baseline, null, 2)}\n`, 'utf8')
 console.log(`wrote ${baselinePath}`)
 console.log(
-  `global ${baseline.global.total}% total / ${baseline.global.covered}% covered at ${commit}`,
+  `global ${baseline.global.total.toFixed(2)}% total / ${baseline.global.covered.toFixed(2)}% covered at ${commit}`,
 )
 for (const [packageName, score] of Object.entries(packages)) {
-  console.log(`  ${packageName}: ${score.total}% total / ${score.covered}% covered`)
+  console.log(
+    `  ${packageName}: ${score.total.toFixed(2)}% total / ${score.covered.toFixed(2)}% covered`,
+  )
 }

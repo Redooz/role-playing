@@ -3,7 +3,9 @@ import { dirname } from 'node:path'
 import {
   buildSessionLogRecord,
   sessionLogHeaderLine,
+  sessionLogHeaderSchema,
   sessionLogRecordLine,
+  transcriptRecordSchema,
   type SessionEvent,
   type SessionLogHeader,
 } from '@rp/session-core'
@@ -33,24 +35,29 @@ export async function createFileSessionLog(
   options: CreateFileSessionLogOptions,
 ): Promise<SessionLog> {
   const { path, header, clock, wallClock } = options
+  const parsedHeader = sessionLogHeaderSchema.parse(header)
 
   await mkdir(dirname(path), { recursive: true })
-  await writeFile(path, `${sessionLogHeaderLine(header)}\n`, { encoding: 'utf8', flag: 'wx' })
+  await writeFile(path, `${sessionLogHeaderLine(parsedHeader)}\n`, { encoding: 'utf8', flag: 'wx' })
 
   let seq = 0
 
   return {
     path,
     async append(event: SessionEvent): Promise<void> {
-      const record = buildSessionLogRecord({
-        header,
-        event,
-        seq,
-        tSim: clock.now(),
-        tWall: wallClock(),
-      })
+      const record = sessionLogRecordLine(
+        transcriptRecordSchema.parse(
+          buildSessionLogRecord({
+            header: parsedHeader,
+            event,
+            seq,
+            tSim: clock.now(),
+            tWall: wallClock(),
+          }),
+        ),
+      )
+      await appendFile(path, `${record}\n`, 'utf8')
       seq += 1
-      await appendFile(path, `${sessionLogRecordLine(record)}\n`, 'utf8')
     },
   }
 }

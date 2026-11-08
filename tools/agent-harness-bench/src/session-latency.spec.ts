@@ -124,4 +124,37 @@ describe('text latency measurement', () => {
     expect(measurement.failures).toHaveLength(1)
     expect(measurement.failures[0]?.reason).toBe('provider_failure')
   })
+
+  it('records a timeout when the provider ignores the abort signal', async () => {
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'ignores-abort',
+      complete() {
+        return {
+          [Symbol.asyncIterator]() {
+            return {
+              next(): Promise<IteratorResult<TextModelChunk>> {
+                return new Promise(() => undefined)
+              },
+            }
+          },
+        }
+      },
+    }
+    const startedAt = Date.now()
+
+    const measurement = await measureSessionLatency({
+      modelFactory: () => ({ model, timings: [] }),
+      sessions: 1,
+      turnsPerSession: 1,
+      prompt: () => 'go',
+      turnTimeoutMs: 20,
+    })
+
+    expect(Date.now() - startedAt).toBeLessThan(2_000)
+    expect(measurement.turns).toHaveLength(0)
+    expect(measurement.failures).toHaveLength(1)
+    expect(measurement.failures[0]?.reason).toBe('timeout')
+    expect(measurement.failures[0]?.message).toBe('interrupted')
+  })
 })

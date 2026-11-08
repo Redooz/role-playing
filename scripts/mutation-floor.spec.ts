@@ -36,11 +36,18 @@ describe('scoreMutants', () => {
       timeout: 1,
       survived: 1,
       noCoverage: 1,
+      ignored: 0,
       errors: 1,
       scored: 4,
       total: 50,
-      covered: 66.67,
     })
+    expect(score.covered).toBeCloseTo(66.6667)
+  })
+
+  it('counts Ignored separately from runtime errors', () => {
+    const score = scoreMutants([mutant('Killed'), mutant('Ignored')])
+
+    expect(score).toMatchObject({ ignored: 1, errors: 0, total: 100, covered: 100 })
   })
 
   it('returns null scores for an empty or unscorable set', () => {
@@ -118,7 +125,7 @@ describe('evaluateMutationFloor', () => {
       baseline,
     )
 
-    expect(result.failures).toContain('packages/session-core total 33.33% < floor 50%')
-    expect(result.failures).toContain('global total 33.33% < floor 50%')
+    expect(result.failures).toContain('packages/session-core total 33.33% < floor 50.00%')
+    expect(result.failures).toContain('global total 33.33% < floor 50.00%')
   })
 })

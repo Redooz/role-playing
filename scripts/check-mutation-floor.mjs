@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { join } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { evaluateMutationFloor } from './mutation-floor.mjs'
 
 /**
@@ -15,7 +15,7 @@ import { evaluateMutationFloor } from './mutation-floor.mjs'
  * the report. The run is on-demand/scheduled, not a PR gate.
  */
 
-const root = resolve(new URL('..', import.meta.url).pathname)
+const root = fileURLToPath(new URL('..', import.meta.url))
 const reportPath = join(root, 'reports', 'mutation', 'mutation.json')
 const baselinePath = join(root, 'evals', 'baselines', 'm1-mutation.json')
 
@@ -30,12 +30,14 @@ export async function main() {
     process.exit(1)
   }
 
-  console.log(`mutation floor held: global ${global.total}% total / ${global.covered}% covered`)
+  console.log(
+    `mutation floor held: global ${global.total.toFixed(2)}% total / ${global.covered.toFixed(2)}% covered`,
+  )
   for (const [packageName, floor] of Object.entries(baseline.packages)) {
     const actual = packages[packageName]
     console.log(
-      `  ${packageName}: ${actual.total}% total / ${actual.covered}% covered ` +
-        `(floor ${floor.total}/${floor.covered})`,
+      `  ${packageName}: ${actual.total.toFixed(2)}% total / ${actual.covered.toFixed(2)}% covered ` +
+        `(floor ${floor.total.toFixed(2)}/${floor.covered.toFixed(2)})`,
     )
   }
 }

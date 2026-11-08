@@ -81,22 +81,26 @@ export async function runCli(options: RunCliOptions): Promise<void> {
         io.out(`you> ${event.payload.text}`)
         break
       case 'persona.response.started':
-        startPersona()
         break
       case 'persona.response.chunk':
         startPersona()
         io.write(event.payload.text)
         break
       case 'persona.response.committed':
-        startPersona()
+        if (event.payload.text.length === 0) {
+          io.out('persona> [empty response]')
+          lineOpen = false
+          break
+        }
         io.write('\n')
         lineOpen = false
         break
-      case 'persona.response.cancelled':
-        startPersona()
-        io.write(`\n${cancelledLabel(event)}\n`)
+      case 'persona.response.cancelled': {
+        if (lineOpen) io.write('\n')
         lineOpen = false
+        io.out(cancelledLabel(event))
         break
+      }
       case 'session.completed':
         if (lineOpen) {
           io.write('\n')

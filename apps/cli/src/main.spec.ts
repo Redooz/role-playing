@@ -1,4 +1,6 @@
-import { resolve } from 'node:path'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { isValidSessionId, main, resolveSessionLogPath } from './main.js'
 
@@ -47,6 +49,31 @@ describe('main session id argument', () => {
       await expect(main(['--session-id', 'nested/session'])).resolves.toBe(2)
     } finally {
       err.mockRestore()
+    }
+  })
+
+  it('rejects an empty task id with exit code 2', async () => {
+    const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+
+    try {
+      await expect(main(['--task', ''])).resolves.toBe(2)
+      expect(err).toHaveBeenCalled()
+    } finally {
+      err.mockRestore()
+    }
+  })
+
+  it('reports an existing session log instead of throwing', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'rp-main-'))
+    const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+
+    try {
+      await writeFile(join(dir, 'session-1.jsonl'), 'existing\n', 'utf8')
+      await expect(main(['--session-id', 'session-1', '--log-dir', dir])).resolves.toBe(2)
+      expect(err).toHaveBeenCalled()
+    } finally {
+      err.mockRestore()
+      await rm(dir, { recursive: true, force: true })
     }
   })
 })

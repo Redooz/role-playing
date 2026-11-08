@@ -4,7 +4,13 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
 import { taskEntrySchema } from '../tasks/schema.js'
 import type { CompletionProvider } from './canned-provider.js'
-import { createTrialEnvironment, deriveTrialSeed } from './trial.js'
+import {
+  createTrialEnvironment,
+  deriveTrialSeed,
+  settleWithin,
+  TrialTimeoutError,
+  withTrialTimeout,
+} from './trial.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(here, '../../../..')
@@ -95,5 +101,49 @@ describe('per-trial isolation', () => {
     expect(calls).toBe(1)
     await environment.dispose()
     expect(dispose).toHaveBeenCalledTimes(1)
+  })
+
+  it('disposes a provider at most once', async () => {
+    const dispose = vi.fn()
+
+    const environment = createTrialEnvironment({
+      masterSeed: 42,
+      round: 0,
+      task,
+      providerFactory: () => ({ ...testProvider(), dispose }),
+    })
+
+    await environment.dispose()
+    await environment.dispose()
+
+    expect(dispose).toHaveBeenCalledTimes(1)
+  })
+
+  it('aborts the trial signal when the budget expires', async () => {
+    let signal: AbortSignal | undefined
+
+    await expect(
+      withTrialTimeout({ trialId: 'trial-1', timeoutMs: 10 }, async (trialSignal) => {
+        signal = trialSignal
+        await new Promise<void>((resolve) => {
+          if (trialSignal.aborted) {
+            resolve()
+            return
+          }
+          trialSignal.addEventListener('abort', () => resolve(), { once: true })
+        })
+      }),
+    ).rejects.toBeInstanceOf(TrialTimeoutError)
+
+    expect(signal?.aborted).toBe(true)
+  })
+
+  it('bounds cleanup that never settles', async () => {
+    const startedAt = Date.now()
+
+    await expect(settleWithin(new Promise(() => undefined), 10, 'cleanup hung')).rejects.toThrow(
+      'cleanup hung',
+    )
+    expect(Date.now() - startedAt).toBeLessThan(1_000)
   })
 })

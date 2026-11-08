@@ -66,6 +66,42 @@ describe('file-backed session log', () => {
     expect(stored.truncated).toBe(false)
   })
 
+  it('refuses to write an invalid header', async () => {
+    const dir = await tempDir()
+    const path = join(dir, 'session-1.jsonl')
+
+    await expect(
+      createFileSessionLog({
+        path,
+        header: { ...header, taskId: '' },
+        clock: new FakeClock(0),
+        wallClock: () => 1_700_000_000_000,
+      }),
+    ).rejects.toThrow()
+
+    await expect(readFile(path, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('refuses an invalid event and does not advance the sequence', async () => {
+    const dir = await tempDir()
+    const path = join(dir, 'session-1.jsonl')
+    const log = await createFileSessionLog({
+      path,
+      header,
+      clock: new FakeClock(0),
+      wallClock: () => 1_700_000_000_000,
+    })
+
+    await expect(
+      log.append({ type: 'user.utterance.committed', payload: {} } as unknown as SessionEvent),
+    ).rejects.toThrow()
+
+    await log.append({ type: 'session.completed', payload: {} })
+
+    const stored = replaySessionLog(await readFile(path, 'utf8'))
+    expect(stored.records.map((record) => record.seq)).toEqual([0])
+  })
+
   it('refuses to reuse an existing session log', async () => {
     const dir = await tempDir()
     const path = join(dir, 'session-1.jsonl')
