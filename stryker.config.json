@@ -4,13 +4,25 @@
   "vitest": {
     "configFile": "vitest.config.ts"
   },
-  "mutate": ["packages/session-core/src/**/*.ts", "!packages/session-core/src/**/*.spec.ts"],
+  "mutate": [
+    "packages/session-core/src/**/*.ts",
+    "!packages/session-core/src/**/*.spec.ts",
+    "packages/pipeline/src/**/*.ts",
+    "!packages/pipeline/src/**/*.spec.ts",
+    "apps/cli/src/cli-main.ts",
+    "apps/cli/src/session-log.adapter.ts"
+  ],
   "coverageAnalysis": "perTest",
   "reporters": ["clear-text", "progress", "json"],
   "jsonReporter": {
     "fileName": "reports/mutation/mutation.json"
   },
   "timeoutMS": 30000,
-  "concurrency": 2,
-  "tempDirName": ".stryker-tmp"
+  "concurrency": 4,
+  "tempDirName": ".stryker-tmp",
+  "thresholds": {
+    "high": 72.56,
+    "low": 72.5,
+    "break": 72.5
+  }
 }

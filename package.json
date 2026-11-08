@@ -22,7 +22,7 @@
     "test:unit": "vitest run --project unit",
     "test:watch": "vitest --project unit",
     "test:bench": "node --env-file-if-exists=.env ./node_modules/vitest/vitest.mjs run --project bench",
-    "mutation": "stryker run",
+    "mutation": "stryker run && node scripts/check-mutation-floor.mjs",
     "chat": "node --env-file-if-exists=.env apps/cli/src/cli.ts",
     "eval": "node --env-file-if-exists=.env tools/eval-harness-cli/src/cli.ts",
     "validate:tasks": "node --env-file-if-exists=.env tools/eval-harness-cli/src/cli.ts validate-tasks",
@@ -34,7 +34,8 @@
     "langfuse:tunnel": "bash scripts/langfuse.sh tunnel",
     "langfuse:untunnel": "bash scripts/langfuse.sh untunnel",
     "langfuse:env": "bash scripts/langfuse.sh env",
-    "langfuse:verify": "node --env-file-if-exists=.env scripts/langfuse-verify.mjs"
+    "langfuse:verify": "node --env-file-if-exists=.env scripts/langfuse-verify.mjs",
+    "mutation:record": "node scripts/record-mutation-baseline.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
