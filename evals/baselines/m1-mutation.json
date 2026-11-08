@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "suite": "m1-mutation",
-  "generatedAt": "2026-11-08T16:36:08.779Z",
-  "commit": "f8683a49975a3d39060c149b912d28b1225c23a2",
+  "generatedAt": "2026-11-08T16:37:32.716Z",
+  "commit": "53d1733876a075385037f4746f69ce99d1e2ca54",
   "tool": "@stryker-mutator/core 10.1.1 + @stryker-mutator/vitest-runner 10.1.1",
   "command": "npm run mutation",
   "note": "Measured floor. Timed-out mutants count as killed; runtime/compile errors are excluded. Not a PR gate.",

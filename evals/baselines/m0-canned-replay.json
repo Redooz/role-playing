@@ -432,7 +432,7 @@
     "failedTrials": 0
   },
   "versions": {
-    "codeSha": "f8683a49975a3d39060c149b912d28b1225c23a2",
+    "codeSha": "53d1733876a075385037f4746f69ce99d1e2ca54",
     "transcriptSchemaVersion": "1.2.0",
     "taskDataset": "synthetic-workplace",
     "taskVersion": "v1",
@@ -442,6 +442,6 @@
     "rubricVersion": "m0-harness-v1",
     "seed": 20261025
   },
-  "startedAt": "2026-11-08T16:12:10.916Z",
-  "finishedAt": "2026-11-08T16:12:10.947Z"
+  "startedAt": "2026-11-08T16:37:20.154Z",
+  "finishedAt": "2026-11-08T16:37:20.188Z"
 }
