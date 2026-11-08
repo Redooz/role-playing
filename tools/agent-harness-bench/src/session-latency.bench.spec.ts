@@ -11,9 +11,10 @@ import { describe, expect, it } from 'vitest'
 import { measureSessionLatency, summarizeLatency } from './session-latency.js'
 import {
   DEFAULT_TEXT_LATENCY_REPORT_PATH,
-  PROBE_TEXT_LATENCY_REPORT_PATH,
   buildTextLatencyReport,
   formatLatencyTable,
+  modelSlug,
+  probeTextLatencyReportPath,
   writeTextLatencyReport,
 } from './session-latency-report.js'
 
@@ -66,8 +67,10 @@ const WARMUP = process.env['LATENCY_SKIP_WARMUP'] === '1' ? 0 : 1
 const THROTTLE_MS = positiveInteger('LATENCY_THROTTLE_MS', 3000)
 
 const IS_BASELINE = PROVIDER === 'groq' && MODEL === GROQ_PERSONA_MODEL
-const SUITE = IS_BASELINE ? 'm1-text-latency' : 'm1-text-latency-probe'
-const REPORT_PATH = IS_BASELINE ? DEFAULT_TEXT_LATENCY_REPORT_PATH : PROBE_TEXT_LATENCY_REPORT_PATH
+const SUITE = IS_BASELINE ? 'm1-text-latency' : `m1-text-latency-probe-${modelSlug(MODEL)}`
+const REPORT_PATH = IS_BASELINE
+  ? DEFAULT_TEXT_LATENCY_REPORT_PATH
+  : probeTextLatencyReportPath(MODEL)
 const NOTE = IS_BASELINE
   ? 'Wall-clock text proxy: session start -> first text chunk. No audio exists in M1. No latency budget is frozen.'
   : `Comparison probe on ${PROVIDER} ${MODEL}. Not the M1 baseline; the product persona model remains Groq ${GROQ_PERSONA_MODEL}. Wall-clock text proxy; no budget is frozen.`
