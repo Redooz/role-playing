@@ -15,6 +15,7 @@ import type {
   CompletionProvider,
   CompletionRequest,
 } from './canned-provider.js'
+import { ReplayAbortedError } from './canned-provider.js'
 
 /**
  * Deterministic task replay (M0 D3, gate G1).
@@ -43,7 +44,6 @@ const TURN_GAP_MS = 250
 const RESPONSE_START_MS = 40
 const CHUNK_DELAY_MS = 20
 const COMMIT_DELAY_MS = 30
-const REVOKE_DELAY_MS = 10
 const SESSION_END_MS = 200
 
 /** How many whitespace-delimited words go into one streamed chunk. */
@@ -62,6 +62,8 @@ export interface ReplayOptions {
   readonly personaId?: string
   /** Override the simulated grant lifetime (tests). */
   readonly grantTtlMs?: number
+  /** Cancels a replay that exceeded the trial budget. */
+  readonly signal?: AbortSignal
 }
 
 export interface ReplayResult {
@@ -78,6 +80,10 @@ export class ReplayError extends Error {
     super(message)
     this.name = 'ReplayError'
   }
+}
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (signal?.aborted === true) throw new ReplayAbortedError()
 }
 
 /**
@@ -128,13 +134,16 @@ export function buildCannedEntriesForTask(task: TaskEntry): CannedEntry[] {
  *
  * Event order per persona turn:
  * `turn.granted → persona.response.started → persona.response.chunk* →
- * persona.response.committed → turn.revoked`. User turns emit
- * `user.utterance.committed`; the transcript ends with `session.completed`.
+ * persona.response.committed`. User turns emit `user.utterance.committed`; the
+ * transcript ends with `session.completed`. This is the same vocabulary the
+ * driver emits; empty chunks are skipped and do not advance the sequence.
  */
 export async function replayTask(options: ReplayOptions): Promise<ReplayResult> {
-  const { runId, executionId, task, clock, provider, wallNow } = options
+  const { runId, executionId, task, clock, provider, wallNow, signal } = options
   const personaId = options.personaId ?? 'persona-1'
   const grantTtlMs = options.grantTtlMs ?? REPLAY_GRANT_TTL_MS
+
+  if (signal?.aborted === true) throw new ReplayAbortedError()
 
   const sink = new MemoryTranscriptSink<TranscriptRecord>()
   let seq = 0
@@ -191,7 +200,10 @@ export async function replayTask(options: ReplayOptions): Promise<ReplayResult> 
     let sequence = 0
     let sawLast = false
 
-    for await (const chunk of provider.complete(request)) {
+    throwIfAborted(signal)
+
+    for await (const chunk of provider.complete(request, { signal })) {
+      throwIfAborted(signal)
       if (sawLast) {
         throw new ReplayError(`provider "${provider.label}" yielded a chunk after the final chunk`)
       }
@@ -205,14 +217,12 @@ export async function replayTask(options: ReplayOptions): Promise<ReplayResult> 
       }
 
       const chunkText = readChunkText(chunk, provider.label)
-      append('persona.response.chunk', { grantId, text: chunkText, sequence })
-      text += chunkText
-      sequence += 1
+      if (chunkText.length > 0) {
+        append('persona.response.chunk', { grantId, text: chunkText, sequence })
+        text += chunkText
+        sequence += 1
+      }
       sawLast = chunk.done
-    }
-
-    if (sequence === 0) {
-      throw new ReplayError(`provider "${provider.label}" produced no chunks for ${task.id}`)
     }
 
     if (!sawLast) {
@@ -223,9 +233,6 @@ export async function replayTask(options: ReplayOptions): Promise<ReplayResult> 
 
     await clock.advance(COMMIT_DELAY_MS)
     append('persona.response.committed', { grantId, text })
-
-    await clock.advance(REVOKE_DELAY_MS)
-    append('turn.revoked', { grantId, reason: 'completed' })
   }
 
   await clock.advance(SESSION_END_MS)

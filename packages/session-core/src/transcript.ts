@@ -11,8 +11,25 @@ import { checkTranscriptSequence, enforceGuardResult } from './guards.js'
 import {
   CONTENT_CLASS_RULE_SINCE,
   isTranscriptSchemaAtLeast,
+  majorOfSchemaVersion,
+  TRANSCRIPT_SCHEMA_VERSION,
   transcriptSchemaVersionSchema,
 } from './version.js'
+
+/** A transcript record whose major version this build cannot read. */
+export class TranscriptSchemaVersionError extends Error {
+  readonly version: string
+  readonly expectedVersion: string
+
+  constructor(version: string, expectedVersion: string) {
+    super(
+      `transcript schema ${version} is not readable by this build (current ${expectedVersion}); migrate it first`,
+    )
+    this.name = 'TranscriptSchemaVersionError'
+    this.version = version
+    this.expectedVersion = expectedVersion
+  }
+}
 
 /**
  * Append-only transcript records (M0 D2).
@@ -61,7 +78,8 @@ const transcriptRecordBaseSchema = z.strictObject({
   /**
    * Identifies one execution of the suite; `runId` only names the suite and is
    * reused by every execution. Optional so records written before 1.1.0 still
-   * parse; every producer from M1 on must set it.
+   * parse. Eval transcripts set it; a session log uses `runId` for the session
+   * id and may omit it.
    */
   executionId: z.string().min(1).optional(),
   /** Strictly increasing across the run; see `checkTranscriptSequence`. */
@@ -125,7 +143,15 @@ export type EventTranscriptRecord = TranscriptRecord & {
 
 /** Parse an untrusted transcript record, including its event payload. */
 export function parseTranscriptRecord(input: unknown): TranscriptRecord {
-  return transcriptRecordSchema.parse(input)
+  const record = transcriptRecordSchema.parse(input)
+
+  if (
+    majorOfSchemaVersion(record.schemaVersion) !== majorOfSchemaVersion(TRANSCRIPT_SCHEMA_VERSION)
+  ) {
+    throw new TranscriptSchemaVersionError(record.schemaVersion, TRANSCRIPT_SCHEMA_VERSION)
+  }
+
+  return record
 }
 
 /**

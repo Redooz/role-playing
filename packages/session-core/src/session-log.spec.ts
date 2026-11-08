@@ -103,6 +103,14 @@ describe('session log', () => {
     expect(() => parseSessionLog(textFor(records, outdated))).toThrow(SessionLogVersionError)
   })
 
+  it('rejects a record whose major version differs from the header', () => {
+    const records = recordsFor().map((record, index) =>
+      index === 1 ? { ...record, schemaVersion: '2.0.0' } : record,
+    )
+
+    expect(() => parseSessionLog(textFor(records))).toThrow(SessionLogVersionError)
+  })
+
   it('accepts an older minor version, because additive changes stay readable', () => {
     const records = recordsFor()
     const older = { ...header, schemaVersion: '1.0.0' }
@@ -136,6 +144,48 @@ describe('session log', () => {
     const text = `${lines[0]}\n\n${lines.slice(1).join('\n')}\n`
 
     expect(() => parseSessionLog(text)).toThrow(/blank/)
+  })
+
+  it('treats a whitespace-only interior line as blank', () => {
+    const records = recordsFor()
+    const lines = [sessionLogHeaderLine(header), ...records.map(sessionLogRecordLine)]
+    const text = `${lines[0]}\n   \n${lines.slice(1).join('\n')}\n`
+
+    expect(() => parseSessionLog(text)).toThrow(/line 2 is blank/)
+  })
+
+  it('names the line number of a malformed interior line', () => {
+    const records = recordsFor()
+    const lines = [sessionLogHeaderLine(header), ...records.map(sessionLogRecordLine)]
+    lines[2] = '{"broken"'
+
+    expect(() => parseSessionLog(`${lines.join('\n')}\n`)).toThrow(/line 3 is not valid JSON/)
+  })
+
+  it('names the header field that is invalid', () => {
+    const records = recordsFor()
+    const invalidHeader: SessionLogHeader = { ...header, taskId: '' }
+
+    expect(() => parseSessionLog(textFor(records, invalidHeader))).toThrow(/taskId:/)
+  })
+
+  it('wraps a non-version record error as a format error', () => {
+    const records = recordsFor().map((record, index) =>
+      index === 2 ? { ...record, contentClass: 'public' as const } : record,
+    )
+
+    try {
+      parseSessionLog(textFor(records))
+      throw new Error('expected the log to be rejected')
+    } catch (error) {
+      expect(error).toBeInstanceOf(SessionLogFormatError)
+      expect(error).not.toBeInstanceOf(SessionLogVersionError)
+      expect((error as Error).message).toMatch(/not a valid transcript record/)
+    }
+  })
+
+  it('rejects an empty log', () => {
+    expect(() => parseSessionLog('')).toThrow(/empty/)
   })
 
   it('rejects a malformed interior line instead of truncating the middle', () => {

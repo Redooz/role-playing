@@ -107,14 +107,13 @@ describe('buildObservationPlan', () => {
     expect(inputSizes).toEqual([0, 2, 4])
   })
 
-  it('records grants, revocations and cancellation semantics as span events', () => {
+  it('records grants and closes persona spans on a committed response', () => {
     const item = plan.items.find((candidate) => candidate.itemId === `0:en:${targetTask}`)
     const personaSpans = (item?.trace.spans ?? []).filter((span) => span.name.includes(' persona'))
     expect(personaSpans).toHaveLength(3)
 
     for (const span of personaSpans) {
-      expect(span.events.map((event) => event.name)).toEqual(['turn.granted', 'turn.revoked'])
-      expect(span.events[1]?.attributes['reason']).toBe('completed')
+      expect(span.events.map((event) => event.name)).toEqual(['turn.granted'])
       expect(span.endMs).toBeGreaterThanOrEqual(span.startMs)
     }
 

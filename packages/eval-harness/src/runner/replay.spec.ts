@@ -5,7 +5,7 @@ import { FakeClock } from '@rp/shared'
 import { expectedContentClass, isSessionEventName, parseTranscriptRecord } from '@rp/session-core'
 import { describe, expect, it } from 'vitest'
 import { taskEntrySchema, type TaskEntry } from '../tasks/schema.js'
-import { createCannedProvider } from './canned-provider.js'
+import { createCannedProvider, type CompletionProvider } from './canned-provider.js'
 import { ReplayError, buildCannedEntriesForTask, chunkText, replayTask } from './replay.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -58,7 +58,7 @@ describe('deterministic replay harness', () => {
     expect(kinds.filter((kind) => kind === 'persona.response.committed')).toHaveLength(
       personaTurns.length,
     )
-    expect(kinds.filter((kind) => kind === 'turn.revoked')).toHaveLength(personaTurns.length)
+    expect(kinds.filter((kind) => kind === 'turn.revoked')).toHaveLength(0)
     expect(result.providerRequests).toBe(personaTurns.length)
 
     const committedTexts = result.records
@@ -83,6 +83,36 @@ describe('deterministic replay harness', () => {
       committedByGrant.set(payload.grantId, payload.text)
     }
     expect([...chunksByGrant.entries()]).toEqual([...committedByGrant.entries()])
+  })
+
+  it('skips empty chunks and does not advance the sequence', async () => {
+    const task = loadTask(taskPaths[0])
+    const provider: CompletionProvider = {
+      kind: 'canned',
+      label: 'empty-chunk',
+      async *complete() {
+        yield { text: '', done: false }
+        yield { text: 'ok', done: true }
+      },
+    }
+
+    const result = await replayTask({
+      runId: 'empty-chunk-test',
+      executionId: EXECUTION_ID,
+      task,
+      clock: new FakeClock(0),
+      provider,
+      wallNow: fixedWallNow,
+    })
+
+    const chunks = result.records
+      .filter((record) => record.kind === 'persona.response.chunk')
+      .map((record) => record.payload as { text: string; sequence: number })
+
+    expect(chunks.map((chunk) => chunk.text)).toEqual(
+      task.content.turns.filter((turn) => turn.role === 'persona').map(() => 'ok'),
+    )
+    expect(chunks.every((chunk) => chunk.sequence === 0)).toBe(true)
   })
 
   it.each(taskPaths)(

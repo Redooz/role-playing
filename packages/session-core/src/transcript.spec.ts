@@ -8,6 +8,7 @@ import {
   normalizedTranscriptJsonl,
   parseTranscriptRecord,
   transcriptRecordSchema,
+  TranscriptSchemaVersionError,
   type TranscriptRecord,
 } from './transcript.js'
 import { GuardViolationError } from './guards.js'
@@ -193,6 +194,12 @@ describe('parseTranscriptRecord', () => {
 
   it('throws on an invalid record', () => {
     expect(() => parseTranscriptRecord({ ...record(0), contentClass: 'nope' })).toThrow()
+  })
+
+  it('rejects a record whose major version is not current', () => {
+    expect(() => parseTranscriptRecord({ ...record(0), schemaVersion: '2.0.0' })).toThrow(
+      TranscriptSchemaVersionError,
+    )
   })
 })
 

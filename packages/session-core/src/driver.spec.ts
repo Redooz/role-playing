@@ -73,7 +73,7 @@ interface SessionHarness {
 
 function openSession(
   model: TextModelPort,
-  options: { grantTtlMs?: number; clock?: FakeClock } = {},
+  options: { grantTtlMs?: number; clock?: FakeClock; maxHistoryMessages?: number } = {},
 ): SessionHarness {
   const clock = options.clock ?? new FakeClock(0)
   const driver = createTextSessionDriver({
@@ -84,6 +84,7 @@ function openSession(
     clock,
     model,
     grantTtlMs: options.grantTtlMs,
+    maxHistoryMessages: options.maxHistoryMessages,
   })
 
   const events: SessionEvent[] = []
@@ -262,6 +263,158 @@ describe('text session driver', () => {
     ])
   })
 
+  it('caps the context history to the configured number of messages', async () => {
+    const model = scriptedModel({ chunks: ['ok'] })
+    const harness = openSession(model, { maxHistoryMessages: 3 })
+
+    for (let turn = 0; turn < 6; turn += 1) {
+      await harness.driver.send(`turn-${turn}`)
+    }
+    await runToEnd(harness)
+
+    expect(model.requests).toHaveLength(6)
+    expect(model.requests.at(-1)?.messages).toHaveLength(3)
+  })
+
+  it('accepts a history limit of one message', async () => {
+    const model = scriptedModel({ chunks: ['ok'] })
+    const harness = openSession(model, { maxHistoryMessages: 1 })
+
+    await harness.driver.send('one')
+    await harness.driver.send('two')
+    await runToEnd(harness)
+
+    expect(model.requests.at(-1)?.messages).toHaveLength(1)
+  })
+
+  it('does not trim history before the limit', async () => {
+    const model = scriptedModel({ chunks: ['ok'] })
+    const harness = openSession(model, { maxHistoryMessages: 10 })
+
+    await harness.driver.send('one')
+    await harness.driver.send('two')
+    await runToEnd(harness)
+
+    expect(model.requests.at(-1)?.messages).toEqual([
+      { role: 'user', content: 'one' },
+      { role: 'assistant', content: 'ok' },
+      { role: 'user', content: 'two' },
+    ])
+  })
+
+  it('passes an abort signal to the model', async () => {
+    let signal: AbortSignal | undefined
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'signal-capture',
+      complete(_request, options) {
+        signal = options?.signal
+        return (async function* () {
+          yield { text: 'ok', done: true }
+        })()
+      },
+    }
+    const harness = openSession(model)
+
+    await harness.driver.send('go')
+    await runToEnd(harness)
+
+    expect(signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('rejects a non-positive history limit', () => {
+    const model = scriptedModel({ chunks: ['ok'] })
+
+    expect(() => openSession(model, { maxHistoryMessages: 0 })).toThrow(/positive integer/)
+    expect(() => openSession(model, { maxHistoryMessages: 1.5 })).toThrow(/positive integer/)
+    expect(() => openSession(model, { maxHistoryMessages: -1 })).toThrow(/positive integer/)
+  })
+
+  it('clears its timers after a normal turn', async () => {
+    const before = process
+      .getActiveResourcesInfo()
+      .filter((resource) => resource === 'Timeout').length
+    const harness = openSession(scriptedModel({ chunks: ['ok'] }))
+
+    await harness.driver.send('go')
+    await runToEnd(harness)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    const after = process
+      .getActiveResourcesInfo()
+      .filter((resource) => resource === 'Timeout').length
+    expect(after).toBeLessThanOrEqual(before)
+  })
+
+  it('does not hang when the provider never finishes closing its stream', async () => {
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'slow-close',
+      complete() {
+        let sent = false
+        return {
+          [Symbol.asyncIterator]() {
+            return {
+              next(): Promise<IteratorResult<TextModelChunk>> {
+                if (sent) return Promise.resolve({ done: true, value: undefined })
+                sent = true
+                return Promise.resolve({ done: false, value: { text: 'ok', done: true } })
+              },
+              return(): Promise<IteratorResult<TextModelChunk>> {
+                return new Promise(() => undefined)
+              },
+            }
+          },
+        }
+      },
+    }
+    const harness = openSession(model)
+    const startedAt = Date.now()
+
+    await harness.driver.send('go')
+    await runToEnd(harness)
+
+    expect(Date.now() - startedAt).toBeLessThan(2_000)
+    expect(harness.events.some((event) => event.type === 'persona.response.committed')).toBe(true)
+  })
+
+  it('drops a chunk that arrives after the abort landed', async () => {
+    let abort: () => void = () => undefined
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'late-chunk',
+      complete() {
+        return {
+          [Symbol.asyncIterator]() {
+            return {
+              next(): Promise<IteratorResult<TextModelChunk>> {
+                return new Promise((resolve) => {
+                  resolve({
+                    done: false,
+                    get value(): TextModelChunk {
+                      abort()
+                      return { text: 'late', done: false }
+                    },
+                  })
+                })
+              },
+            }
+          },
+        }
+      },
+    }
+    const harness = openSession(model)
+    abort = () => void harness.driver.interrupt()
+
+    await harness.driver.send('go')
+    await runToEnd(harness)
+
+    expect(chunks(harness.events)).toEqual([])
+    expect(
+      harness.events.find((event) => event.type === 'persona.response.cancelled')?.payload,
+    ).toMatchObject({ reason: 'interrupted' })
+  })
+
   it('preserves partial text, cancels once, and lets the next turn succeed', async () => {
     const model = scriptedModel({ chunks: ['One ', 'two ', 'three'] })
     const harness = openSession(model)
@@ -438,6 +591,96 @@ describe('text session driver', () => {
     expect(harness.events.some((event) => event.type === 'persona.response.committed')).toBe(false)
   })
 
+  it('times out a silent provider when the clock starts at a non-zero value', async () => {
+    const clock = new FakeClock(1_000)
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'silent-nonzero-clock',
+      complete() {
+        return {
+          [Symbol.asyncIterator]() {
+            return {
+              next(): Promise<IteratorResult<TextModelChunk>> {
+                return new Promise(() => undefined)
+              },
+            }
+          },
+        }
+      },
+    }
+    const harness = openSession(model, { clock, grantTtlMs: 20 })
+    const startedAt = Date.now()
+
+    await harness.driver.send('go')
+    await runToEnd(harness)
+
+    expect(Date.now() - startedAt).toBeLessThan(1_000)
+    expect(
+      harness.events.find((event) => event.type === 'persona.response.cancelled')?.payload,
+    ).toMatchObject({ reason: 'timeout' })
+  })
+
+  it('times out a silent provider even when it ignores the abort signal', async () => {
+    let signal: AbortSignal | undefined
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'silent',
+      complete(_request, options) {
+        signal = options?.signal
+        return {
+          [Symbol.asyncIterator]() {
+            return {
+              next(): Promise<IteratorResult<TextModelChunk>> {
+                return new Promise(() => undefined)
+              },
+            }
+          },
+        }
+      },
+    }
+    const harness = openSession(model, { grantTtlMs: 20 })
+    const startedAt = Date.now()
+
+    await harness.driver.send('go')
+    await runToEnd(harness)
+
+    expect(Date.now() - startedAt).toBeLessThan(1_000)
+    expect(signal?.aborted).toBe(true)
+    expect(
+      harness.events.find((event) => event.type === 'persona.response.cancelled')?.payload,
+    ).toMatchObject({ reason: 'timeout' })
+    expect(harness.events.some((event) => event.type === 'persona.response.committed')).toBe(false)
+  })
+
+  it('lets interrupt end a silent provider that ignores the abort signal', async () => {
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'silent-abort',
+      complete() {
+        return {
+          [Symbol.asyncIterator]() {
+            return {
+              next(): Promise<IteratorResult<TextModelChunk>> {
+                return new Promise(() => undefined)
+              },
+            }
+          },
+        }
+      },
+    }
+    const harness = openSession(model, { grantTtlMs: 60_000 })
+
+    const sending = harness.driver.send('go')
+    await new Promise((resolve) => setTimeout(resolve, 5))
+    await harness.driver.interrupt()
+    await sending
+    await runToEnd(harness)
+
+    expect(
+      harness.events.find((event) => event.type === 'persona.response.cancelled')?.payload,
+    ).toMatchObject({ reason: 'interrupted' })
+  })
+
   it('ignores an empty chunk without creating a sequence gap', async () => {
     const model: TextModelPort = {
       kind: 'canned',
@@ -476,6 +719,17 @@ describe('text session driver', () => {
     expect(
       harness.events.find((event) => event.type === 'persona.response.committed')?.payload,
     ).toMatchObject({ text: 'ab', usage })
+  })
+
+  it('omits usage when the provider reports none', async () => {
+    const harness = openSession(scriptedModel({ chunks: ['ok'] }))
+
+    await harness.driver.send('go')
+    await runToEnd(harness)
+
+    expect(
+      harness.events.find((event) => event.type === 'persona.response.committed')?.payload,
+    ).not.toHaveProperty('usage')
   })
 
   it('cancels when the interrupt lands before the commit', async () => {

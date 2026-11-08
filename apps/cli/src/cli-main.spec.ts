@@ -64,12 +64,13 @@ async function* linesOf(...input: readonly string[]): AsyncIterable<string> {
   for (const line of input) yield line
 }
 
-function driverWith(model: TextModelPort) {
+function driverWith(model: TextModelPort, options: { grantTtlMs?: number } = {}) {
   return createTextSessionDriver({
     sessionId: 'session-1',
     lang: 'en',
     clock: new FakeClock(0),
     model,
+    grantTtlMs: options.grantTtlMs,
   })
 }
 
@@ -238,6 +239,127 @@ describe('text session CLI', () => {
     expect(io.text()).toContain('you> hello')
     expect(io.text()).toContain('persona> Hello there')
     expect(io.text()).toContain('session completed')
+  })
+
+  it('reports an empty committed reply without a bare prompt', async () => {
+    const io = captureIo()
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'empty',
+      async *complete() {
+        yield { text: '', done: true }
+      },
+    }
+
+    await runCli({
+      input: linesOf('hello'),
+      io: io.io,
+      driver: driverWith(model),
+      provider: { kind: 'canned', label: 'canned/demo' },
+    })
+
+    expect(io.text()).toContain('persona> [empty response]')
+    expect(io.text()).not.toContain('persona> \n')
+  })
+
+  it('reports an immediate cancellation without a bare prompt', async () => {
+    const io = captureIo()
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'hanging',
+      complete() {
+        return {
+          [Symbol.asyncIterator]() {
+            return {
+              next(): Promise<IteratorResult<TextModelChunk>> {
+                return new Promise(() => undefined)
+              },
+            }
+          },
+        }
+      },
+    }
+
+    await runCli({
+      input: linesOf('hello', '/interrupt'),
+      io: io.io,
+      driver: driverWith(model),
+      provider: { kind: 'canned', label: 'canned/demo' },
+    })
+
+    expect(io.text()).toContain('[cancelled: interrupted]')
+    expect(io.text()).not.toContain('persona> \n')
+  })
+
+  it('reports a provider failure without printing a partial persona line', async () => {
+    const io = captureIo()
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'failing',
+      complete() {
+        throw new Error('boom')
+      },
+    }
+
+    await runCli({
+      input: linesOf('hello'),
+      io: io.io,
+      driver: driverWith(model),
+      provider: { kind: 'canned', label: 'canned/demo' },
+    })
+
+    expect(io.text()).toContain('[cancelled: provider failure]')
+    expect(io.text()).not.toContain('persona> \n')
+  })
+
+  it('reports a grant timeout', async () => {
+    const io = captureIo()
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'silent',
+      complete() {
+        return {
+          [Symbol.asyncIterator]() {
+            return {
+              next(): Promise<IteratorResult<TextModelChunk>> {
+                return new Promise(() => undefined)
+              },
+            }
+          },
+        }
+      },
+    }
+
+    await runCli({
+      input: linesOf('hello'),
+      io: io.io,
+      driver: driverWith(model, { grantTtlMs: 10 }),
+      provider: { kind: 'canned', label: 'canned/demo' },
+    })
+
+    expect(io.text()).toContain('[cancelled: timeout]')
+  })
+
+  it('reports a log write failure once and keeps the session running', async () => {
+    const io = captureIo()
+    let calls = 0
+
+    await runCli({
+      input: linesOf('/help', 'hello'),
+      io: io.io,
+      driver: driverWith(scriptedModel(['ok'])),
+      provider: { kind: 'canned', label: 'canned/demo' },
+      log: {
+        async append() {
+          calls += 1
+          throw new Error('disk full')
+        },
+      },
+    })
+
+    expect(calls).toBeGreaterThan(1)
+    expect(io.errors).toHaveLength(1)
+    expect(io.errors[0]).toContain('log write failed: disk full')
   })
 
   it('reports a replay failure without closing the session', async () => {

@@ -190,6 +190,7 @@ export async function measureSessionLatency(
               : turnState.emptyCommit
                 ? 'response committed without a text chunk'
                 : turnState.cancellation
+          const failureMessage = message ?? (error === undefined ? undefined : messageOf(error))
           failures.push({
             sessionIndex,
             turnIndex: turn,
@@ -205,8 +206,7 @@ export async function measureSessionLatency(
                       : turnState.cancellation === 'timeout'
                         ? 'timeout'
                         : 'cancelled',
-            ...(message === undefined ? {} : { message }),
-            ...(error === undefined ? {} : { message: messageOf(error) }),
+            ...(failureMessage === undefined ? {} : { message: failureMessage }),
           })
           completedTurn = undefined
           continue
@@ -221,8 +221,8 @@ export async function measureSessionLatency(
         completedTurn = undefined
       }
     } finally {
-      await driver.close()
-      await consumer
+      await settleWithin(driver.close(), turnTimeoutMs)
+      await settleWithin(consumer, turnTimeoutMs)
     }
   }
 
@@ -294,11 +294,29 @@ async function sendWithTimeout(
   })
 
   if (outcome === 'timeout') {
-    await driver.interrupt()
-    await sending
+    const interrupted = await settleWithin(driver.interrupt(), timeoutMs)
+    const settled = await settleWithin(sending, timeoutMs)
+    if (!interrupted || !settled) {
+      error = new Error(`driver did not stop within the ${timeoutMs} ms turn timeout`)
+    }
   }
 
   return { status: outcome === 'timeout' ? 'timeout' : 'ok', error }
+}
+
+/** Resolve after `promise` settles, or `false` when `ms` passes first. */
+async function settleWithin(promise: Promise<unknown>, ms: number): Promise<boolean> {
+  promise.catch(() => undefined)
+  let timer: NodeJS.Timeout | undefined
+  const timeout = new Promise<false>((resolve) => {
+    timer = setTimeout(() => resolve(false), ms)
+  })
+
+  try {
+    return await Promise.race([promise.then(() => true as const), timeout])
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+  }
 }
 
 function messageOf(error: unknown): string {

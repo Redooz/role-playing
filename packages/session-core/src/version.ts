@@ -13,8 +13,9 @@ import { z } from 'zod'
  * - **Breaking change → major bump** (`1.x.y` → `2.0.0`) **and** a task
  *   migration note. Removed or renamed events/fields, changed field meaning,
  *   new required fields, or narrowed enums break readers and therefore require
- *   a note at {@link TRANSCRIPT_SCHEMA_MIGRATION_NOTE_PATH} describing how stored
- *   tasks and baselines are migrated.
+ *   a note at
+ *   {@link TRANSCRIPT_SCHEMA_VERSION_POLICY.taskMigrationNotePath} describing how
+ *   stored tasks and baselines are migrated.
  *
  * Compare the version embedded in a transcript record with this constant before
  * replaying it: a different major version must be migrated first, never parsed
@@ -37,6 +38,13 @@ function parseSchemaVersion(version: string): readonly [number, number, number] 
   const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version)
   if (match === null) return undefined
   return [Number(match[1]), Number(match[2]), Number(match[3])]
+}
+
+/** The leading number of a `MAJOR.MINOR.PATCH` version. Throws on a non-version. */
+export function majorOfSchemaVersion(version: string): number {
+  const parsed = parseSchemaVersion(version)
+  if (parsed === undefined) throw new TypeError(`invalid schema version "${version}"`)
+  return parsed[0] as number
 }
 
 /**
