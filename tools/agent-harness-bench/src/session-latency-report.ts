@@ -25,14 +25,23 @@ export const DEFAULT_TEXT_LATENCY_REPORT_PATH = join(
   'latency.json',
 )
 
+/** Probe path for a comparison model; never overwrites the M1 baseline. */
+export const PROBE_TEXT_LATENCY_REPORT_PATH = join(
+  REPO_ROOT,
+  'evals',
+  'results',
+  'm1-text-latency-probe',
+  'latency.json',
+)
+
 export interface TextLatencyReport {
   readonly schemaVersion: 1
-  readonly suite: 'm1-text-latency'
-  readonly note: 'Wall-clock text proxy: session start -> first text chunk. No audio exists in M1. No latency budget is frozen.'
+  readonly suite: string
+  readonly note: string
   readonly budgetFrozen: false
   readonly generatedAt: string
-  readonly provider: 'groq'
-  readonly model: 'openai/gpt-oss-20b'
+  readonly provider: string
+  readonly model: string
   readonly label: 'text proxy'
   readonly sessions: number
   readonly turnsPerSession: number
@@ -52,6 +61,10 @@ export interface TextLatencyReport {
 export interface BuildTextLatencyReportOptions {
   readonly measurement: LatencyMeasurement
   readonly summary: LatencySummary
+  readonly suite: string
+  readonly note: string
+  readonly provider: string
+  readonly model: string
   readonly sessions: number
   readonly turnsPerSession: number
   readonly throttleMs: number
@@ -62,12 +75,12 @@ export function buildTextLatencyReport(options: BuildTextLatencyReportOptions): 
 
   return {
     schemaVersion: 1,
-    suite: 'm1-text-latency',
-    note: 'Wall-clock text proxy: session start -> first text chunk. No audio exists in M1. No latency budget is frozen.',
+    suite: options.suite,
+    note: options.note,
     budgetFrozen: false,
     generatedAt: new Date().toISOString(),
-    provider: 'groq',
-    model: 'openai/gpt-oss-20b',
+    provider: options.provider,
+    model: options.model,
     label: 'text proxy',
     sessions: options.sessions,
     turnsPerSession: options.turnsPerSession,

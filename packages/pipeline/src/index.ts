@@ -7,3 +7,5 @@
  */
 
 export * from './groq-text.adapter.js'
+export * from './openai-compatible.js'
+export * from './openrouter-text.adapter.js'
