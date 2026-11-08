@@ -51,6 +51,16 @@ export function isValidSessionId(value: string): boolean {
 }
 
 /**
+ * Render an untrusted argument for an error message. It has already failed the
+ * pattern, but it can still carry terminal escape sequences; escaping and
+ * truncating keeps a rejected value from reaching the terminal raw.
+ */
+function printable(value: string): string {
+  const bounded = value.length > 80 ? `${value.slice(0, 77)}...` : value
+  return JSON.stringify(bounded)
+}
+
+/**
  * Resolve the log file for a session id and reject any path that escapes the
  * log directory. The id validation already makes traversal impossible; this is
  * the defence-in-depth check on the resolved path.
@@ -131,13 +141,14 @@ export async function main(argv: readonly string[]): Promise<number> {
   const sessionIdOverride = values['session-id']
   if (sessionIdOverride !== undefined && !isValidSessionId(sessionIdOverride)) {
     io.err(
-      `error: --session-id must match ${SESSION_ID_PATTERN.source}, got "${sessionIdOverride}"`,
+      `error: --session-id must match ${SESSION_ID_PATTERN.source}, got ${printable(sessionIdOverride)}`,
     )
     return 2
   }
 
   const sessionId = sessionIdOverride ?? randomUUID()
-  const logDir = resolve(values['log-dir'] ?? 'sessions')
+  // parseArgs supplies the default, so the value is always present.
+  const logDir = resolve(values['log-dir'] as string)
 
   let logPath: string
   try {
@@ -201,6 +212,7 @@ export async function main(argv: readonly string[]): Promise<number> {
     io.err(
       `error: could not create the session log: ${error instanceof Error ? error.message : String(error)}`,
     )
+    await disposeModel(model, io)
     return 2
   }
 
@@ -225,5 +237,20 @@ export async function main(argv: readonly string[]): Promise<number> {
     return 1
   } finally {
     rl.close()
+    await disposeModel(model, io)
+  }
+}
+
+/**
+ * The composition root creates the model, so it releases it. A cleanup failure
+ * is reported but never turns a finished session into a crash.
+ */
+async function disposeModel(model: TextModelPort, io: CliIo): Promise<void> {
+  try {
+    await model.dispose?.()
+  } catch (error) {
+    io.err(
+      `error: could not release the model: ${error instanceof Error ? error.message : String(error)}`,
+    )
   }
 }

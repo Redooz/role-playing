@@ -256,6 +256,7 @@ describe('text session driver', () => {
     expect(model.requests).toHaveLength(2)
     expect(model.requests[0]?.messages).toEqual([{ role: 'user', content: 'first' }])
     expect(model.requests[0]?.metadata).toEqual({ lang: 'en' })
+    expect(model.requests[0]?.requestId).toBe('session-1-turn-1')
     expect(model.requests[1]?.messages).toEqual([
       { role: 'user', content: 'first' },
       { role: 'assistant', content: 'One' },
@@ -274,6 +275,8 @@ describe('text session driver', () => {
 
     expect(model.requests).toHaveLength(6)
     expect(model.requests.at(-1)?.messages).toHaveLength(3)
+    // Trimming keeps a user turn first, so the pair is not cut in half.
+    expect(model.requests.at(-1)?.messages[0]?.role).toBe('user')
   })
 
   it('accepts a history limit of one message', async () => {
@@ -328,6 +331,14 @@ describe('text session driver', () => {
     expect(() => openSession(model, { maxHistoryMessages: 0 })).toThrow(/positive integer/)
     expect(() => openSession(model, { maxHistoryMessages: 1.5 })).toThrow(/positive integer/)
     expect(() => openSession(model, { maxHistoryMessages: -1 })).toThrow(/positive integer/)
+  })
+
+  it('rejects a non-positive grant TTL', () => {
+    const model = scriptedModel({ chunks: ['ok'] })
+
+    expect(() => openSession(model, { grantTtlMs: 0 })).toThrow(/positive integer/)
+    expect(() => openSession(model, { grantTtlMs: -1 })).toThrow(/positive integer/)
+    expect(() => openSession(model, { grantTtlMs: 1.5 })).toThrow(/positive integer/)
   })
 
   it('clears its timers after a normal turn', async () => {
@@ -591,6 +602,37 @@ describe('text session driver', () => {
     expect(harness.events.some((event) => event.type === 'persona.response.committed')).toBe(false)
   })
 
+  it('aborts the signal when the simulated clock expires', async () => {
+    const clock = new FakeClock(0)
+    let signal: AbortSignal | undefined
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'clock-expiry',
+      complete(_request, options) {
+        signal = options?.signal
+        return {
+          [Symbol.asyncIterator]() {
+            return {
+              async next(): Promise<IteratorResult<TextModelChunk>> {
+                await clock.advance(10)
+                return { done: false, value: { text: 'one', done: false } }
+              },
+            }
+          },
+        }
+      },
+    }
+    const harness = openSession(model, { clock, grantTtlMs: 5 })
+
+    await harness.driver.send('go')
+    await runToEnd(harness)
+
+    expect(signal?.aborted).toBe(true)
+    expect(
+      harness.events.find((event) => event.type === 'persona.response.cancelled')?.payload,
+    ).toMatchObject({ reason: 'timeout', partialText: 'one' })
+  })
+
   it('times out a silent provider when the clock starts at a non-zero value', async () => {
     const clock = new FakeClock(1_000)
     const model: TextModelPort = {
@@ -844,11 +886,12 @@ describe('text session driver', () => {
     await runToEnd(harness)
 
     const cancelled = harness.events.find((event) => event.type === 'persona.response.cancelled')
-    expect(cancelled?.payload).toEqual({
+    expect(cancelled?.payload).toMatchObject({
       grantId: 'session-1-grant-1',
       reason: 'provider_failure',
       partialText: 'partial ',
     })
+    expect((cancelled?.payload as { detail?: string }).detail).toBe('Error: provider failed')
     expect(harness.events.some((event) => event.type === 'persona.response.committed')).toBe(false)
     expect(guardTurnEvents(harness.events).ok).toBe(true)
   })
@@ -1057,6 +1100,42 @@ describe('text session driver', () => {
 
     expect(types(harness.events)).toEqual(['session.started', 'session.completed'])
     await expect(harness.driver.send('after close')).rejects.toBeInstanceOf(SessionClosedError)
+  })
+
+  it('shares one closing promise while an interrupt is in flight', async () => {
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'closable',
+      async *complete(_request, options) {
+        yield { text: 'one', done: false }
+        await new Promise<void>((resolve) => {
+          if (options?.signal?.aborted === true) {
+            resolve()
+            return
+          }
+          options?.signal?.addEventListener('abort', () => resolve(), { once: true })
+        })
+      },
+    }
+    const harness = openSession(model)
+    let firstClose: Promise<void> | undefined
+    let secondClose: Promise<void> | undefined
+
+    harness.onEvent((event) => {
+      if (event.type === 'persona.response.chunk') {
+        firstClose = harness.driver.close()
+        secondClose = harness.driver.close()
+      }
+    })
+
+    await harness.driver.send('go')
+    await Promise.all([firstClose, secondClose])
+    await harness.finished()
+
+    expect(harness.events.filter((event) => event.type === 'session.completed')).toHaveLength(1)
+    expect(
+      harness.events.filter((event) => event.type === 'persona.response.cancelled'),
+    ).toHaveLength(1)
   })
 
   it('rejects an empty utterance without emitting a user event', async () => {

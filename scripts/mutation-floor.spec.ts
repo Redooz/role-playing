@@ -61,7 +61,11 @@ describe('packageOf', () => {
     expect(packageOf('packages/session-core/src/driver.ts')).toBe('packages/session-core')
     expect(packageOf('packages/pipeline/src/groq-text.adapter.ts')).toBe('packages/pipeline')
     expect(packageOf('apps/cli/src/main.ts')).toBe('apps/cli')
-    expect(packageOf('tools/other/file.ts')).toBeUndefined()
+    expect(packageOf('tools/other/file.ts')).toBe('tools/other')
+  })
+
+  it('rejects a path outside a workspace package', () => {
+    expect(packageOf('scripts/check-mutation-floor.mjs')).toBeUndefined()
   })
 })
 
@@ -127,5 +131,49 @@ describe('evaluateMutationFloor', () => {
 
     expect(result.failures).toContain('packages/session-core total 33.33% < floor 50.00%')
     expect(result.failures).toContain('global total 33.33% < floor 50.00%')
+  })
+
+  it('fails a malformed file entry instead of dropping its mutants', () => {
+    const result = evaluateMutationFloor(
+      {
+        files: {
+          'packages/session-core/src/driver.ts': { mutants: 'not-an-array' },
+        },
+      },
+      baseline,
+    )
+
+    expect(result.failures).toContain(
+      'mutation report entry "packages/session-core/src/driver.ts" has no mutants array',
+    )
+  })
+
+  it('fails a malformed mutant entry instead of throwing', () => {
+    const result = evaluateMutationFloor(
+      {
+        files: {
+          'packages/session-core/src/driver.ts': { mutants: [mutant('Killed'), null] },
+        },
+      },
+      baseline,
+    )
+
+    expect(result.failures).toContain(
+      'mutation report entry "packages/session-core/src/driver.ts" mutant 1 is malformed',
+    )
+  })
+
+  it('fails a package with mutants but no baseline floor', () => {
+    const result = evaluateMutationFloor(
+      report({
+        'packages/session-core/src/driver.ts': { mutants: [mutant('Killed')] },
+        'packages/new-package/src/file.ts': { mutants: [mutant('Killed')] },
+      }),
+      baseline,
+    )
+
+    expect(result.failures).toContain(
+      'packages/new-package has mutants but no baseline floor; add it to evals/baselines/m1-mutation.json',
+    )
   })
 })

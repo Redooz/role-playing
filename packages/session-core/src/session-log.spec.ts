@@ -111,6 +111,44 @@ describe('session log', () => {
     expect(() => parseSessionLog(textFor(records))).toThrow(SessionLogVersionError)
   })
 
+  it('reports an incompatible version even when the record payload has a v2 shape', () => {
+    const records = recordsFor().map((record, index) =>
+      index === 1
+        ? {
+            ...record,
+            schemaVersion: '2.0.0',
+            kind: 'persona.response.chunk',
+            payload: { grantId: 'grant-1', text: 'hi' }, // v2 dropped `sequence`
+            contentClass: 'restricted' as const,
+          }
+        : record,
+    )
+
+    expect(() => parseSessionLog(textFor(records))).toThrow(SessionLogVersionError)
+  })
+
+  it('rejects a record that belongs to another run', () => {
+    const records = recordsFor().map((record, index) =>
+      index === 1 ? { ...record, runId: 'another-session' } : record,
+    )
+
+    expect(() => parseSessionLog(textFor(records))).toThrow(/belongs to run "another-session"/)
+  })
+
+  it('rejects a seq gap instead of accepting a lost interior record', () => {
+    const records = recordsFor().filter((_record, index) => index !== 2)
+
+    expect(() => parseSessionLog(textFor(records))).toThrow(/seq 3; .*contiguous/)
+  })
+
+  it('marks a log that does not end with session.completed as unterminated', () => {
+    const records = recordsFor(events.slice(0, -1))
+    const parsed = parseSessionLog(textFor(records))
+
+    expect(parsed.unterminated).toBe(true)
+    expect(parseSessionLog(textFor(recordsFor())).unterminated).toBe(false)
+  })
+
   it('accepts an older minor version, because additive changes stay readable', () => {
     const records = recordsFor()
     const older = { ...header, schemaVersion: '1.0.0' }
@@ -213,7 +251,7 @@ describe('session log', () => {
       tWall: 1_700_000_000_400,
       kind: 'engine.latency_ms',
       payload: { value: 1 },
-      contentClass: 'public',
+      contentClass: 'contentFree',
     }
     const records = [...recordsFor(), operational]
 

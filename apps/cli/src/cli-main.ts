@@ -204,15 +204,27 @@ async function printReplay(
     `session ${replayed.header.sessionId} (${replayed.header.startedAt}, provider ${replayed.header.provider}, lang ${replayed.header.lang})`,
   )
 
+  // Chunks are the only evidence of a reply that crashed before a terminal
+  // event; keep them per grant and print what survived at the end.
+  const partials = new Map<string, string>()
+
   for (const event of replayed.events) {
     switch (event.type) {
       case 'user.utterance.committed':
         io.out(`you> ${event.payload.text}`)
         break
+      case 'persona.response.chunk':
+        partials.set(
+          event.payload.grantId,
+          `${partials.get(event.payload.grantId) ?? ''}${event.payload.text}`,
+        )
+        break
       case 'persona.response.committed':
+        partials.delete(event.payload.grantId)
         io.out(`persona> ${event.payload.text}`)
         break
       case 'persona.response.cancelled': {
+        partials.delete(event.payload.grantId)
         const partial = event.payload.partialText ?? ''
         io.out(
           `persona> ${partial}${partial === '' ? '' : ' '}[cancelled: ${event.payload.reason}]`,
@@ -229,6 +241,13 @@ async function printReplay(
 
   if (replayed.truncated) {
     io.out(`[truncated: replay stopped after ${replayed.records.length} complete record(s)]`)
+  }
+
+  if (replayed.unterminated) {
+    for (const text of partials.values()) {
+      if (text.length > 0) io.out(`persona> ${text} [unfinished]`)
+    }
+    io.out('[unterminated: the log has no session.completed record]')
   }
 }
 

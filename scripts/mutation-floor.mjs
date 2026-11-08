@@ -2,8 +2,8 @@
  * Pure scoring and comparison for the per-package mutation floor (M1 D9 / M1-G6).
  *
  * Kept separate from the CLI entry point so the gate logic can be tested with
- * fixture reports. A missing report, a missing package or a package with no
- * scorable mutants is a **failure**, never a silent 100%.
+ * fixture reports. A missing report, a missing package, a malformed entry or a
+ * package with no scorable mutants is a **failure**, never a silent 100%.
  */
 
 export function scoreMutants(mutants) {
@@ -56,14 +56,19 @@ export function scoreMutants(mutants) {
   }
 }
 
+/**
+ * Map a report path to its workspace package. Generic on purpose: a package
+ * added to the mutation scope must not fall outside the per-package floor just
+ * because it is not one of the three names known today.
+ */
 export function packageOf(file) {
-  if (file.startsWith('packages/session-core/')) return 'packages/session-core'
-  if (file.startsWith('packages/pipeline/')) return 'packages/pipeline'
-  if (file.startsWith('apps/cli/')) return 'apps/cli'
-  return undefined
+  const match = /^(packages|apps|tools)\/([^/]+)\//.exec(file)
+  if (match === null) return undefined
+  return `${match[1]}/${match[2]}`
 }
 
 function percent(value) {
+  if (value === null || value === undefined) return 'n/a'
   return Number(value).toFixed(2)
 }
 
@@ -88,9 +93,27 @@ export function evaluateMutationFloor(report, baseline) {
     }
   }
 
-  const allMutants = Object.values(reportFiles).flatMap((file) =>
-    Array.isArray(file?.mutants) ? file.mutants : [],
-  )
+  // Validate before scoring: a malformed entry must fail the gate, not quietly
+  // remove its mutants from a package score.
+  const validated = []
+  for (const [file, data] of Object.entries(reportFiles)) {
+    if (data === null || typeof data !== 'object' || !Array.isArray(data.mutants)) {
+      failures.push(`mutation report entry "${file}" has no mutants array`)
+      continue
+    }
+
+    const mutants = []
+    for (const [index, mutant] of data.mutants.entries()) {
+      if (mutant === null || typeof mutant !== 'object' || typeof mutant.status !== 'string') {
+        failures.push(`mutation report entry "${file}" mutant ${index} is malformed`)
+        continue
+      }
+      mutants.push(mutant)
+    }
+    validated.push([file, mutants])
+  }
+
+  const allMutants = validated.flatMap(([, mutants]) => mutants)
   const global = scoreMutants(allMutants)
 
   if (allMutants.length === 0) {
@@ -111,15 +134,29 @@ export function evaluateMutationFloor(report, baseline) {
   }
 
   const byPackage = {}
-  for (const [file, data] of Object.entries(reportFiles)) {
+  for (const [file, mutants] of validated) {
     const packageName = packageOf(file)
-    if (packageName === undefined) continue
+    if (packageName === undefined) {
+      failures.push(
+        `mutation report entry "${file}" does not belong to packages/<name>/, apps/<name>/ or tools/<name>/`,
+      )
+      continue
+    }
     byPackage[packageName] ??= []
-    byPackage[packageName].push(...(Array.isArray(data?.mutants) ? data.mutants : []))
+    byPackage[packageName].push(...mutants)
+  }
+
+  const baselinePackages = baseline.packages ?? {}
+  for (const packageName of Object.keys(byPackage)) {
+    if (!Object.hasOwn(baselinePackages, packageName)) {
+      failures.push(
+        `${packageName} has mutants but no baseline floor; add it to evals/baselines/m1-mutation.json`,
+      )
+    }
   }
 
   const packages = {}
-  for (const [packageName, floor] of Object.entries(baseline.packages ?? {})) {
+  for (const [packageName, floor] of Object.entries(baselinePackages)) {
     const mutants = byPackage[packageName]
     if (mutants === undefined || mutants.length === 0) {
       failures.push(`${packageName} has no mutants in the report`)

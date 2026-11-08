@@ -1,8 +1,9 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { appendFile, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   TRANSCRIPT_SCHEMA_VERSION,
+  parseSessionLog,
   replaySessionLog,
   type SessionEvent,
   type SessionLogHeader,
@@ -110,5 +111,73 @@ describe('file-backed session log', () => {
 
     await createFileSessionLog(options)
     await expect(createFileSessionLog(options)).rejects.toMatchObject({ code: 'EEXIST' })
+  })
+
+  it('pins tSim to 0 in wall mode and keeps wall time in tWall', async () => {
+    const dir = await tempDir()
+    const path = join(dir, 'wall.jsonl')
+    const wallHeader: SessionLogHeader = { ...header, clockMode: 'wall' }
+    const log = await createFileSessionLog({
+      path,
+      header: wallHeader,
+      clock: new FakeClock(1_000),
+      wallClock: () => 1_700_000_000_000,
+    })
+
+    await log.append({ type: 'session.completed', payload: {} })
+
+    const stored = parseSessionLog(await readFile(path, 'utf8'))
+    expect(stored.records[0]?.tSim).toBe(0)
+    expect(stored.records[0]?.tWall).toBe(1_700_000_000_000)
+  })
+
+  it('keeps the simulated clock in tSim for simulated sessions', async () => {
+    const dir = await tempDir()
+    const path = join(dir, 'simulated.jsonl')
+    const log = await createFileSessionLog({
+      path,
+      header,
+      clock: new FakeClock(1_000),
+      wallClock: () => 1_700_000_000_000,
+    })
+
+    await log.append({ type: 'session.completed', payload: {} })
+
+    const stored = parseSessionLog(await readFile(path, 'utf8'))
+    expect(stored.records[0]?.tSim).toBe(1_000)
+  })
+
+  it('refuses further appends after a partial write', async () => {
+    const dir = await tempDir()
+    const path = join(dir, 'session-1.jsonl')
+    let calls = 0
+
+    const log = await createFileSessionLog({
+      path,
+      header,
+      clock: new FakeClock(0),
+      wallClock: () => 1_700_000_000_000,
+      appendFileImpl: async (file, data, encoding) => {
+        calls += 1
+        if (calls === 1) {
+          await appendFile(file, data.slice(0, Math.floor(data.length / 2)), encoding)
+          throw new Error('disk full')
+        }
+        await appendFile(file, data, encoding)
+      },
+    })
+
+    await expect(log.append({ type: 'session.completed', payload: {} })).rejects.toThrow(
+      'disk full',
+    )
+    await expect(log.append({ type: 'session.completed', payload: {} })).rejects.toThrow(
+      /closed after a failed write/,
+    )
+
+    // The cut-off line is the final line, so the reader reports truncation
+    // instead of an interior malformed line that every later read rejects.
+    const stored = parseSessionLog(await readFile(path, 'utf8'))
+    expect(stored.truncated).toBe(true)
+    expect(stored.records).toHaveLength(0)
   })
 })

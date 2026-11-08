@@ -61,6 +61,12 @@ export interface CreateTextSessionDriverOptions {
    * bound; M1 has no summarisation policy.
    */
   readonly maxHistoryMessages?: number
+  /**
+   * Maximum undelivered events before the session fails. Defaults to 100,000.
+   * A normal session never reaches it; the bound turns a stuck consumer into a
+   * clear error instead of unbounded memory growth.
+   */
+  readonly maxQueuedEvents?: number
 }
 
 export interface SessionDriver {
@@ -79,6 +85,8 @@ const DEFAULT_GRANT_TTL_MS = 60_000
 const DEFAULT_MAX_HISTORY_MESSAGES = 200
 /** How long a cancelled stream may take to close before the driver moves on. */
 const MAX_ITERATOR_CLOSE_MS = 1_000
+/** Bound on undelivered events before the queue fails instead of growing forever. */
+const DEFAULT_MAX_QUEUED_EVENTS = 100_000
 
 /** Resolve when `promise` settles or after `ms`, whichever happens first. */
 async function settleWithin(promise: Promise<unknown>, ms: number): Promise<void> {
@@ -93,23 +101,54 @@ async function settleWithin(promise: Promise<unknown>, ms: number): Promise<void
     if (timer !== undefined) clearTimeout(timer)
   }
 }
+
+/** A bounded, single-line cause for a failed model call; never a raw provider body. */
+function describeModelError(error: unknown): string {
+  const name = error instanceof Error ? error.name : 'Error'
+  const message = error instanceof Error ? error.message : String(error)
+  const text = `${name}: ${message}`.replace(/\s+/g, ' ').trim()
+  return text.length > 200 ? `${text.slice(0, 197)}...` : text
+}
 const DEFAULT_PERSONA_ID = 'persona-1'
 
 /**
  * Async event queue: `emit` never blocks, and a consumer sees each event as soon
  * as it is appended. Closing ends the iterator; a stored error rejects it.
+ *
+ * The queue is bounded so a consumer that stops draining (a slow log write) can
+ * fail the session instead of growing memory for its whole length. The limit is
+ * deliberately high: a normal session never reaches it.
  */
 export class AsyncEventQueue<T> implements AsyncIterableIterator<T> {
   readonly #items: T[] = []
-  readonly #waiters: Array<(result: IteratorResult<T>) => void> = []
+  readonly #waiters: Array<{
+    resolve: (result: IteratorResult<T>) => void
+    reject: (error: unknown) => void
+  }> = []
+  readonly #maxItems: number | undefined
   #closed = false
   #failure: unknown
+
+  constructor(maxItems?: number) {
+    if (maxItems !== undefined && (!Number.isInteger(maxItems) || maxItems < 1)) {
+      throw new SessionDriverError('maxQueuedEvents must be a positive integer')
+    }
+    this.#maxItems = maxItems
+  }
 
   push(item: T): void {
     if (this.#closed) return
     const waiter = this.#waiters.shift()
     if (waiter !== undefined) {
-      waiter({ value: item, done: false })
+      waiter.resolve({ value: item, done: false })
+      return
+    }
+    if (this.#maxItems !== undefined && this.#items.length >= this.#maxItems) {
+      this.fail(
+        new SessionDriverError(
+          `event queue exceeded ${this.#maxItems} undelivered events; the consumer is not keeping up`,
+        ),
+      )
       return
     }
     this.#items.push(item)
@@ -119,7 +158,7 @@ export class AsyncEventQueue<T> implements AsyncIterableIterator<T> {
     if (this.#closed) return
     this.#closed = true
     for (const waiter of this.#waiters.splice(0)) {
-      waiter({ value: undefined, done: true })
+      waiter.resolve({ value: undefined, done: true })
     }
   }
 
@@ -128,7 +167,7 @@ export class AsyncEventQueue<T> implements AsyncIterableIterator<T> {
     this.#failure = error
     this.#closed = true
     for (const waiter of this.#waiters.splice(0)) {
-      waiter({ value: undefined, done: true })
+      waiter.reject(error)
     }
   }
 
@@ -139,8 +178,8 @@ export class AsyncEventQueue<T> implements AsyncIterableIterator<T> {
       if (this.#failure !== undefined) return Promise.reject(this.#failure)
       return Promise.resolve({ value: undefined, done: true })
     }
-    return new Promise((resolve) => {
-      this.#waiters.push(resolve)
+    return new Promise((resolve, reject) => {
+      this.#waiters.push({ resolve, reject })
     })
   }
 
@@ -173,7 +212,7 @@ class TextSessionDriver implements SessionDriver {
   readonly sessionId: string
   readonly events: AsyncIterable<SessionEvent>
 
-  readonly #queue = new AsyncEventQueue<SessionEvent>()
+  readonly #queue: AsyncEventQueue<SessionEvent>
   readonly #clock: Clock
   readonly #model: TextModelPort
   readonly #lang: SessionLanguage
@@ -183,6 +222,7 @@ class TextSessionDriver implements SessionDriver {
   readonly #messages: TextModelMessage[] = []
 
   #closed = false
+  #closing: Promise<void> | undefined
   #turnCounter = 0
   #active: ActiveTurn | undefined
 
@@ -194,9 +234,15 @@ class TextSessionDriver implements SessionDriver {
     this.#personaId = options.personaId ?? DEFAULT_PERSONA_ID
     this.#grantTtlMs = options.grantTtlMs ?? DEFAULT_GRANT_TTL_MS
     this.#maxHistoryMessages = options.maxHistoryMessages ?? DEFAULT_MAX_HISTORY_MESSAGES
+    if (!Number.isInteger(this.#grantTtlMs) || this.#grantTtlMs < 1) {
+      throw new SessionDriverError('grantTtlMs must be a positive integer')
+    }
     if (!Number.isInteger(this.#maxHistoryMessages) || this.#maxHistoryMessages < 1) {
       throw new SessionDriverError('maxHistoryMessages must be a positive integer')
     }
+    this.#queue = new AsyncEventQueue<SessionEvent>(
+      options.maxQueuedEvents ?? DEFAULT_MAX_QUEUED_EVENTS,
+    )
     this.events = this.#queue
 
     this.#emit('session.started', {
@@ -244,11 +290,14 @@ class TextSessionDriver implements SessionDriver {
   }
 
   async close(): Promise<void> {
-    if (this.#closed) return
+    if (this.#closing !== undefined) return this.#closing
     this.#closed = true
-    await this.interrupt()
-    this.#emit('session.completed', {})
-    this.#queue.close()
+    this.#closing = (async () => {
+      await this.interrupt()
+      this.#emit('session.completed', {})
+      this.#queue.close()
+    })()
+    return this.#closing
   }
 
   #emit<Name extends SessionEventName>(type: Name, payload: EventPayloadFor<Name>): void {
@@ -258,7 +307,13 @@ class TextSessionDriver implements SessionDriver {
   #appendMessage(message: TextModelMessage): void {
     this.#messages.push(message)
     const overflow = this.#messages.length - this.#maxHistoryMessages
-    if (overflow > 0) this.#messages.splice(0, overflow)
+    if (overflow > 0) {
+      this.#messages.splice(0, overflow)
+      // Keep the context starting with a user turn. Chat-completions APIs accept
+      // an assistant-first history, but a user/assistant pair is clearer and
+      // avoids dropping the user turn that the assistant reply answers.
+      while (this.#messages[0]?.role === 'assistant') this.#messages.shift()
+    }
   }
 
   async #runTurn(turn: { turnId: string; grantId: string; expiresAtMs: number }): Promise<void> {
@@ -278,7 +333,7 @@ class TextSessionDriver implements SessionDriver {
   }
 
   async #streamResponse(
-    turn: { readonly grantId: string; readonly expiresAtMs: number },
+    turn: { readonly turnId: string; readonly grantId: string; readonly expiresAtMs: number },
     controller: AbortController,
   ): Promise<void> {
     this.#emit('persona.response.started', { grantId: turn.grantId })
@@ -288,13 +343,18 @@ class TextSessionDriver implements SessionDriver {
     let sawDone = false
     let usage: TextModelUsage | undefined
     let outcome: TurnOutcome = 'committed'
+    let failureDetail: string | undefined
     let iterator: AsyncIterator<TextModelChunk> | undefined
     let deadlineTimer: NodeJS.Timeout | undefined
 
     try {
       iterator = this.#model
         .complete(
-          { messages: [...this.#messages], metadata: { lang: this.#lang } },
+          {
+            messages: [...this.#messages],
+            metadata: { lang: this.#lang },
+            requestId: turn.turnId,
+          },
           { signal: controller.signal },
         )
         [Symbol.asyncIterator]()
@@ -320,6 +380,9 @@ class TextSessionDriver implements SessionDriver {
           break
         }
         if (this.#clock.now() >= turn.expiresAtMs) {
+          // A simulated-clock expiry must stop the provider exactly like the
+          // deadline timer does; a provider may listen only to the signal.
+          controller.abort()
           outcome = 'timeout'
           break
         }
@@ -350,10 +413,12 @@ class TextSessionDriver implements SessionDriver {
         if (sawDone) {
           // The provider kept streaming after its final chunk.
           outcome = 'provider_failure'
+          failureDetail = 'provider yielded a chunk after the final chunk'
           break
         }
         if (typeof chunk.text !== 'string') {
           outcome = 'provider_failure'
+          failureDetail = 'provider yielded a non-string chunk'
           break
         }
 
@@ -375,11 +440,17 @@ class TextSessionDriver implements SessionDriver {
         outcome = 'interrupted'
       } else if (outcome === 'committed' && !sawDone) {
         outcome = 'provider_failure'
+        failureDetail = 'stream ended without a final chunk'
       }
-    } catch {
+    } catch (error) {
       // A failed model call is not a "no": it is an interrupted reply, never a
       // fabricated or empty committed one. The caller decides whether to retry.
-      outcome = controller.signal.aborted ? 'interrupted' : 'provider_failure'
+      if (controller.signal.aborted) {
+        outcome = 'interrupted'
+      } else {
+        outcome = 'provider_failure'
+        failureDetail = describeModelError(error)
+      }
     } finally {
       if (deadlineTimer !== undefined) clearTimeout(deadlineTimer)
       const closeIterator = iterator
@@ -418,6 +489,7 @@ class TextSessionDriver implements SessionDriver {
       grantId: turn.grantId,
       reason,
       ...(text.length === 0 ? {} : { partialText: text }),
+      ...(failureDetail === undefined ? {} : { detail: failureDetail }),
     })
   }
 }

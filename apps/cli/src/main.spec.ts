@@ -52,6 +52,19 @@ describe('main session id argument', () => {
     }
   })
 
+  it('escapes a rejected session id instead of echoing terminal controls', async () => {
+    const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+
+    try {
+      await expect(main(['--session-id', '\u001b[31mevil'])).resolves.toBe(2)
+      const output = err.mock.calls.map((call) => String(call[0])).join('')
+      expect(output).toContain('\\u001b')
+      expect(output).not.toContain('\u001b')
+    } finally {
+      err.mockRestore()
+    }
+  })
+
   it('rejects an empty task id with exit code 2', async () => {
     const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
 

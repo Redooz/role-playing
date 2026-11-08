@@ -241,6 +241,32 @@ describe('text session CLI', () => {
     expect(io.text()).toContain('session completed')
   })
 
+  it('marks a log without session.completed as unterminated and shows partial text', async () => {
+    const io = captureIo()
+    const saved = logText([
+      {
+        type: 'session.started',
+        payload: { sessionId: 'session-1', clockMode: 'simulated', lang: 'en' },
+      },
+      { type: 'user.utterance.committed', payload: { text: 'hello' } },
+      {
+        type: 'persona.response.chunk',
+        payload: { grantId: 'grant-1', text: 'Half a rep', sequence: 0 },
+      },
+    ])
+
+    await runCli({
+      input: linesOf('/replay /tmp/crashed.jsonl'),
+      io: io.io,
+      driver: driverWith(scriptedModel(['unused'])),
+      provider: { kind: 'canned', label: 'canned/demo' },
+      readFile: async () => saved,
+    })
+
+    expect(io.text()).toContain('persona> Half a rep [unfinished]')
+    expect(io.text()).toContain('[unterminated')
+  })
+
   it('reports an empty committed reply without a bare prompt', async () => {
     const io = captureIo()
     const model: TextModelPort = {

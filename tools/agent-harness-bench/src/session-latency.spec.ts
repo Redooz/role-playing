@@ -9,12 +9,14 @@ function scriptedFactory(): LatencyModel {
   const model: TextModelPort = {
     kind: 'canned',
     label: 'scripted',
-    async *complete(_request, options) {
+    async *complete(request, options) {
       const requestStartedAt = performance.now()
+      const requestId = request.requestId
       if (options?.signal?.aborted === true) return
       yield { text: 'one ', done: false }
       yield { text: 'two', done: true }
       timings.push({
+        ...(requestId === undefined ? {} : { requestId }),
         requestStartedAt,
         firstContentAt: requestStartedAt + 0.5,
         finishedAt: performance.now(),
@@ -43,7 +45,8 @@ describe('text latency measurement', () => {
       expect(turn.ttftMs).toBeGreaterThanOrEqual(0)
       expect(turn.totalMs).toBeGreaterThanOrEqual(turn.ttftMs)
       expect(turn.providerTtftMs).toBeCloseTo(0.5)
-      expect(turn.localOverheadMs).toBeCloseTo(turn.ttftMs - 0.5)
+      // Independently injectable clocks can disagree; the bench clamps at 0.
+      expect(turn.localOverheadMs).toBeCloseTo(Math.max(0, turn.ttftMs - 0.5))
     }
 
     const summary = summarizeLatency(measurement)
@@ -156,5 +159,71 @@ describe('text latency measurement', () => {
     expect(measurement.failures).toHaveLength(1)
     expect(measurement.failures[0]?.reason).toBe('timeout')
     expect(measurement.failures[0]?.message).toBe('interrupted')
+  })
+
+  it('attributes a late timing by request id instead of list position', async () => {
+    const timings: GroqRequestTiming[] = []
+    let call = 0
+
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'late-timing',
+      complete(request) {
+        call += 1
+        const requestId = request.requestId
+        const id = requestId === undefined ? {} : { requestId }
+
+        if (call === 1) {
+          return {
+            [Symbol.asyncIterator]() {
+              return {
+                next(): Promise<IteratorResult<TextModelChunk>> {
+                  return new Promise(() => undefined)
+                },
+                return(): Promise<IteratorResult<TextModelChunk>> {
+                  // The abandoned request reports after the next turn starts.
+                  setTimeout(() => {
+                    timings.push({
+                      ...id,
+                      requestStartedAt: 0,
+                      firstContentAt: 0,
+                      finishedAt: 0,
+                      ok: false,
+                    })
+                  }, 1)
+                  return Promise.resolve({ done: true, value: undefined })
+                },
+              }
+            },
+          }
+        }
+
+        return (async function* () {
+          await new Promise((resolve) => setTimeout(resolve, 10))
+          yield { text: 'ok', done: true }
+          timings.push({
+            ...id,
+            requestStartedAt: 0,
+            firstContentAt: 0.5,
+            finishedAt: 1,
+            ok: true,
+          })
+        })()
+      },
+    }
+
+    const measurement = await measureSessionLatency({
+      modelFactory: () => ({ model, timings }),
+      sessions: 1,
+      turnsPerSession: 2,
+      prompt: () => 'go',
+      turnTimeoutMs: 30,
+    })
+
+    expect(measurement.failures).toHaveLength(1)
+    expect(measurement.failures[0]?.turnIndex).toBe(0)
+    expect(measurement.turns).toHaveLength(1)
+    expect(measurement.turns[0]?.turnIndex).toBe(1)
+    expect(measurement.turns[0]?.providerTtftMs).toBeCloseTo(0.5)
   })
 })

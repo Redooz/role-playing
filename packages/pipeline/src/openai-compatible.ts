@@ -12,6 +12,8 @@ import type { TextModelChunk, TextModelRequest, TextModelUsage } from '@rp/sessi
  */
 
 export interface TextRequestTiming {
+  /** Present when the request carries a `requestId` in its metadata. */
+  readonly requestId?: string
   readonly requestStartedAt: number
   readonly responseHeadersAt?: number
   readonly firstContentAt?: number
@@ -67,6 +69,8 @@ export async function* streamOpenAiCompatible(
 ): AsyncIterable<TextModelChunk> {
   const { apiKey, baseUrl, model, request, signal, fetchImpl, onTiming, now, providerName } =
     options
+  const endpoint = `${baseUrl.replace(/\/+$/, '')}/chat/completions`
+  const requestId = request.requestId
   const requestStartedAt = now()
   let responseHeadersAt: number | undefined
   let firstContentAt: number | undefined
@@ -76,7 +80,7 @@ export async function* streamOpenAiCompatible(
   try {
     let response: Response
     try {
-      response = await fetchImpl(`${baseUrl}/chat/completions`, {
+      response = await fetchImpl(endpoint, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${apiKey}`,
@@ -138,8 +142,11 @@ export async function* streamOpenAiCompatible(
 
           const chunk = parseChunk(data, options.createError)
           usage = readUsage(chunk) ?? usage
-          const text = chunk.choices?.[0]?.delta?.content
-          if (text !== undefined && text.length > 0) {
+          const choice = Array.isArray(chunk.choices) ? chunk.choices[0] : undefined
+          const text: unknown = choice?.delta?.content
+          // A role-only delta may carry `content: null`; the wire is unvalidated
+          // JSON, so check the type before treating it as text.
+          if (typeof text === 'string' && text.length > 0) {
             firstContentAt ??= now()
             yield { text, done: false }
           }
@@ -157,6 +164,7 @@ export async function* streamOpenAiCompatible(
     yield { text: '', done: true, ...(usage === undefined ? {} : { usage }) }
   } finally {
     onTiming?.({
+      ...(requestId === undefined ? {} : { requestId }),
       requestStartedAt,
       ...(responseHeadersAt === undefined ? {} : { responseHeadersAt }),
       ...(firstContentAt === undefined ? {} : { firstContentAt }),
@@ -182,7 +190,7 @@ function parseChunk(data: string, createError: CreateProviderError): StreamChunk
 
 function readUsage(chunk: StreamChunk): TextModelUsage | undefined {
   const raw = chunk.x_groq?.usage ?? chunk.usage
-  if (raw === undefined) return undefined
+  if (typeof raw !== 'object' || raw === null) return undefined
 
   const usage: TextModelUsage = {
     ...(typeof raw.prompt_tokens === 'number' ? { inputTokens: raw.prompt_tokens } : {}),
