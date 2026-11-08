@@ -341,6 +341,24 @@ describe('text session driver', () => {
     expect(() => openSession(model, { grantTtlMs: 1.5 })).toThrow(/positive integer/)
   })
 
+  it('accepts a one-millisecond grant TTL', () => {
+    const model = scriptedModel({ chunks: ['ok'] })
+
+    expect(() => openSession(model, { grantTtlMs: 1 })).not.toThrow()
+  })
+
+  it('trims a leading assistant message before the next request', async () => {
+    const model = scriptedModel({ chunks: ['ok'] })
+    const harness = openSession(model, { maxHistoryMessages: 4 })
+
+    for (let turn = 0; turn < 3; turn += 1) {
+      await harness.driver.send(`turn-${turn}`)
+    }
+    await runToEnd(harness)
+
+    expect(model.requests.at(-1)?.messages[0]?.role).toBe('user')
+  })
+
   it('clears its timers after a normal turn', async () => {
     const before = process
       .getActiveResourcesInfo()
@@ -854,7 +872,38 @@ describe('text session driver', () => {
 
     expect(
       harness.events.find((event) => event.type === 'persona.response.cancelled')?.payload,
-    ).toMatchObject({ reason: 'provider_failure' })
+    ).toMatchObject({ reason: 'provider_failure', detail: 'Error: no iterator' })
+  })
+
+  it('keeps a provider failure detail on one bounded line', async () => {
+    async function detailFor(message: string): Promise<string | undefined> {
+      const model: TextModelPort = {
+        kind: 'canned',
+        label: 'detail',
+        complete() {
+          throw new Error(message)
+        },
+      }
+      const harness = openSession(model)
+
+      await harness.driver.send('go')
+      await runToEnd(harness)
+
+      return (
+        harness.events.find((event) => event.type === 'persona.response.cancelled')?.payload as
+          { detail?: string } | undefined
+      )?.detail
+    }
+
+    expect(await detailFor('a\n\n b')).toBe('Error: a b')
+
+    const exact = await detailFor('x'.repeat(193))
+    expect(exact).toHaveLength(200)
+    expect(exact?.endsWith('...')).toBe(false)
+
+    const long = await detailFor('x'.repeat(400))
+    expect(long).toHaveLength(200)
+    expect(long?.endsWith('...')).toBe(true)
   })
 
   it('does nothing when interrupted while idle', async () => {
@@ -905,7 +954,11 @@ describe('text session driver', () => {
 
     expect(
       harness.events.find((event) => event.type === 'persona.response.cancelled')?.payload,
-    ).toMatchObject({ reason: 'provider_failure', partialText: 'partial' })
+    ).toMatchObject({
+      reason: 'provider_failure',
+      partialText: 'partial',
+      detail: 'stream ended without a final chunk',
+    })
   })
 
   it('treats a chunk after the final chunk as a provider failure', async () => {
@@ -917,7 +970,10 @@ describe('text session driver', () => {
 
     expect(
       harness.events.find((event) => event.type === 'persona.response.cancelled')?.payload,
-    ).toMatchObject({ reason: 'provider_failure' })
+    ).toMatchObject({
+      reason: 'provider_failure',
+      detail: 'provider yielded a chunk after the final chunk',
+    })
     expect(harness.events.some((event) => event.type === 'persona.response.committed')).toBe(false)
   })
 
@@ -937,7 +993,10 @@ describe('text session driver', () => {
 
     expect(
       harness.events.find((event) => event.type === 'persona.response.cancelled')?.payload,
-    ).toMatchObject({ reason: 'provider_failure' })
+    ).toMatchObject({
+      reason: 'provider_failure',
+      detail: 'provider yielded a non-string chunk',
+    })
   })
 
   it('classifies a provider throw after an interrupt as interrupted', async () => {

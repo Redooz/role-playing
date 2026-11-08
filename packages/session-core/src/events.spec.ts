@@ -150,6 +150,15 @@ describe('event payload schemas', () => {
     ).toBe(false)
   })
 
+  it('accepts a short provider-failure detail and rejects empty or oversized ones', () => {
+    const cancelled = payloadSchema('persona.response.cancelled')
+    const base = { grantId: GRANT_ID, reason: 'provider_failure' }
+
+    expect(cancelled.safeParse({ ...base, detail: 'ok' }).success).toBe(true)
+    expect(cancelled.safeParse({ ...base, detail: '' }).success).toBe(false)
+    expect(cancelled.safeParse({ ...base, detail: 'x'.repeat(241) }).success).toBe(false)
+  })
+
   it('requires targetGrantId only for interject requests', () => {
     const speak = {
       turnId: TURN_ID,
