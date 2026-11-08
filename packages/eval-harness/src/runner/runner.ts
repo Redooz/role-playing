@@ -40,7 +40,14 @@ import {
   type RunSummary,
 } from './results.js'
 import { createDeterministicInvariantGrader, type Grader, type TrialRecord } from './grader.js'
-import { createTrialEnvironment, type ProviderFactory, type TrialEnvironment } from './trial.js'
+import {
+  TrialTimeoutError,
+  createTrialEnvironment,
+  snapshotEnvironment,
+  withTrialTimeout,
+  type ProviderFactory,
+  type TrialEnvironment,
+} from './trial.js'
 import { computeVerdict, type RunVerdict } from './verdict.js'
 import { deriveExecutionId } from '../observability/execution-id.js'
 
@@ -89,6 +96,8 @@ export interface ExecuteRunOptions {
   readonly wallClock?: () => number
   /** Code SHA to stamp into the result, when the caller can resolve one. */
   readonly codeSha?: string
+  /** Per-trial wall-clock budget. Defaults to 30 seconds. */
+  readonly trialTimeoutMs?: number
 }
 
 export interface TrialTranscriptFile {
@@ -206,6 +215,7 @@ export async function executeRun(options: ExecuteRunOptions): Promise<Evaluation
 
     for (const { task } of orderedTasks) {
       let environment: TrialEnvironment | undefined
+      const environmentSnapshot = snapshotEnvironment()
 
       try {
         environment = createTrialEnvironment({
@@ -213,9 +223,10 @@ export async function executeRun(options: ExecuteRunOptions): Promise<Evaluation
           round,
           task,
           providerFactory,
+          ...(options.trialTimeoutMs === undefined ? {} : { timeoutMs: options.trialTimeoutMs }),
         })
 
-        const replayed = await replayTask({
+        const replayPromise = replayTask({
           runId: manifest.run.runId,
           executionId,
           task: environment.task,
@@ -223,6 +234,7 @@ export async function executeRun(options: ExecuteRunOptions): Promise<Evaluation
           provider: environment.provider,
           wallNow: wallClock,
         })
+        const replayed = await withTrialTimeout(environment, replayPromise)
 
         const events: SessionEvent[] = []
         for (const record of replayed.records) {
@@ -284,7 +296,11 @@ export async function executeRun(options: ExecuteRunOptions): Promise<Evaluation
         trials.push(failedTrial(round, task, error))
         roundFailed = true
       } finally {
-        await environment?.dispose()
+        try {
+          await environment?.dispose()
+        } finally {
+          environmentSnapshot.restore()
+        }
       }
     }
 
@@ -480,7 +496,7 @@ function failedTrial(round: number, task: TaskEntry, error: unknown): TrialRecor
     sequenceValid: false,
     contentClassValid: false,
     error: errorMessage(error),
-    providerOutage: error instanceof ProviderUnavailableError,
+    providerOutage: error instanceof ProviderUnavailableError || error instanceof TrialTimeoutError,
   }
 }
 
