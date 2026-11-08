@@ -19,7 +19,7 @@ it still handle every task it used to?). **Grader** is `code`,
 | 2026-11-07 | `m1-text-latency` | text latency baseline (M1-G4) | capability | code (wall-clock bench) | accepted (baseline) | 100 live Groq turns (20 × 5), 0 failures, 3 s pacing; TTFT p50/p95/p99 371/594/748 ms; no budget frozen; text proxy only |
 | 2026-11-07 | `m1-text-latency-probe-google-gemma-4-31b-it` | OpenRouter `google/gemma-4-31b-it` latency probe | capability | code (wall-clock bench) | recorded (probe) | 100 live turns, 0 failures; TTFT p50/p95/p99 635/2123/3944 ms; not the product model |
 | 2026-11-07 | `m1-text-latency-probe-openai-gpt-oss-120b` | OpenRouter `openai/gpt-oss-120b` latency probe | capability | code (wall-clock bench) | recorded (probe) | 100 live turns, 0 failures; TTFT p50/p95/p99 1465/2895/5675 ms; not the product model |
-| 2026-11-08 | `m0-canned-replay` (M1 re-baseline) | canned replay determinism (G1) | regression | code | accepted | 12 trials, 2 runs byte-identical at transcript schema 1.3.0; baseline re-promoted; codeSha `41614cb` |
+| 2026-11-08 | `m0-canned-replay` (M1 re-baseline) | canned replay determinism (G1) | regression | code | accepted | 12 trials, 2 runs byte-identical at transcript schema 1.3.0; baseline re-promoted; codeSha `97512cf` |
 | 2026-11-08 | `m1-mutation` | mutation baseline (M1-G6) | capability | code | accepted (baseline) | global 79.21% total / 82.40% covered; per-package floor frozen; 0 meaningful cancellation survivors |
 
 Langfuse experiment links are local to the self-hosted instance:
