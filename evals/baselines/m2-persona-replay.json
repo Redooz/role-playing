@@ -1,0 +1,569 @@
+{
+  "schemaVersion": "3.0.0",
+  "runId": "m2-persona-replay-v2",
+  "suite": "m2-persona-replay",
+  "manifestHash": "dd55dd633f5b8ce5f2f4054957e40bc33f456ca716858e785d38e95aabc08fe5",
+  "manifest": {
+    "schemaVersion": "3.0.0",
+    "run": {
+      "runId": "m2-persona-replay-v2",
+      "suite": "m2-persona-replay",
+      "purpose": "regression",
+      "description": "M2 regression after prompt v2: replay persona session fixtures through the real driver and canned provider with the Gemma prompt pack; transcripts must be byte-identical. Supersedes m2-persona-replay, which pins prompt gemma v1."
+    },
+    "tasks": {
+      "dataset": "synthetic-workplace-session",
+      "version": "v1",
+      "languages": ["en", "fr"],
+      "splits": ["calibration"]
+    },
+    "seeds": {
+      "master": 20261110,
+      "algorithm": "mulberry32"
+    },
+    "grader": {
+      "id": "deterministic-invariants",
+      "kind": "code",
+      "version": "1.0.0"
+    },
+    "rubric": {
+      "version": "m2-harness-v1"
+    },
+    "limits": {
+      "rounds": 2,
+      "maxFailureRate": 0
+    },
+    "target": {
+      "metric": "replay.deterministic_rate",
+      "direction": "increase",
+      "minimumDetectableEffect": 0
+    },
+    "guardrails": [
+      {
+        "metric": "transcript.schema_valid_rate",
+        "direction": "increase",
+        "tolerance": 0
+      },
+      {
+        "metric": "transcript.content_class_rate",
+        "direction": "increase",
+        "tolerance": 0
+      },
+      {
+        "metric": "transcript.guard_violations",
+        "direction": "decrease",
+        "tolerance": 0
+      },
+      {
+        "metric": "response.plain_text_rate",
+        "direction": "increase",
+        "tolerance": 0
+      },
+      {
+        "metric": "response.emoji_count",
+        "direction": "decrease",
+        "tolerance": 0
+      },
+      {
+        "metric": "response.markdown_count",
+        "direction": "decrease",
+        "tolerance": 0
+      },
+      {
+        "metric": "run.failure_rate",
+        "direction": "decrease",
+        "tolerance": 0
+      }
+    ],
+    "invariants": [
+      "transcript.schema_valid",
+      "transcript.guard_clean",
+      "transcript.seq_monotonic",
+      "transcript.content_class",
+      "response.plain_text"
+    ],
+    "provider": {
+      "mode": "canned",
+      "label": "m2-persona-canned-v1",
+      "allowLive": false
+    },
+    "prompt": {
+      "version": "m2-prompt-gemma-v2",
+      "mode": "persona",
+      "style": "gemma",
+      "currentDate": "2026-11-08"
+    },
+    "baseline": {
+      "runId": "m2-persona-replay-bootstrap",
+      "metrics": {
+        "replay.deterministic_rate": 1,
+        "transcript.schema_valid_rate": 1,
+        "transcript.content_class_rate": 1,
+        "transcript.guard_violations": 0,
+        "response.plain_text_rate": 1,
+        "response.emoji_count": 0,
+        "response.markdown_count": 0,
+        "run.failure_rate": 0
+      }
+    }
+  },
+  "verdict": {
+    "status": "accepted",
+    "target": {
+      "kind": "target",
+      "metric": "replay.deterministic_rate",
+      "direction": "increase",
+      "baseline": 1,
+      "value": 1,
+      "delta": 0,
+      "improvement": 0,
+      "required": 0,
+      "status": "pass",
+      "reason": "regression axis \"replay.deterministic_rate\" held"
+    },
+    "guardrails": [
+      {
+        "kind": "guardrail",
+        "metric": "transcript.schema_valid_rate",
+        "direction": "increase",
+        "baseline": 1,
+        "value": 1,
+        "delta": 0,
+        "improvement": 0,
+        "required": 0,
+        "status": "pass",
+        "reason": "guardrail \"transcript.schema_valid_rate\" held"
+      },
+      {
+        "kind": "guardrail",
+        "metric": "transcript.content_class_rate",
+        "direction": "increase",
+        "baseline": 1,
+        "value": 1,
+        "delta": 0,
+        "improvement": 0,
+        "required": 0,
+        "status": "pass",
+        "reason": "guardrail \"transcript.content_class_rate\" held"
+      },
+      {
+        "kind": "guardrail",
+        "metric": "transcript.guard_violations",
+        "direction": "decrease",
+        "baseline": 0,
+        "value": 0,
+        "delta": 0,
+        "improvement": 0,
+        "required": 0,
+        "status": "pass",
+        "reason": "guardrail \"transcript.guard_violations\" held"
+      },
+      {
+        "kind": "guardrail",
+        "metric": "response.plain_text_rate",
+        "direction": "increase",
+        "baseline": 1,
+        "value": 1,
+        "delta": 0,
+        "improvement": 0,
+        "required": 0,
+        "status": "pass",
+        "reason": "guardrail \"response.plain_text_rate\" held"
+      },
+      {
+        "kind": "guardrail",
+        "metric": "response.emoji_count",
+        "direction": "decrease",
+        "baseline": 0,
+        "value": 0,
+        "delta": 0,
+        "improvement": 0,
+        "required": 0,
+        "status": "pass",
+        "reason": "guardrail \"response.emoji_count\" held"
+      },
+      {
+        "kind": "guardrail",
+        "metric": "response.markdown_count",
+        "direction": "decrease",
+        "baseline": 0,
+        "value": 0,
+        "delta": 0,
+        "improvement": 0,
+        "required": 0,
+        "status": "pass",
+        "reason": "guardrail \"response.markdown_count\" held"
+      },
+      {
+        "kind": "guardrail",
+        "metric": "run.failure_rate",
+        "direction": "decrease",
+        "baseline": 0,
+        "value": 0,
+        "delta": 0,
+        "improvement": 0,
+        "required": 0,
+        "status": "pass",
+        "reason": "guardrail \"run.failure_rate\" held"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "transcript.schema_valid",
+        "ok": true,
+        "detail": "all 12 completed transcripts parse against the transcript schema"
+      },
+      {
+        "id": "transcript.guard_clean",
+        "ok": true,
+        "detail": "0 §3.2 guard violation(s) across completed transcripts"
+      },
+      {
+        "id": "transcript.seq_monotonic",
+        "ok": true,
+        "detail": "every completed transcript has strictly increasing seq"
+      },
+      {
+        "id": "transcript.content_class",
+        "ok": true,
+        "detail": "every text-bearing record is restricted and operational records are contentFree"
+      },
+      {
+        "id": "response.plain_text",
+        "ok": true,
+        "detail": "every completed reply is plain text with no Markdown, no emoji and no empty reply"
+      }
+    ],
+    "reasons": [
+      "regression axis \"replay.deterministic_rate\" held (delta 0), 7 guardrail(s) held and all invariants passed"
+    ],
+    "providerOutages": 0
+  },
+  "metrics": {
+    "replay.deterministic_rate": 1,
+    "transcript.guard_violations": 0,
+    "transcript.schema_valid_rate": 1,
+    "transcript.content_class_rate": 1,
+    "run.failure_rate": 0,
+    "response.plain_text_rate": 1,
+    "response.emoji_count": 0,
+    "response.markdown_count": 0
+  },
+  "invariants": [
+    {
+      "id": "transcript.schema_valid",
+      "ok": true,
+      "detail": "all 12 completed transcripts parse against the transcript schema"
+    },
+    {
+      "id": "transcript.guard_clean",
+      "ok": true,
+      "detail": "0 §3.2 guard violation(s) across completed transcripts"
+    },
+    {
+      "id": "transcript.seq_monotonic",
+      "ok": true,
+      "detail": "every completed transcript has strictly increasing seq"
+    },
+    {
+      "id": "transcript.content_class",
+      "ok": true,
+      "detail": "every text-bearing record is restricted and operational records are contentFree"
+    },
+    {
+      "id": "response.plain_text",
+      "ok": true,
+      "detail": "every completed reply is plain text with no Markdown, no emoji and no empty reply"
+    }
+  ],
+  "passMetrics": {
+    "k": 3,
+    "pass1": 1,
+    "tasks": [
+      {
+        "lang": "en",
+        "taskId": "en-b1-deadline-manager-101",
+        "trials": 2,
+        "successes": 2,
+        "pass1": 1
+      },
+      {
+        "lang": "en",
+        "taskId": "en-b2-decline-client-103",
+        "trials": 2,
+        "successes": 2,
+        "pass1": 1
+      },
+      {
+        "lang": "en",
+        "taskId": "en-b2-standup-peer-102",
+        "trials": 2,
+        "successes": 2,
+        "pass1": 1
+      },
+      {
+        "lang": "fr",
+        "taskId": "fr-b1-delai-manager-101",
+        "trials": 2,
+        "successes": 2,
+        "pass1": 1
+      },
+      {
+        "lang": "fr",
+        "taskId": "fr-b2-point-matin-peer-102",
+        "trials": 2,
+        "successes": 2,
+        "pass1": 1
+      },
+      {
+        "lang": "fr",
+        "taskId": "fr-b2-refuser-reunion-client-103",
+        "trials": 2,
+        "successes": 2,
+        "pass1": 1
+      }
+    ]
+  },
+  "trials": [
+    {
+      "round": 0,
+      "taskId": "en-b2-decline-client-103",
+      "lang": "en",
+      "ok": true,
+      "records": 38,
+      "transcriptSha256": "614e77c16075cf0b977f299bfaea3446034ede46f3d8a4056952bac443ee1283",
+      "transcriptPath": "transcripts/round-0/en/en-b2-decline-client-103.jsonl",
+      "simDurationMs": 0,
+      "providerOutage": false
+    },
+    {
+      "round": 0,
+      "taskId": "fr-b2-point-matin-peer-102",
+      "lang": "fr",
+      "ok": true,
+      "records": 36,
+      "transcriptSha256": "973043941509823c4525c6777c4d12511fafe506b7fe13c2c0b4c68f557a3ec4",
+      "transcriptPath": "transcripts/round-0/fr/fr-b2-point-matin-peer-102.jsonl",
+      "simDurationMs": 0,
+      "providerOutage": false
+    },
+    {
+      "round": 0,
+      "taskId": "en-b1-deadline-manager-101",
+      "lang": "en",
+      "ok": true,
+      "records": 37,
+      "transcriptSha256": "cdbacb5724e1ef9c9e9b5150a5fb169fe98cd1925c697e90092377d2fed0a151",
+      "transcriptPath": "transcripts/round-0/en/en-b1-deadline-manager-101.jsonl",
+      "simDurationMs": 0,
+      "providerOutage": false
+    },
+    {
+      "round": 0,
+      "taskId": "fr-b1-delai-manager-101",
+      "lang": "fr",
+      "ok": true,
+      "records": 37,
+      "transcriptSha256": "6caf16fbd77022ae6bf19f814231da279f67e8de4bbf93d9bb7dc9fc916c2692",
+      "transcriptPath": "transcripts/round-0/fr/fr-b1-delai-manager-101.jsonl",
+      "simDurationMs": 0,
+      "providerOutage": false
+    },
+    {
+      "round": 0,
+      "taskId": "fr-b2-refuser-reunion-client-103",
+      "lang": "fr",
+      "ok": true,
+      "records": 38,
+      "transcriptSha256": "168d69248f59375316fb0bb51e86a35c4faeaae887b0fd5c730fb89871b68b4e",
+      "transcriptPath": "transcripts/round-0/fr/fr-b2-refuser-reunion-client-103.jsonl",
+      "simDurationMs": 0,
+      "providerOutage": false
+    },
+    {
+      "round": 0,
+      "taskId": "en-b2-standup-peer-102",
+      "lang": "en",
+      "ok": true,
+      "records": 36,
+      "transcriptSha256": "b6825b3eefddb605e50e4b5e9c20de8e6d254b5c9e61e165b07777b4c8e6b77c",
+      "transcriptPath": "transcripts/round-0/en/en-b2-standup-peer-102.jsonl",
+      "simDurationMs": 0,
+      "providerOutage": false
+    },
+    {
+      "round": 1,
+      "taskId": "en-b2-decline-client-103",
+      "lang": "en",
+      "ok": true,
+      "records": 38,
+      "transcriptSha256": "614e77c16075cf0b977f299bfaea3446034ede46f3d8a4056952bac443ee1283",
+      "transcriptPath": "transcripts/round-1/en/en-b2-decline-client-103.jsonl",
+      "simDurationMs": 0,
+      "providerOutage": false
+    },
+    {
+      "round": 1,
+      "taskId": "fr-b2-point-matin-peer-102",
+      "lang": "fr",
+      "ok": true,
+      "records": 36,
+      "transcriptSha256": "973043941509823c4525c6777c4d12511fafe506b7fe13c2c0b4c68f557a3ec4",
+      "transcriptPath": "transcripts/round-1/fr/fr-b2-point-matin-peer-102.jsonl",
+      "simDurationMs": 0,
+      "providerOutage": false
+    },
+    {
+      "round": 1,
+      "taskId": "en-b1-deadline-manager-101",
+      "lang": "en",
+      "ok": true,
+      "records": 37,
+      "transcriptSha256": "cdbacb5724e1ef9c9e9b5150a5fb169fe98cd1925c697e90092377d2fed0a151",
+      "transcriptPath": "transcripts/round-1/en/en-b1-deadline-manager-101.jsonl",
+      "simDurationMs": 0,
+      "providerOutage": false
+    },
+    {
+      "round": 1,
+      "taskId": "fr-b1-delai-manager-101",
+      "lang": "fr",
+      "ok": true,
+      "records": 37,
+      "transcriptSha256": "6caf16fbd77022ae6bf19f814231da279f67e8de4bbf93d9bb7dc9fc916c2692",
+      "transcriptPath": "transcripts/round-1/fr/fr-b1-delai-manager-101.jsonl",
+      "simDurationMs": 0,
+      "providerOutage": false
+    },
+    {
+      "round": 1,
+      "taskId": "fr-b2-refuser-reunion-client-103",
+      "lang": "fr",
+      "ok": true,
+      "records": 38,
+      "transcriptSha256": "168d69248f59375316fb0bb51e86a35c4faeaae887b0fd5c730fb89871b68b4e",
+      "transcriptPath": "transcripts/round-1/fr/fr-b2-refuser-reunion-client-103.jsonl",
+      "simDurationMs": 0,
+      "providerOutage": false
+    },
+    {
+      "round": 1,
+      "taskId": "en-b2-standup-peer-102",
+      "lang": "en",
+      "ok": true,
+      "records": 36,
+      "transcriptSha256": "b6825b3eefddb605e50e4b5e9c20de8e6d254b5c9e61e165b07777b4c8e6b77c",
+      "transcriptPath": "transcripts/round-1/en/en-b2-standup-peer-102.jsonl",
+      "simDurationMs": 0,
+      "providerOutage": false
+    }
+  ],
+  "transcripts": [
+    {
+      "taskId": "en-b2-decline-client-103",
+      "lang": "en",
+      "round": 0,
+      "path": "transcripts/round-0/en/en-b2-decline-client-103.jsonl",
+      "sha256": "614e77c16075cf0b977f299bfaea3446034ede46f3d8a4056952bac443ee1283"
+    },
+    {
+      "taskId": "fr-b2-point-matin-peer-102",
+      "lang": "fr",
+      "round": 0,
+      "path": "transcripts/round-0/fr/fr-b2-point-matin-peer-102.jsonl",
+      "sha256": "973043941509823c4525c6777c4d12511fafe506b7fe13c2c0b4c68f557a3ec4"
+    },
+    {
+      "taskId": "en-b1-deadline-manager-101",
+      "lang": "en",
+      "round": 0,
+      "path": "transcripts/round-0/en/en-b1-deadline-manager-101.jsonl",
+      "sha256": "cdbacb5724e1ef9c9e9b5150a5fb169fe98cd1925c697e90092377d2fed0a151"
+    },
+    {
+      "taskId": "fr-b1-delai-manager-101",
+      "lang": "fr",
+      "round": 0,
+      "path": "transcripts/round-0/fr/fr-b1-delai-manager-101.jsonl",
+      "sha256": "6caf16fbd77022ae6bf19f814231da279f67e8de4bbf93d9bb7dc9fc916c2692"
+    },
+    {
+      "taskId": "fr-b2-refuser-reunion-client-103",
+      "lang": "fr",
+      "round": 0,
+      "path": "transcripts/round-0/fr/fr-b2-refuser-reunion-client-103.jsonl",
+      "sha256": "168d69248f59375316fb0bb51e86a35c4faeaae887b0fd5c730fb89871b68b4e"
+    },
+    {
+      "taskId": "en-b2-standup-peer-102",
+      "lang": "en",
+      "round": 0,
+      "path": "transcripts/round-0/en/en-b2-standup-peer-102.jsonl",
+      "sha256": "b6825b3eefddb605e50e4b5e9c20de8e6d254b5c9e61e165b07777b4c8e6b77c"
+    },
+    {
+      "taskId": "en-b2-decline-client-103",
+      "lang": "en",
+      "round": 1,
+      "path": "transcripts/round-1/en/en-b2-decline-client-103.jsonl",
+      "sha256": "614e77c16075cf0b977f299bfaea3446034ede46f3d8a4056952bac443ee1283"
+    },
+    {
+      "taskId": "fr-b2-point-matin-peer-102",
+      "lang": "fr",
+      "round": 1,
+      "path": "transcripts/round-1/fr/fr-b2-point-matin-peer-102.jsonl",
+      "sha256": "973043941509823c4525c6777c4d12511fafe506b7fe13c2c0b4c68f557a3ec4"
+    },
+    {
+      "taskId": "en-b1-deadline-manager-101",
+      "lang": "en",
+      "round": 1,
+      "path": "transcripts/round-1/en/en-b1-deadline-manager-101.jsonl",
+      "sha256": "cdbacb5724e1ef9c9e9b5150a5fb169fe98cd1925c697e90092377d2fed0a151"
+    },
+    {
+      "taskId": "fr-b1-delai-manager-101",
+      "lang": "fr",
+      "round": 1,
+      "path": "transcripts/round-1/fr/fr-b1-delai-manager-101.jsonl",
+      "sha256": "6caf16fbd77022ae6bf19f814231da279f67e8de4bbf93d9bb7dc9fc916c2692"
+    },
+    {
+      "taskId": "fr-b2-refuser-reunion-client-103",
+      "lang": "fr",
+      "round": 1,
+      "path": "transcripts/round-1/fr/fr-b2-refuser-reunion-client-103.jsonl",
+      "sha256": "168d69248f59375316fb0bb51e86a35c4faeaae887b0fd5c730fb89871b68b4e"
+    },
+    {
+      "taskId": "en-b2-standup-peer-102",
+      "lang": "en",
+      "round": 1,
+      "path": "transcripts/round-1/en/en-b2-standup-peer-102.jsonl",
+      "sha256": "b6825b3eefddb605e50e4b5e9c20de8e6d254b5c9e61e165b07777b4c8e6b77c"
+    }
+  ],
+  "summary": {
+    "requestedRounds": 2,
+    "attempts": 2,
+    "completed": 2,
+    "failed": 0,
+    "failureRate": 0,
+    "trials": 12,
+    "failedTrials": 0
+  },
+  "versions": {
+    "codeSha": "05b986a3421a25975b1286a40d85753e2702f771",
+    "transcriptSchemaVersion": "1.4.0",
+    "taskDataset": "synthetic-workplace-session",
+    "taskVersion": "v1",
+    "graderId": "deterministic-invariants",
+    "graderKind": "code",
+    "graderVersion": "1.0.0",
+    "rubricVersion": "m2-harness-v1",
+    "seed": 20261110
+  },
+  "startedAt": "2026-11-09T22:28:16.148Z",
+  "finishedAt": "2026-11-09T22:28:16.214Z"
+}

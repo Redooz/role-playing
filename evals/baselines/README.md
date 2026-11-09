@@ -51,3 +51,20 @@ scores, not a Stryker report: the raw report stays in `reports/mutation/`.
 `scripts/check-mutation-floor.mjs` recomputes the scores and fails if any
 package drops below its frozen floor. See `stryker.triage.md` for the
 cancellation-invariant equivalents and the known limits.
+
+## M2 suites
+
+| Suite                  | Gate          | Status                                                                   |
+| ---------------------- | ------------- | ------------------------------------------------------------------------ |
+| `m2-persona-replay`    | M2 regression | accepted (`m2-persona-replay.json`, run `m2-persona-replay-v2`)          |
+| `m2-persona-scenarios` | M2-G4         | accepted (`m2-persona-scenarios.json`, run `m2-persona-scenarios-lk-v5`) |
+
+`m2-persona-replay.json` is the canned session regression: 12 trials with
+byte-identical transcripts at prompt gemma v2. `m2-persona-scenarios.json` is the
+capability run against the `m2-persona-baseline-lk-v3` generic baseline. Both
+were regenerated on merge commit `05b986a`, so their recorded `codeSha` names the
+code that produced them.
+
+The French-only probe `m2-persona-fr-register-v1` is rejected on Jev variance and
+is not promoted to a baseline. Its record stays in `evals/decisions.md` and
+`evals/results/index.md`.
