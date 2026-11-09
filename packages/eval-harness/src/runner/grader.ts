@@ -1,6 +1,8 @@
 import type { Lang } from '../tasks/schema.js'
 import type { TranscriptRecord, Violation } from '@rp/session-core'
+import type { TrialSpeechMetrics } from './speech.js'
 import type { GraderKind, RunManifest } from './manifest.js'
+import type { TaskEntry } from '../tasks/schema.js'
 
 /**
  * Grader port (M0 D3 seam for the Jev grader).
@@ -28,6 +30,10 @@ export interface TrialRecord {
   readonly schemaValid: boolean
   readonly sequenceValid: boolean
   readonly contentClassValid: boolean
+  /** Code-based plain-text reading, when the trial produced a transcript. */
+  readonly speech?: TrialSpeechMetrics
+  /** The loaded task, so a semantic grader can build its questions. */
+  readonly task?: TaskEntry
   readonly error?: string
   readonly providerOutage: boolean
 }
@@ -37,12 +43,35 @@ export interface GraderContext {
   readonly trials: readonly TrialRecord[]
 }
 
+/** One raw semantic judgment, kept for `grades.jsonl` and trace metadata. */
+export interface SemanticGrade {
+  readonly trialId: string
+  readonly axis: string
+  readonly metric: string
+  /** The exact question asked. */
+  readonly question: string
+  /** Raw yes probability, in [0, 1]. Never converted to a boolean here. */
+  readonly probability: number
+  readonly threshold: number
+  readonly distribution: Readonly<Record<string, number>>
+  readonly locale?: string
+  readonly servedModel: string
+  readonly cacheHit: boolean
+}
+
 /** Per-axis metric readings. There is no aggregate score. */
 export interface Grader {
   readonly id: string
   readonly kind: GraderKind
   readonly version: string
+  /** Pinned model, for a system-one-model grader. */
+  readonly model?: string
   score(context: GraderContext): Promise<Readonly<Record<string, number>>>
+  /**
+   * Raw judgments from the last `score` call. A semantic grader must not call a
+   * model twice; an implementation caches its own detail rows.
+   */
+  details?(context: GraderContext): Promise<readonly SemanticGrade[]>
 }
 
 export const DETERMINISTIC_GRADER_ID = 'deterministic-invariants'
@@ -59,6 +88,12 @@ export const METRIC_SCHEMA_VALID_RATE = 'transcript.schema_valid_rate'
 export const METRIC_CONTENT_CLASS_RATE = 'transcript.content_class_rate'
 /** Lower is better: failed trials divided by attempted trials. */
 export const METRIC_FAILURE_RATE = 'run.failure_rate'
+/** Higher is better: share of completed replies that are already plain text. */
+export const METRIC_PLAIN_TEXT_RATE = 'response.plain_text_rate'
+/** Lower is better: emoji clusters found in committed replies. */
+export const METRIC_EMOJI_COUNT = 'response.emoji_count'
+/** Lower is better: Markdown constructs found in committed replies. */
+export const METRIC_MARKDOWN_COUNT = 'response.markdown_count'
 
 /**
  * Default M0 grader. Every value is a count or ratio computed in code; nothing
@@ -93,12 +128,23 @@ function scoreInvariants(context: GraderContext): Record<string, number> {
 
   const failureRate = attempts === 0 ? 1 : (attempts - completed.length) / attempts
 
+  const speech = completed.map((trial) => trial.speech).filter((value) => value !== undefined)
+  const plainTextRate =
+    speech.length === 0
+      ? 0
+      : speech.filter((metrics) => metrics.plainTextRate === 1).length / speech.length
+  const emojiCount = speech.reduce((total, metrics) => total + metrics.emojiCount, 0)
+  const markdownCount = speech.reduce((total, metrics) => total + metrics.markdownCount, 0)
+
   return {
     [METRIC_DETERMINISTIC_RATE]: deterministicRate(completed),
     [METRIC_GUARD_VIOLATIONS]: guardViolations,
     [METRIC_SCHEMA_VALID_RATE]: schemaValidRate,
     [METRIC_CONTENT_CLASS_RATE]: contentClassRate,
     [METRIC_FAILURE_RATE]: failureRate,
+    [METRIC_PLAIN_TEXT_RATE]: plainTextRate,
+    [METRIC_EMOJI_COUNT]: emojiCount,
+    [METRIC_MARKDOWN_COUNT]: markdownCount,
   }
 }
 

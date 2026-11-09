@@ -95,6 +95,7 @@ export function createJevClient(options: JevClientOptions): JevClient {
       rubricVersion: judgment.metadata.rubricVersion,
       extractionVersion: judgment.metadata.extractionVersion,
       providerSurface,
+      ...(judgment.metadata.locale === undefined ? {} : { locale: judgment.metadata.locale }),
     })
   }
 

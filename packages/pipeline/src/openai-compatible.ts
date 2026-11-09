@@ -29,6 +29,15 @@ export interface CreateProviderErrorOptions {
 
 export type CreateProviderError = (message: string, options?: CreateProviderErrorOptions) => Error
 
+/** Fixed generation profile sent with a persona request (M2 D3). */
+export interface OpenAiGenerationOptions {
+  readonly temperature?: number
+  readonly topP?: number
+  readonly maxCompletionTokens?: number
+  readonly reasoningEffort?: 'low' | 'medium' | 'high'
+  readonly includeReasoning?: boolean
+}
+
 export interface OpenAiCompatibleStreamOptions {
   readonly apiKey: string
   readonly baseUrl: string
@@ -42,6 +51,8 @@ export interface OpenAiCompatibleStreamOptions {
   readonly providerName: string
   /** Extra request headers, merged after the standard ones. */
   readonly headers?: Readonly<Record<string, string>>
+  /** Optional generation parameters. Omitted fields are not sent. */
+  readonly generation?: OpenAiGenerationOptions
   readonly createError: CreateProviderError
 }
 
@@ -92,6 +103,7 @@ export async function* streamOpenAiCompatible(
           model,
           messages: request.messages,
           stream: true,
+          ...bodyForGeneration(options.generation),
         }),
         signal,
       })
@@ -180,6 +192,26 @@ export async function* streamOpenAiCompatible(
       ok,
       ...(status === undefined ? {} : { status }),
     })
+  }
+}
+
+/** Map the internal generation profile to the provider's snake_case fields. */
+function bodyForGeneration(
+  generation: OpenAiGenerationOptions | undefined,
+): Record<string, number | string | boolean> {
+  if (generation === undefined) return {}
+  return {
+    ...(generation.temperature === undefined ? {} : { temperature: generation.temperature }),
+    ...(generation.topP === undefined ? {} : { top_p: generation.topP }),
+    ...(generation.maxCompletionTokens === undefined
+      ? {}
+      : { max_completion_tokens: generation.maxCompletionTokens }),
+    ...(generation.reasoningEffort === undefined
+      ? {}
+      : { reasoning_effort: generation.reasoningEffort }),
+    ...(generation.includeReasoning === undefined
+      ? {}
+      : { include_reasoning: generation.includeReasoning }),
   }
 }
 

@@ -2,148 +2,255 @@
 
 ## What this project is
 
-A voice role-play platform for practicing workplace English and French. Several AI characters talk with one user in real time. The work is built test-first: every change that affects behavior must be checked by evals before it is accepted.
+A voice role-play platform for practising workplace English and French. Several
+AI characters talk with one user in real time. Every change that affects
+behaviour must be checked by evals before it is accepted.
 
-**M0** (the eval foundation) and **M0.1** (the self-hosted Langfuse review
-layer) are complete. **M1** (single-agent text) is complete: the transport-agnostic
-session driver, the line CLI, the append-only session log, the Groq text adapter,
-trial isolation and the mutation floor all exist. Gates M1-G1–G6 are recorded in
-`evals/decisions.md`. Do not invent commands, folders, or build steps that do not
-exist.
+**M0** (eval foundation) and **M0.1** (self-hosted Langfuse review layer) are
+complete. **M1** (single-agent text) is complete: the transport-agnostic session
+driver, line CLI, append-only session log, Groq text adapter, trial isolation and
+mutation floor exist. **M2** (personas and scenarios) implements versioned
+persona/scenario data, BCP 47 locale variants, the two-bucket persona prompt, a
+greeting-first driver, the plain-text output hook, a live session runner, the Jev
+axial grader and `pass^k` reporting. M2 acceptance is recorded in
+`evals/decisions.md`; the default persona model is LiveKit Gemma
+`google/gemma-4-31b-it`, semantic grading needs OpenRouter, and the Gemma live
+gate needs `LIVEKIT_API_KEY`/`LIVEKIT_API_SECRET`. There is no audio path yet.
+Do not invent commands, folders or build steps that do not exist.
 
-## Eval vocabulary
+## Start with the plan
 
-Use these words in code, data, docs, and conversation. Do not fall back to the
-old synonyms (fixture, repetition, scorer, trace).
-
-- **Evaluation suite** — a collection of related tasks that measures specific
-  behaviour, for example `m0-canned-replay`.
-- **Capability eval** — asks what the agent can do well. It must show a real
-  improvement on its target (a positive minimum detectable effect). New
-  behaviour enters here.
-- **Regression eval** — asks whether the agent still handles every task it used
-  to. Its primary axis is held at the baseline, no improvement is required, and
-  every axis is a non-regression gate. Existing behaviour is protected here.
-- **Task** — one test: its inputs and the success criteria the suite registers
-  for it. Task files live under `evals/tasks/`.
-- **Trial** — one attempt at one task. In M0 a trial is one replay of one task.
-- **Round** — one pass over every task in a suite. `rounds × tasks = trials`.
-- **Grader** — the logic that scores an aspect of a trial. There are three
-  types, and they are not interchangeable:
-  - **code-based** — deterministic checks, counts, ratios, invariants;
-  - **system-1-model-based** — a System One model (Jev) answers a typed question
-    and returns a calibrated probability;
-  - **human-based** — an annotator's label, used as the reference the other two
-    are checked against.
-- **Transcript** — the complete record of a trial: outputs, tool calls,
-  reasoning, and every interaction, each with a content class.
-- **Outcome** — the final state of the environment after a trial, for example
-  whether a booking exists in the database. M0 has no environment, so it has no
-  outcome checks; the current `invariants` are transcript checks.
-- **Evaluation harness** — the infrastructure that runs evals
-  (`packages/eval-harness`, `tools/eval-harness-cli`).
-- **Agent harness** — the system that lets a model act: the session engine, its
-  tools, and its transport. It arrives in M1+; `packages/session-core` holds the
-  schemas it will use.
-
-## Where the plan lives
-
-- The plan lives in Notion under the page **Role-Playing**:
+- Read `docs/plans/architecture-plan-v5.md` and the current milestone plan
+  before changing behaviour. `docs/` is git-ignored on purpose; never add it
+  back to git.
+- The source of truth is Notion under the page **Role-Playing**:
   - Architecture Plan v5 — `40383d257ddf81d183c7c74e2806749a`
   - M0 Plan: Eval Foundation — `40383d257ddf818eb796e4761f285209`
   - M0.1 Plan: Langfuse Review Layer — `41183d257ddf81bc9c41e6464a643407`
   - M1 Plan: Single-Agent Text — `41183d257ddf81ba8e0ffccae64d3e0e`
-- Local copies sit in `docs/plans/` (git-ignored): `architecture-plan-v5.md`,
-  `m0-plan-eval-foundation.md`, `m0.1-plan-langfuse-review-layer.md`,
-  `m1-plan-single-agent-text.md`. Read those first; only call Notion when they
-  are stale.
-- Reading notes sit beside them as `docs/plans/reading-notes-*.md`. They record
-  the evidence behind eval, latency and reliability decisions. They are not
-  plans, and they do not override the current milestone plan.
-- `docs/` is git-ignored on purpose. Never add doc files back to git.
-- Before starting work, read the current milestone plan and the architecture plan. They contain the current task list and the rules below.
+  - M2 Plan: Personas and Scenarios — `41283d257ddf8186a092fdf50b9bae4b`
+- Local plan copies live in `docs/plans/`. Refresh one with
+  `ntn pages get <page-id> > docs/plans/<file>.md`; search with
+  `ntn api /v1/search -d '{"query":"..."}'`.
+- There are no MCP servers configured. Do not add any. Never put a token in a
+  file, log or shell history; `ntn` uses its login session.
 
-## Notion access
+## Commands
 
-- There are no MCP servers configured. Do not add any.
-- Use the Notion CLI `ntn` (already logged in) instead of an MCP or the API by hand.
-- Refresh a plan copy with `ntn pages get <page-id> > docs/plans/<file>.md`.
-- Search pages with `ntn api /v1/search -d '{"query":"..."}'`.
-- Never paste a token into a file, log, or shell history; `ntn` uses the login session.
+```sh
+npm install
+npm run lint             # ESLint
+npm run format:check     # Prettier; `npm run format` writes
+npm run typecheck        # tsc -b; same command as `npm run build`
+npm run test:unit        # fast suite, the PR gate (alias: npm test)
+npm run test:bench       # wall-time measurements, never the PR gate
+# LATENCY_PROVIDER=groq|openrouter|livekit, LATENCY_MODEL=<id>
+LATENCY_PROVIDER=livekit LATENCY_MODEL=google/gemma-4-31b-it npm run test:bench -- tools/agent-harness-bench/src/session-latency.bench.spec.ts
+npm run mutation         # Stryker + per-package floor check; not a PR gate
 
-## Decisions already made
+# One test file or one package
+npx vitest run --project unit packages/session-core/src/driver.spec.ts
 
-- Node 26, npm workspaces, TypeScript, Vitest, Zod, ESLint + Prettier.
-- Audio comes later. Build and test with text sessions first.
-- Spoken replies stream as plain text. Do not use JSON mode for speech.
-- Persona replies use Groq `openai/gpt-oss-20b`. This model is fixed; reviewer tests must not change it.
-- The async session reviewer is a separate model, provisional `anthropic/claude-haiku-5.5` (low reasoning).
-- Semantic grading uses Jev, pinned to `typesafe/jev-1.14`. Never use `jev-latest`.
-- Use OpenRouter for Jev and eval models. A ChatGPT subscription does not work at runtime.
-- Live speech-to-text is Azure `MAI-Transcribe-2-Streaming`.
+# Text session CLI; canned mode needs no key
+npm run chat -- --provider canned
+npm run chat -- --provider live --lang fr --persona manager --scenario request-deadline-extension
+npm run chat -- --provider canned --locale en-GB   # locale variant probe
 
-## Code layout
+npm run validate:tasks   # task/golden validator (gate G3)
+npm run label:export -- --lang en --run evals/results/m2-persona-scenarios-lk --run evals/results/m2-persona-baseline-lk
+npm run eval -- run --manifest evals/manifests/m0-canned-replay.json
+npm run eval -- run --manifest evals/manifests/m2-persona-replay.json
+npm run eval -- run --manifest evals/manifests/m2-persona-baseline-lk.json   # Gemma default baseline
+npm run eval -- run --manifest evals/manifests/m2-persona-scenarios-lk.json  # Gemma default capability
+npm run eval -- run --manifest evals/manifests/m2-persona-baseline.json      # historical Groq baseline
+npm run eval -- run --manifest evals/manifests/m2-persona-scenarios.json     # historical Groq capability
+npm run eval -- run --manifest evals/manifests/m2-locale-variants.json       # historical Groq locale probe
+npm run eval -- compare --baseline evals/baselines/m0-canned-replay.json --run <run-dir>
 
-- Split code by layer: `domain/`, `adapters/`. Do not create a `features/` folder or an `application/` folder.
-- `domain/` holds entities, value objects, domain rules, and the ports in `domain/ports/`.
-- Use cases live in `domain/usecases/`, one per action: `<verb>-<noun>.usecase.ts`. They are plain code with the business rules. No HTTP, LiveKit, database, or provider imports.
-- Tests live next to the file under test, at the same level, with a `.spec.ts` name. Example: `create-user.usecase.spec.ts` next to `create-user.usecase.ts`. Do not use a separate `test/` folder.
-- `adapters/inbound/` holds `<action>.controller.ts` and `<action>.handler.ts`. Controllers only translate requests. Handlers check identity and input, then call one use case.
-- `adapters/outbound/` holds database, provider, and storage adapters, named like `user.postgres.adapter.ts`.
-- `mappers/` is optional. Add a mapper only when two shapes differ.
-- Never add `*.service.ts`, a `services/` folder, a `features/` folder, or an `application/` folder.
-- Depend inward: controller → handler → use case → port. An adapter may not import a use case, and a use case may not import an adapter.
-- Wire real adapters once per app in the composition root. Tests use fake or canned adapters.
-- Libraries (`session-core`, `turn-arbiter`, `routing-policy`, `eval-harness`) expose functions and ports. They do not get controllers or handlers.
-- Observability follows the same rule: `packages/eval-harness/src/observability/` holds the pure plan, grade sidecar and observer port; `tools/eval-harness-cli/src/adapters/langfuse.adapter.ts` is the only file that imports Langfuse or OpenTelemetry.
+# Self-hosted Langfuse review layer (M0.1)
+npm run langfuse:deploy   # copy infra/langfuse to the Docker host, start, sync keys
+npm run langfuse:health
+npm run langfuse:tunnel   # forward localhost:3000 to the Docker host
+npm run langfuse:verify   # check an exported run against the Langfuse API
+npm run langfuse:down
+```
+
+CI runs `lint -> format:check -> typecheck -> test:unit`, plus separate task
+validator and Jev-canary jobs. The canary is skipped when
+`OPENROUTER_API_KEY` is absent.
+
+## Repository map
+
+- `packages/shared` — clock, seeded RNG, canonical JSON, transcript sink, BCP 47
+  locale helpers and the pure plain-text speech filter.
+- `packages/session-core` — event/grant/transcript schemas, runtime guards, the
+  `SessionDriver` port with greeting/locale support, and append-only session-log
+  codec. This is the product seam; keep it transport- and provider-agnostic.
+- `packages/scenario-kit` — versioned `ScenarioSpec`/`ScriptedUserSpec` data with
+  `en`, `fr`, `en-GB` and `fr-CA` variants.
+- `packages/persona-kit` — versioned `PersonaSpec` data, three personas with
+  localized variants, and the pure two-bucket prompt builder.
+- `packages/pipeline` — model adapters implementing `TextModelPort`: Groq
+  persona streaming, OpenRouter, LiveKit Inference (Gemma probe), and the
+  streaming plain-text decorator. Base URLs are constructor options; the
+  composition roots read `GROQ_BASE_URL`, `OPENROUTER_BASE_URL` and
+  `LIVEKIT_INFERENCE_URL` from the environment.
+- `packages/eval-harness` — task workflow, Jev axial grader, replay and live
+  session runners, `pass^k`, verdicts, and the observation plan/grade sidecar.
+- `tools/eval-harness-cli` — eval run/compare/validate CLI. It builds the live
+  provider (Groq, OpenRouter or LiveKit Inference) and Jev grader from the
+  environment. The only place that imports Langfuse or OpenTelemetry is
+  `src/adapters/langfuse.adapter.ts`.
+- `apps/cli` — composition root for the line CLI. `main.ts` reads env, selects
+  persona/scenario/locale, builds the prompt and starts the driver; `cli-main.ts`
+  is the REPL and holds no session state.
+- `tools/agent-harness-bench` — overhead and latency benches (`*.bench.spec.ts`).
+- `infra/livekit-soak` — isolated LiveKit compatibility spike. It imports nothing
+  from the session or eval code; keep it that way.
+
+`apps/api`, `apps/web`, `apps/orchestrator`, the remaining `packages/*` and
+`tools/routing-bench` are intentional placeholders. Do not fill them with
+speculative code.
+
+## Non-obvious mechanics
+
+- Node 26 strips types, so `npm run chat` and `npm run eval` run `.ts` source
+  directly; no build is required. Relative imports still use `.js` specifiers
+  under `module: nodenext` even though the files are `.ts`. New entrypoints must
+  register the same `.js` → `.ts` resolve hook as `apps/cli/src/cli.ts`.
+- `packages/*` export `./src/index.ts`. `dist/` is tsc output, not what the
+  scripts or workspace imports use.
+- Tests sit next to the file under test and end in `.spec.ts`; there is no
+  `test/` folder. `*.bench.spec.ts` files run only in the `bench` project.
+- `.env` is loaded only by npm scripts via `--env-file-if-exists=.env`. Do not
+  add a dotenv dependency. Unit tests inject `fetch`; they must not need live
+  keys.
+- `evals/schemas/*.json` are generated from Zod, never hand-edited. Regenerate
+  after changing `packages/eval-harness/src/tasks/schema.ts`:
+  `UPDATE_SCHEMAS=1 npx vitest run packages/eval-harness/src/tasks/schema.spec.ts`
+  then `npx prettier --write evals/schemas`.
+- For new app actions, Architecture Plan §1.5 requires
+  `domain/{ports,usecases}` plus `adapters/{inbound,outbound}`, an optional
+  `mappers/` folder, and one composition root. Never add `services/`,
+  `features/`, `application/`, or `*.service.ts`. Libraries expose plain
+  functions and ports, not controllers or handlers.
+
+## Eval vocabulary
+
+Use these words. Do not substitute fixture, repetition, scorer, or trace.
+
+- **Evaluation suite** — related tasks measured by one manifest, for example
+  `m0-canned-replay`.
+- **Task** — one test with inputs and success criteria under `evals/tasks/`.
+- **Trial** — one attempt at one task. **Round** — one pass over every task;
+  `rounds × tasks = trials`.
+- **Evaluation harness** — `packages/eval-harness` plus
+  `tools/eval-harness-cli`; the **agent harness** is the session engine, its
+  tools and its transport.
+- **Capability eval** — new behaviour; its target must show a positive minimum
+  detectable effect. **Regression eval** — existing behaviour; every axis is a
+  non-regression gate.
+- **Grader** — `code` (deterministic counts/invariants),
+  `system-one-model` (Jev's calibrated probability), or `human` (reference
+  labels). The three are not interchangeable.
+- **Transcript** — the complete trial record with a content class. **Outcome** —
+  the environment state after a trial.
 
 ## Rules that are easy to get wrong
 
-- **Evals decide.** If an eval gets worse, fix the feature. Never lower a threshold or widen a gate to make a change pass.
-- **Name the purpose.** A new behaviour needs a capability eval. Existing behaviour needs a regression eval. A capability result is not proof that old tasks still pass.
-- **Each trial starts clean.** Every trial gets its own clock, RNG stream, provider instance, and copy of the task. Dispose per-trial resources in `finally`. A failed trial must not change the next trial.
-- **Models grade, code decides.** Counting, math, dates, and hard limits stay in normal code. Ask Jev only for yes/no or graded answers.
-- **Store raw scores.** Keep the full Jev answer and probability, not just the chosen label.
-- **A failed model call is not a "no".** Mark the run incomplete; never turn an error into a pass or zero.
-- **One writer at a time.** Only the character that holds the current turn may produce output. Late output from an old turn is dropped.
-- **No secret in the repo.** API keys stay in the environment (they are loaded from `~/.bashrc`). Never put keys in files, logs, or transcripts. The self-hosted Langfuse server `.env` stays on the Docker host and is git-ignored; only the client keys reach the repository's `.env`.
-- **No raw audio saved by default.** Saving audio needs a separate opt-in from the user.
-- **Langfuse observes; code decides.** The self-hosted Langfuse instance is the review layer for transcripts, scores and experiment comparison. It never replaces the manifest, the verdict, the baselines, the Jev client or the golden files. There is no custom transcript viewer, grade table, comparison dashboard or results web UI.
-- **Export never changes a verdict.** Langfuse export is opt-in (`LANGFUSE_ENABLED=true`) and runs after `result.json`, the transcripts and `grades.jsonl` are written. A failed export only fails the command when `--require-export` is set. Self-hosted only: never point `LANGFUSE_BASE_URL` at Langfuse Cloud.
+- **Evals decide.** If an eval regresses, fix the feature. Never lower a
+  threshold, widen a gate, or edit a manifest/baseline to make a change pass.
+- **Name the purpose.** New behaviour needs a capability eval; existing behaviour
+  needs a regression eval. One does not prove the other.
+- **Each trial starts clean.** Per-trial clock, RNG stream, provider instance,
+  task copy and environment snapshot; dispose in `finally`. A failed trial must
+  not change the next one.
+- **Models grade, code decides.** Counting, maths, dates and hard limits stay in
+  normal code. Ask Jev only yes/no or graded questions, and store the raw answer
+  and probability, not just the label.
+- **A failed model call is not a "no".** Mark the run incomplete; never turn an
+  error into a pass or zero.
+- **One writer at a time.** Only the character holding the current turn may
+  produce output; late output from an old turn is dropped.
+- **No secret in the repo.** Keys stay in the environment or the git-ignored
+  `.env`. Never put them in files, logs or transcripts. The Langfuse server
+  `.env` stays on the Docker host.
+- **No raw audio by default.** Saving audio needs explicit opt-in from the user.
+- **Langfuse observes; code decides.** It never replaces the manifest, verdict,
+  baselines, Jev client or golden files. There is no custom transcript viewer,
+  grade table, comparison dashboard or results web UI.
+- **Export never changes a verdict.** Export is opt-in (`LANGFUSE_ENABLED=true`)
+  and runs after `result.json`, transcripts and `grades.jsonl` are written.
+  `--require-export` exits 3 after artifacts; self-hosted only, never Cloud.
+- **Fixed models.** Persona replies use LiveKit Inference
+  `google/gemma-4-31b-it` with the `gemma` prompt family and stream as plain
+  text; do not use JSON mode for speech. Groq `openai/gpt-oss-20b` remains the
+  historical pinned path: its manifests and results are kept as reference but
+  no longer drive the product default. Semantic grading uses Jev pinned to
+  `typesafe/jev-1.14` (never `jev-latest`) through OpenRouter; a ChatGPT
+  subscription cannot be used at runtime. The provisional async reviewer is
+  `anthropic/claude-haiku-5.5`. The live STT choice is Azure
+  `MAI-Transcribe-2-Streaming`. `openrouter/openai/gpt-oss-safeguard-20b` is a
+  retired probe. The `gemma` semantic gate stays provisional until human
+  agreement is measured.
+- **Separate English and French data.** Passing in one language does not count
+  for the other. Audio work does not start before M5.
+- **Locale is not a language.** Keep `lang: 'en' | 'fr'` for routing, task paths
+  and Jev. `locale` is a canonical BCP 47 tag (`en`, `fr`, `en-GB`, `fr-CA`); use
+  `en-GB`, never `en-UK`. A missing locale variant is a hard error, never a
+  fallback.
+- **Plain text is enforced, not requested.** Wrap every persona model with
+  `createPersonaTextModel`. The prompt asks for plain text, the streaming hook
+  removes Markdown and emoji, and the `response.plain_text` invariant proves it.
+  Empty-after-filtering is a policy violation, not an outage and not a pass.
+- **M2 stays single-speaker.** Personas are `manager`, `peer` and `client`; no
+  second speaker, routing, extraction or audio.
 
-## Trial isolation (M0 → M1)
+## Trial isolation: current state
 
-Implemented and covered by tests in M1:
+Implemented and covered by tests:
 
-- a per-trial clock, RNG stream, provider instance and copy of the task;
-- a per-trial wall-clock timeout and cancellation path (`withTrialTimeout`),
-  including a late provider rejection that is handled instead of becoming an
-  unhandled rejection;
-- provider `dispose()` in `finally`, on success, provider failure and timeout;
-- an environment snapshot restored after every trial;
-- interleaved-trial tests for instance identity, timer teardown, socket teardown,
-  and the absence of unhandled rejections.
+- per-trial clock, RNG stream, provider instance, task copy and environment
+  snapshot;
+- wall-clock timeout plus cancellation (`withTrialTimeout`), a bounded stop
+  grace window, and late provider rejections that do not become unhandled;
+- `dispose()` in `finally` on success, provider failure and timeout;
+- interleaved-trial tests for instance identity, timer/socket teardown and the
+  absence of unhandled rejections.
 
-Still gaps — do not claim a trial is isolated until every external state it
-touches has a reset path covered by a test:
+Still gaps — do not claim a trial is fully isolated until each has a reset path
+covered by a test:
 
 - a process, worker or container boundary per trial;
-- reset and seeding of an external database;
-- a per-trial filesystem workspace and cleanup of its temporary files;
-- network mocks and module-level caches (no known cache exists today, but there
-  is no generic reset and no test that would catch one);
-- verified cleanup of live provider connections against a real provider. The
-  socket test uses a local server; the Groq and OpenRouter adapters are
-  exercised by unit tests with an injected fetch, not by a live teardown test.
+- external database reset and seeding;
+- a per-trial filesystem workspace and temp-file cleanup;
+- network mocks and module-level cache reset;
+- live-provider teardown against a real provider. The socket test uses a local
+  server; Groq/OpenRouter are tested with an injected `fetch`.
+
+## Mutation and eval artifacts
+
+- `npm run mutation` scores `packages/session-core`, `packages/pipeline`, the
+  M2 `plain-text`/`persona-kit` behaviour and the mutated `apps/cli` files, then
+  checks each package against `evals/baselines/m1-mutation.json`. Timed-out
+  mutants count as killed; runtime/compile errors are excluded. Never lower the
+  floor or hand-edit the baseline. Record a new baseline only with
+  `npm run mutation:record` after a clean `npm run mutation`.
+- `evals/results/` is git-ignored except the curated `index.md`. Promote an
+  accepted run by copying its `result.json` into `evals/baselines/<suite>.json`
+  and running Prettier. Record the decision in `evals/decisions.md` and the run
+  index.
+- Langfuse runs on a Docker host over SSH (default alias `mac`, override with
+  `LANGFUSE_SSH_HOST`). `langfuse:deploy` writes client keys to the git-ignored
+  root `.env` and leaves `LANGFUSE_ENABLED=false`.
 
 ## Working style
 
-- **Always work on a feature branch, never on `main`.** Name it `<type>/<short-slug>` with the same
-  prefixes the commits use (`feat/`, `fix/`, `refactor/`, `docs/`, `chore/`, `ci/`), for example
-  `feat/m1-session-driver` or `fix/cancel-late-chunk`. Open it before the first edit, keep one
-  concern per branch, and let CI run before merging. If a change lands on `main` by mistake, move
-  it to a branch and reset `main`; do not build on top of it.
+- **Always work on a feature branch, never `main`.** Use
+  `<type>/<short-slug>` with `feat/`, `fix/`, `refactor/`, `docs/`, `chore/` or
+  `ci/`. Open it before the first edit, keep one concern per branch, and let CI
+  run before merging. If a change lands on `main` by mistake, move it to a branch
+  and reset `main`; do not build on it.
 - Keep changes small and tied to one milestone.
-- Do not start audio work before M5.
-- Use separate English and French test data. Passing in one language does not count for the other.
-- When the plan and the code disagree, trust the code, then update the plan in Notion.
+- When the plan and the code disagree, trust the code, then update the plan in
+  Notion.

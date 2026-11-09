@@ -66,6 +66,137 @@ Comparison runs do not change the product model or the M1 baseline.
 | 2026-11-07 | OpenRouter `google/gemma-4-31b-it` | `m1-text-latency-probe-google-gemma-4-31b-it` | recorded (probe) | 100 live turns (20 × 5, 3 s pacing, 0 failures). TTFT p50 635 / p95 2123 / p99 3944 ms (max 12124). Total p50 657 / p95 2379 / p99 3968 ms. Session start→first text chunk (text proxy): p50 517 / p95 1913 / p99 2032 ms (n=20). Provider time ~same as the driver; local overhead p99 0.2 ms. Groq baseline for comparison: TTFT p50 371 / p95 594 / p99 748 ms. Product persona model unchanged (`openai/gpt-oss-20b`). `evals/results/m1-text-latency-probe-google-gemma-4-31b-it/latency.json`. |
 | 2026-11-07 | OpenRouter `openai/gpt-oss-120b`   | `m1-text-latency-probe-openai-gpt-oss-120b`   | recorded (probe) | 100 live turns (20 × 5, 3 s pacing, 0 failures). TTFT p50 1465 / p95 2895 / p99 5675 ms (max 6763). Total p50 1496 / p95 2906 / p99 5817 ms. Session start→first text chunk (text proxy): p50 1306 / p95 5719 / p99 6554 ms (n=20). Provider time ~same as the driver; local overhead p99 0.2 ms. Product persona model unchanged (`openai/gpt-oss-20b`). `evals/results/m1-text-latency-probe-openai-gpt-oss-120b/latency.json`.                                                                    |
 
+## M2 implementation
+
+M2 adds personas, scenarios, locales and a live session path. The live capability
+and locale probes need Groq and OpenRouter keys, so their rows stay `pending`
+until the run ids exist. A pending row is not acceptance.
+
+| Date       | Gate                        | Run ID                                        | Verdict                                        | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ---------- | --------------------------- | --------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-11-08 | M2-G1 persona/scenario data | unit + `validate-tasks`                       | accepted                                       | Three personas and three scenarios with `en`/`fr`/`en-GB`/`fr-CA` variants validate; 12 session tasks plus the 6 M1 replay tasks validate with 0 violations; missing locale and mismatched base language are hard errors.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| 2026-11-08 | M2-G2 prompt contract       | unit suite                                    | accepted                                       | Deterministic prompt hash; greeting pack A is byte-identical without pack B; locale in the prompt and hash; `en-UK` rejected; plain-text filter is idempotent, chunk-boundary independent and tested against Markdown, emoji, false positives and empty output.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| 2026-11-08 | M2-G3 greeting + runner     | `m2-persona-replay`                           | accepted                                       | 12 trials (6 tasks × 2 rounds) drove the real driver with greeting-first turns and four scripted learner turns; canned replay was byte-identical; the plain-text hook and `response.plain_text` invariant held.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| 2026-11-08 | M2-G5 regression            | `m0-canned-replay`, `m2-persona-replay`       | accepted                                       | M1 replay still passes unchanged; M2 canned session replay is deterministic; the task validator is clean; the M1 mutation floor is not lowered (see M2-G7).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| 2026-11-08 | M2-G6 locale variants       | `m2-locale-baseline` + unit                   | provisional                                    | Locale selection, prompt copy and no-fallback behaviour are covered, and locale-specific Jev questions enter the cache key. The generic locale baseline completed 18/18 trials with 0 failures: `locale.fit` 0.674, consistency 0.542, language quality 0.932, register 0.764, clarity 0.869, objective 0.803; `pass^1` 0.611 / `pass^3` 0.5. The pinned-model locale probe is blocked by the same TPD cap. The OpenRouter safeguard locale probe was run and **rejected**: locale fit improved only 0.028 (MDE 0.1) and clarity regressed 0.111 (tolerance 0.05). The pinned-model variants remain provisional.                                                                                                                                                                                                                                                                                                          |
+| 2026-11-08 | M2-G4 base capability eval  | `m2-persona-baseline`, `m2-persona-scenarios` | infrastructure-inconclusive                    | The generic baseline completed 30/30 trials with 0 failures: persona consistency 0.518, language quality 0.943, register 0.799, clarity 0.837, objective 0.758; `pass^1` 0.567 / `pass^3` 0.267. The persona candidate hit Groq HTTP 429 on 22/30 trials, so only 8 completed. On those 8, persona consistency was 0.815, register 0.918, objective 0.874, clarity 0.845 and language quality 0.923 (within the 0.05 tolerance). The direction is positive but the run is not acceptance evidence. A second attempt at 10.5 s pacing (about 6 calls/min, measured 645-token prompt) still failed: Groq returned 429 on 29/30 trials. A direct probe showed the binding limit is the organization TPD (200,000 tokens; 199,632 used), not TPM. The pinned-model gate is blocked until the rolling token budget frees. The separate OpenRouter safeguard probe (different model) was accepted; see **M2 OpenRouter probe**. |
+| 2026-11-08 | M2-G7 mutation floor        | `npm run mutation`                            | accepted (existing floors); extended-scope gap | Global 80.14% total / 83.20% covered; `session-core` 85.77/86.85, `pipeline` 74.01/77.66, `apps/cli` 66.96/76.38. Every existing floor held and was not lowered. The pipeline plain-text and LiveKit Inference adapters are newly in scope; `persona-kit`, `scenario-kit`, `shared/plain-text`, `shared/locale` and `apps/cli/main.ts` remain outside the floor until their tests can hold the global bar. Recorded in `stryker.triage.md`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+
+## M2 OpenRouter probe
+
+The Groq organization budget (200k TPD) blocked the pinned-model live runs. While
+waiting for a Developer account, the same persona path was measured through
+OpenRouter's `openai/gpt-oss-safeguard-20b`. OpenRouter lists exactly one endpoint
+for that model, and it is Groq. **This is a different model artifact**: it is a
+probe, not M2-G4/G6 acceptance, and it does not change the fixed product model.
+
+| Date       | Run                       | Verdict                   | Evidence                                                                                                                                                                                                    |
+| ---------- | ------------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-11-08 | `m2-persona-baseline-or`  | accepted (probe baseline) | 30/30 trials, 0 failures; consistency 0.550, language quality 0.931, register 0.791, clarity 0.841, objective 0.760; `pass^1` 0.633 / `pass^3` 0.317.                                                       |
+| 2026-11-08 | `m2-persona-scenarios-or` | accepted (probe)          | 30/30 trials, 0 failures; consistency **0.804** vs 0.550, register **0.907** vs 0.791, objective **0.858** vs 0.760, clarity 0.794 vs 0.841 (within 0.05), language 0.930; `pass^1` 0.967 / `pass^3` 0.900. |
+| 2026-11-08 | `m2-locale-baseline-or`   | accepted (probe baseline) | 18/18 trials, 0 failures; locale fit 0.707, consistency 0.616, language quality 0.933, register 0.818, clarity 0.879, objective 0.802.                                                                      |
+| 2026-11-08 | `m2-locale-variants-or`   | rejected (probe)          | 18/18 trials, 0 failures; locale fit **0.734** vs 0.707 (+0.028, below the 0.1 MDE); clarity **0.768** vs 0.879 (−0.111, over the 0.05 tolerance).                                                          |
+
+OpenRouter's upstream 429s are transient ("temporarily rate-limited upstream").
+The live provider now retries a 429 only when no text has been yielded, with a
+bounded backoff; a mid-stream failure is never replayed. The OpenRouter profile
+omits `reasoning_effort`/`include_reasoning` because they route Groq to the
+`flex` tier; the token cap is 2048 to leave room for reasoning before the reply.
+
+## M2 LiveKit Gemma probe
+
+A second probe path uses LiveKit Inference's hosted `google/gemma-4-31b-it`.
+LiveKit exposes an OpenAI-compatible gateway authenticated with a short-lived
+JWT minted from `LIVEKIT_API_KEY`/`LIVEKIT_API_SECRET`. **This is again a
+different model artifact**: it is a probe, not M2-G4/G6 acceptance, and it does
+not change the fixed product model.
+
+The Gemma run uses a separate prompt family. It drops the OpenAI-specific
+Harmony header and `analysis`/`commentary`/`final` channel vocabulary, writes
+the instructions as a direct first-turn preamble (Google's Gemma 3 guidance),
+and uses plain-text section labels plus short examples. It is versioned
+`m2-prompt-gemma-v1` and hashed like the Harmony prompt.
+
+| Date       | Run                       | Verdict                   | Evidence                                                                                                                                                                                                               |
+| ---------- | ------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-11-08 | `m2-persona-baseline-lk`  | accepted (probe baseline) | 30/30 trials, 0 failures; consistency 0.296, language quality 0.840, register 0.707, clarity 0.887, objective 0.748; `pass^1` 0.133 / `pass^3` 0.000.                                                                  |
+| 2026-11-08 | `m2-persona-scenarios-lk` | accepted (probe)          | 30/30 trials, 0 failures; consistency **0.878** vs 0.296, language quality **0.950** vs 0.840, register **0.899** vs 0.707, clarity **0.907** vs 0.887, objective **0.867** vs 0.748; `pass^1` 1.000 / `pass^3` 1.000. |
+
+The LiveKit adapter mints an inference-grant JWT per request. Provider base URLs
+are optional `.env` overrides (`GROQ_BASE_URL`, `OPENROUTER_BASE_URL`,
+`LIVEKIT_INFERENCE_URL`); the defaults stay in the adapters.
+
+## M2 model default: LiveKit Gemma
+
+On 2026-11-09 the default persona model moved from Groq
+`openai/gpt-oss-20b` to LiveKit Inference `google/gemma-4-31b-it` with the
+`gemma` prompt family. The chat CLI and the `-lk` eval manifests now use it; the
+canned session regression also replays the Gemma prompt. The Groq manifests and
+results remain as the historical pinned path, and the OpenRouter safeguard path
+is retired.
+
+Evidence: `m2-persona-scenarios-lk` accepted with 30/30 trials, consistency
+**0.878** vs a 0.296 generic baseline, `pass^1`/`pass^3` 1.000/1.000; the
+LiveKit latency probe measured TTFT p50/p95/p99 205/295/552 ms with 100/100
+turns and no failures. The semantic gate is **provisional** until the human
+agreement pass in `m2-persona-rubric-v1` is complete.
+
+Both runs were re-exported to the self-hosted Langfuse on 2026-11-09. The
+annotation queues `M2 Gemma labels — en` and `M2 Gemma labels — fr` each hold
+30 traces (15 candidate + 15 baseline), with numeric 1–5 score configs for the
+five base axes.
+
+## M2 annotation review, threshold and French grader
+
+On 2026-11-09 the M2 annotation queues were filled with two independent,
+context-free agent passes: 30 English + 30 French traces each (15 candidate
+`m2-persona-scenarios-lk`, 15 baseline `m2-persona-baseline-lk`). All 60 queue
+items are `COMPLETED`; the two original human traces were kept and re-scored by
+the second pass. This is **agent labelling**, not human agreement.
+
+Agreement between the two passes: `persona.consistency` 83% exact / QWK 0.85,
+`language.quality` 100%, `register.fit` 90%, `objective.completion` 64% / QWK
+0.74. The second pass was consistently more generous.
+
+The review found the 0.50 Jev line too permissive: it accepted 100% of baseline
+task-help traces, while the passes accepted roughly half to two-thirds. A single
+**0.75** line matched the held-out rounds (0–2 tune, 3–4 check) and kept candidate
+scores high. `M2_JEV_THRESHOLD` is now 0.75 for the whole M2 grader (all axes,
+`en`/`fr`, locale probe). There are no per-axis thresholds: the decision-model
+notes require one frozen line per grader version, and 30–58 labels per axis are
+too few to tune five lines separately.
+
+Rubric v2 (`m2-persona-rubric-v2`, `m2-annotation-guideline-v2`) adds explicit
+French criteria: accents and hyphens for `language.quality`; a consistent
+`tu`/`vous` choice for `register.fit`. The new manifests
+`m2-persona-scenarios-lk-v2` and `m2-persona-baseline-lk-v2` carry v2.
+
+| Date       | Gate                            | Run ID                            | Verdict                              | Evidence                                                                                                                                 |
+| ---------- | ------------------------------- | --------------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-11-09 | M2 annotation review            | `annotation-kit-m2`               | accepted (agent labels, provisional) | 60/60 traces, two passes; threshold evidence recorded in `evals/analysis/m2-annotation-review-2026-11-09.md`; human pass still required. |
+| 2026-11-09 | M2-G4 base capability (rubric v2) | `m2-persona-scenarios-lk-v2` vs `m2-persona-baseline-lk-v2` | accepted (provisional semantic gate) | 30/30 trials, 0 failures each. Candidate vs baseline: persona 0.875 vs 0.280, language 0.944 vs 0.742, register 0.839 vs 0.679, clarity 0.895 vs 0.881, objective 0.860 vs 0.752; `pass^1` 0.700 / `pass^3` 0.533 vs 0/0. All guardrails and invariants pass. Gate provisional: labels are agent, not human. |
+
+M2 is closed with the semantic gate **provisional by project choice**. The project
+uses agent annotation for now; no human pass is planned. “Provisional” means the
+gate is accepted on agent labels and is not based on human labels. It is a status,
+not a blocked task. It can become `stable` only if a human pass is added later.
+The remaining quality targets are `fr-b2-point-matin-peer-102` (0/5 in the v2 run)
+and the two decline/reschedule tasks (3/5 each), not the persona/scenario
+infrastructure.
+
+### French grader decision
+
+Jev remains the M2 grader. The French questions now carry the accents/hyphens and
+`tu`/`vous` criteria, but Jev's French `register.fit` ranking is weak (AUC about
+0.48–0.62); a threshold change will not fix that.
+
+Research recommends **Mistral Large 4** (`mistral-large-4`, OpenRouter
+`mistralai/mistral-large-4-0`) as the first candidate for a future decision-model
+spike, because it exposes token `logprobs` and can return a probability. Gemini
+3.1 Pro Preview is the fallback if a verbalised probability can be calibrated;
+it has the stronger published French score but no logprobs via OpenRouter. No
+grader switch in M2. Revisit in M3 with human labels and the 30 French traces.
+
 ## Accepted and rejected changes
 
 | Date | Change | Run ID | Verdict | Notes                               |

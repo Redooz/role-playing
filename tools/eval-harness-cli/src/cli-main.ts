@@ -6,19 +6,31 @@ import { canonicalJson } from '@rp/shared'
 import {
   ManifestValidationError,
   HarnessConfigError,
+  M2_JEV_GRADER_ID,
   buildGrades,
   compareRunResults,
+  createJevAxisGrader,
+  createJevClient,
+  deriveExecutionId,
   executeRun,
   formatManifestIssue,
   formatViolation,
+  loadSelectedTasks,
+  parseRunResult,
   runResultSchema,
+  trialGradeSchema,
   validateTaskTree,
   validateManifest,
+  type Grader,
   type GradesArtifact,
   type ObserverFactory,
+  type ProviderFactory,
   type RunResult,
   type EvaluationRun,
+  type TrialTranscriptFile,
 } from '@rp/eval-harness'
+import { normalizedTranscriptJsonl, parseTranscriptRecord } from '@rp/session-core'
+import { createLiveProviderFactory } from './live-provider.js'
 import { exportRun } from './export-run.js'
 import { formatComparison, formatRunResult } from './output.js'
 
@@ -50,6 +62,10 @@ export interface CliDeps {
   env?: NodeJS.ProcessEnv
   /** Replace the Langfuse adapter in tests; never loaded unless export is on. */
   observerFactory?: ObserverFactory
+  /** Override the provider factory (tests). */
+  providerFactory?: ProviderFactory
+  /** Override the semantic grader (tests). */
+  grader?: Grader
 }
 
 class CliUsageError extends Error {
@@ -64,6 +80,7 @@ const HELP_TEXT = `eval-harness - simulated-time evaluation harness (M0.1)
 Usage:
   eval-harness run --manifest <path> [--results-root <dir>] [--repo-root <dir>]
                    [--no-export] [--require-export]
+  eval-harness export-run --run <dir> [--repo-root <dir>] [--no-scores]
   eval-harness compare --baseline <path> --run <dir-or-result.json> [--repo-root <dir>]
   eval-harness validate-tasks [--repo-root <dir>]
   eval-harness --help
@@ -76,6 +93,11 @@ Commands:
                       Exit 0 accepted, 1 rejected/inconclusive, 2 invalid manifest
                       or configuration, 3 export required but failed (artifacts
                       are still written).
+  export-run          Re-export an existing run directory to Langfuse without
+                      re-running the model. Requires the self-hosted Langfuse
+                      configuration. --no-scores omits automated scores for
+                      blind human labelling. Exit 0 exported, 2 usage/config
+                      error, 3 export failed.
   compare             Compare a committed baseline artifact with a run directory.
                       Exit 0 all axes pass, 1 regression/inconclusive, 2 usage error.
   validate-tasks      Validate evals/tasks and evals/golden (gate G3).
@@ -92,7 +114,7 @@ Notes:
     are written. Export never changes the verdict.`
 
 /** Flags that take no value; they are stored as `"true"`. */
-const BOOLEAN_FLAGS: ReadonlySet<string> = new Set(['no-export', 'require-export'])
+const BOOLEAN_FLAGS: ReadonlySet<string> = new Set(['no-export', 'require-export', 'no-scores'])
 
 const SYSTEM_IO: CliIo = {
   out(line) {
@@ -145,6 +167,8 @@ export async function main(
     switch (command) {
       case 'run':
         return await runCommand(flags, repoRoot, io, deps)
+      case 'export-run':
+        return await exportRunCommand(flags, repoRoot, io, deps)
       case 'compare':
         return await compareCommand(flags, io)
       case 'validate-tasks':
@@ -218,11 +242,26 @@ async function runCommand(
     )
   }
 
+  const env = deps.env ?? process.env
+  const providerFactory =
+    deps.providerFactory ??
+    (manifest.provider.mode === 'live'
+      ? createLiveProviderFactory({
+          label: manifest.provider.label,
+          env,
+          paceMs: manifest.provider.paceMs ?? 0,
+        })
+      : undefined)
+  const grader =
+    deps.grader ?? (manifest.grader.id === M2_JEV_GRADER_ID ? createJevGrader(env) : undefined)
+
   const execution = await executeRun({
     repoRoot,
     manifest,
     wallClock: deps.wallClock,
     codeSha: deps.codeSha ?? resolveCodeSha(repoRoot),
+    ...(providerFactory === undefined ? {} : { providerFactory }),
+    ...(grader === undefined ? {} : { grader }),
   })
 
   if (execution.result.manifestHash !== validation.manifestHash) {
@@ -266,6 +305,86 @@ export function runExitCode(
   const verdictCode = verdict === 'accepted' ? 0 : 1
   if (verdictCode !== 0) return verdictCode
   return requireExport && exportStatus !== 'exported' ? 3 : 0
+}
+
+/**
+ * Re-export an existing run directory without re-running the model.
+ *
+ * The run artifacts already contain the result, normalized transcripts, grades
+ * and task selection. This command rebuilds the in-memory `EvaluationRun`
+ * shape the observer needs and calls the same export path as `run`.
+ */
+async function exportRunCommand(
+  flags: Map<string, string>,
+  repoRoot: string,
+  io: CliIo,
+  deps: CliDeps,
+): Promise<number> {
+  assertKnownFlags(flags, ['run', 'repo-root', 'no-scores'])
+
+  const runArg = flags.get('run')
+  if (runArg === undefined) throw new CliUsageError('export-run requires --run <dir>')
+  const runDir = resolve(runArg)
+  if (!(await pathExists(runDir))) {
+    throw new CliUsageError(`run directory not found: ${runDir}`)
+  }
+
+  const result = parseRunResult(await readJsonFile(join(runDir, 'result.json')))
+  const tasks = await loadSelectedTasks(repoRoot, result.manifest.tasks)
+
+  const transcripts: TrialTranscriptFile[] = []
+  for (const artifact of result.transcripts) {
+    const raw = await readFile(join(runDir, artifact.path), 'utf8')
+    const records =
+      raw.trim() === ''
+        ? []
+        : raw
+            .trim()
+            .split('\n')
+            .map((line) => parseTranscriptRecord(JSON.parse(line)))
+    transcripts.push({
+      taskId: artifact.taskId,
+      lang: artifact.lang,
+      round: artifact.round,
+      relativePath: artifact.path,
+      jsonl: normalizedTranscriptJsonl(records),
+      sha256: artifact.sha256,
+      records,
+    })
+  }
+
+  const gradesJsonl = await readFile(join(runDir, 'grades.jsonl'), 'utf8')
+  const records =
+    gradesJsonl.trim() === ''
+      ? []
+      : gradesJsonl
+          .trim()
+          .split('\n')
+          .map((line) => trialGradeSchema.parse(JSON.parse(line)))
+  if (records.length === 0) {
+    throw new HarnessConfigError(
+      `grades.jsonl in ${runDir} is empty; refusing to export a run without grades`,
+    )
+  }
+
+  const executionId = records[0]?.executionId ?? deriveExecutionId(result.runId, result.startedAt)
+  const execution: EvaluationRun = { result, transcripts, tasks, gradeDetails: [] }
+
+  const artifact = await exportRun({
+    execution,
+    grades: { executionId, records, jsonl: gradesJsonl },
+    runDir,
+    repoRoot,
+    io,
+    env: deps.env ?? process.env,
+    ...(deps.observerFactory === undefined ? {} : { observerFactory: deps.observerFactory }),
+    noExport: false,
+    requireExport: true,
+    includeScores: flags.get('no-scores') !== 'true',
+  })
+
+  if (artifact.status === 'exported') return 0
+  return artifact.status === 'failed' ? 3 : 2
 }
 
 async function compareCommand(flags: Map<string, string>, io: CliIo): Promise<number> {
@@ -454,6 +573,17 @@ async function pathExists(path: string): Promise<boolean> {
     if (isMissingPathError(error)) return false
     throw error
   }
+}
+
+/** Jev grader for the persona axes. Pinned to `typesafe/jev-1.14`. */
+function createJevGrader(env: NodeJS.ProcessEnv): Grader {
+  const apiKey = env['OPENROUTER_API_KEY']
+  if (apiKey === undefined || apiKey.trim() === '') {
+    throw new HarnessConfigError(
+      'a Jev-graded run requires OPENROUTER_API_KEY (set it in .env or the environment)',
+    )
+  }
+  return createJevAxisGrader({ client: createJevClient({ apiKey }) })
 }
 
 function resolveCodeSha(repoRoot: string): string | undefined {

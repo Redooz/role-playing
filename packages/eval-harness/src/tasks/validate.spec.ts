@@ -43,6 +43,7 @@ function taskEntry(overrides: Partial<TaskEntry> = {}): TaskEntry {
   return {
     id: 'task-001',
     lang: 'en',
+    mode: 'replay',
     domain: 'workplace',
     scenarioType: 'request-deadline-extension',
     cefrBand: 'B1',
@@ -351,5 +352,98 @@ describe('seeded task tree', () => {
       expect(golden.status).toBe('draft')
       expect(golden.annotatorAgreement).toBeUndefined()
     }
+  })
+})
+
+describe('session task references', () => {
+  function sessionTask(overrides: Partial<TaskEntry> = {}): TaskEntry {
+    return taskEntry({
+      mode: 'session',
+      content: { turns: [] },
+      session: {
+        personaId: 'manager',
+        personaVersion: '1.0.0',
+        scenarioId: 'request-deadline-extension',
+        scenarioVersion: '1.0.0',
+        scriptedUserTurns: ['Could I have two more days?'],
+      },
+      ...overrides,
+    })
+  }
+
+  it('accepts a session task with a registered persona and scenario', async () => {
+    const root = await makeTree({
+      [taskPath('en', 'session')]: sessionTask({ id: 'en-session-1' }),
+      [taskPath('fr', 'session')]: taskEntry({
+        id: 'fr-1',
+        lang: 'fr',
+        speakerId: 'fr-speaker',
+      }),
+    })
+    expect(await validateTaskTree(root)).toEqual([])
+  })
+
+  it('accepts a locale variant task', async () => {
+    const root = await makeTree({
+      [taskPath('en', 'session')]: sessionTask({ id: 'en-session-1', locale: 'en-GB' }),
+      [taskPath('fr', 'session')]: taskEntry({
+        id: 'fr-1',
+        lang: 'fr',
+        speakerId: 'fr-speaker',
+      }),
+    })
+    expect(await validateTaskTree(root)).toEqual([])
+  })
+
+  it('reports a missing persona reference', async () => {
+    const root = await makeTree({
+      [taskPath('en', 'session')]: sessionTask({
+        id: 'en-session-1',
+        session: {
+          personaId: 'ghost',
+          personaVersion: '1.0.0',
+          scenarioId: 'request-deadline-extension',
+          scenarioVersion: '1.0.0',
+          scriptedUserTurns: ['Hello?'],
+        },
+      }),
+      [taskPath('fr', 'session')]: taskEntry({
+        id: 'fr-1',
+        lang: 'fr',
+        speakerId: 'fr-speaker',
+      }),
+    })
+    const violations = await validateTaskTree(root)
+    expect(violations.map((violation) => violation.code)).toContain('SESSION_REFERENCE_MISSING')
+  })
+
+  it('reports a locale with no persona variant instead of falling back', async () => {
+    const root = await makeTree({
+      [taskPath('en', 'session')]: sessionTask({ id: 'en-session-1', locale: 'en-AU' }),
+      [taskPath('fr', 'session')]: taskEntry({
+        id: 'fr-1',
+        lang: 'fr',
+        speakerId: 'fr-speaker',
+      }),
+    })
+    const violations = await validateTaskTree(root)
+    expect(violations.map((violation) => violation.code)).toContain('SESSION_LOCALE_MISSING')
+  })
+
+  it('rejects a session task with no session block', async () => {
+    const root = await makeTree({
+      [taskPath('en', 'session')]: taskEntry({
+        id: 'en-session-1',
+        mode: 'session',
+        content: { turns: [] },
+      }),
+      [taskPath('fr', 'session')]: taskEntry({
+        id: 'fr-1',
+        lang: 'fr',
+        speakerId: 'fr-speaker',
+      }),
+    })
+    const violations = await validateTaskTree(root)
+    expect(violations.map((violation) => violation.code)).toContain('SCHEMA_VIOLATION')
   })
 })

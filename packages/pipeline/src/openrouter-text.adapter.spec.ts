@@ -83,6 +83,32 @@ describe('OpenRouter text adapter', () => {
     expect(body['stream']).toBe(true)
     expect(body['messages']).toEqual([{ role: 'user', content: 'hello' }])
     expect(body).not.toHaveProperty('response_format')
+    expect(body['temperature']).toBe(0.6)
+    expect(body['top_p']).toBe(0.95)
+    expect(body['max_completion_tokens']).toBe(2048)
+    expect(body).not.toHaveProperty('reasoning_effort')
+    expect(body).not.toHaveProperty('include_reasoning')
+  })
+
+  it('accepts an explicit generation profile', async () => {
+    let init: RequestInit | undefined
+    const model = createOpenRouterTextModel({
+      apiKey: API_KEY,
+      model: MODEL,
+      generation: { temperature: 0.2, maxCompletionTokens: 64, includeReasoning: true },
+      fetchImpl: async (_url, requestInit) => {
+        init = requestInit
+        return sseResponse(['[DONE]'])
+      },
+    })
+    await collect(model)
+
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>
+    expect(body['temperature']).toBe(0.2)
+    expect(body['max_completion_tokens']).toBe(64)
+    expect(body['include_reasoning']).toBe(true)
+    expect(body).not.toHaveProperty('top_p')
+    expect(body).not.toHaveProperty('reasoning_effort')
   })
 
   it('turns a non-2xx response into an error that does not leak the key', async () => {

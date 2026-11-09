@@ -1,0 +1,121 @@
+{
+  "schemaVersion": "3.0.0",
+  "run": {
+    "runId": "m2-locale-baseline",
+    "suite": "m2-locale-variants",
+    "purpose": "regression",
+    "description": "M1-style generic prompt measured on the en-GB/fr-CA locale tasks; supplies the locale probe baseline."
+  },
+  "tasks": {
+    "dataset": "synthetic-workplace-session",
+    "version": "v1",
+    "languages": ["en", "fr"],
+    "splits": ["calibration"],
+    "locales": ["en-GB", "fr-CA"]
+  },
+  "seeds": {
+    "master": 20261108,
+    "algorithm": "mulberry32"
+  },
+  "grader": {
+    "id": "jev",
+    "kind": "system-one-model",
+    "version": "typesafe/jev-1.14",
+    "model": "typesafe/jev-1.14"
+  },
+  "rubric": {
+    "version": "m2-persona-rubric-v1",
+    "ids": ["m2-persona-rubric-v1"]
+  },
+  "limits": {
+    "rounds": 3,
+    "maxFailureRate": 0.1
+  },
+  "target": {
+    "metric": "locale.fit",
+    "direction": "increase",
+    "minimumDetectableEffect": 0
+  },
+  "guardrails": [
+    {
+      "metric": "language.quality",
+      "direction": "increase",
+      "tolerance": 1
+    },
+    {
+      "metric": "register.fit",
+      "direction": "increase",
+      "tolerance": 1
+    },
+    {
+      "metric": "response.clarity",
+      "direction": "increase",
+      "tolerance": 1
+    },
+    {
+      "metric": "objective.completion",
+      "direction": "increase",
+      "tolerance": 1
+    },
+    {
+      "metric": "response.plain_text_rate",
+      "direction": "increase",
+      "tolerance": 0
+    },
+    {
+      "metric": "response.emoji_count",
+      "direction": "decrease",
+      "tolerance": 0
+    },
+    {
+      "metric": "response.markdown_count",
+      "direction": "decrease",
+      "tolerance": 0
+    },
+    {
+      "metric": "run.failure_rate",
+      "direction": "decrease",
+      "tolerance": 0.1
+    }
+  ],
+  "invariants": [
+    "transcript.schema_valid",
+    "transcript.guard_clean",
+    "transcript.seq_monotonic",
+    "transcript.content_class",
+    "response.plain_text"
+  ],
+  "provider": {
+    "mode": "live",
+    "label": "groq/openai/gpt-oss-20b",
+    "allowLive": true,
+    "paceMs": 4000
+  },
+  "prompt": {
+    "version": "m2-prompt-v1",
+    "mode": "generic",
+    "currentDate": "2026-11-08",
+    "parameters": {
+      "temperature": 0.6,
+      "topP": 0.95,
+      "maxCompletionTokens": 512,
+      "reasoningEffort": "low",
+      "includeReasoning": false
+    }
+  },
+  "baseline": {
+    "runId": "m2-locale-baseline",
+    "metrics": {
+      "locale.fit": 0,
+      "persona.consistency": 0,
+      "language.quality": 0,
+      "register.fit": 0,
+      "response.clarity": 0,
+      "objective.completion": 0,
+      "response.plain_text_rate": 1,
+      "response.emoji_count": 0,
+      "response.markdown_count": 0,
+      "run.failure_rate": 0
+    }
+  }
+}

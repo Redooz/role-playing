@@ -10,6 +10,7 @@ export default tseslint.config(
       '**/dist/**',
       '**/coverage/**',
       '**/*.tsbuildinfo',
+      '**/.stryker-tmp/**',
       'evals/results/**',
       'evals/.cache/**',
       'docs/**',

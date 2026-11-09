@@ -35,6 +35,7 @@ export const jevQuestionSchema = z.discriminatedUnion('type', [
 export const jevQuestionMetadataSchema = z.object({
   id: z.string().trim().min(1),
   lang: z.enum(['en', 'fr']),
+  locale: z.string().trim().min(1).optional(),
   rubricVersion: nonEmptyText,
   // A different grader is a different model, and this package may only call the pin.
   graderVersion: z.literal(JEV_MODEL),

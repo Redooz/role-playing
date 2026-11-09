@@ -10,7 +10,9 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@rp/persona-kit": "*",
     "@rp/pipeline": "*",
+    "@rp/scenario-kit": "*",
     "@rp/session-core": "*",
     "@rp/shared": "*"
   }

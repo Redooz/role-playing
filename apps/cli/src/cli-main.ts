@@ -36,6 +36,13 @@ export interface CliProvider {
   readonly label: string
 }
 
+export interface CliSelection {
+  readonly personaId: string
+  readonly personaName: string
+  readonly scenarioId: string
+  readonly locale: string
+}
+
 export interface RunCliOptions {
   readonly input: AsyncIterable<string>
   readonly io: CliIo
@@ -43,6 +50,7 @@ export interface RunCliOptions {
   readonly provider: CliProvider
   readonly log?: CliLog
   readonly logPath?: string
+  readonly selection?: CliSelection
   /** Injected for tests; defaults to `node:fs/promises` readFile. */
   readonly readFile?: (path: string) => Promise<string>
 }
@@ -63,6 +71,11 @@ export async function runCli(options: RunCliOptions): Promise<void> {
 
   io.out(`provider: ${provider.kind} (${provider.label})`)
   io.out(`session: ${driver.sessionId}`)
+  if (options.selection !== undefined) {
+    io.out(
+      `persona: ${options.selection.personaName} (${options.selection.personaId}), scenario: ${options.selection.scenarioId}, locale: ${options.selection.locale}`,
+    )
+  }
   if (options.logPath !== undefined) io.out(`log: ${options.logPath}`)
   io.out('type /help for commands')
 

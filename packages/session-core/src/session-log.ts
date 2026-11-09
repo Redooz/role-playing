@@ -61,6 +61,14 @@ export const sessionLogHeaderSchema = z.strictObject({
   provider: z.string().min(1),
   /** Present only when the session replays a registered task. */
   taskId: z.string().min(1).optional(),
+  /** M2 session identity. Optional so an M1 log still parses. */
+  personaId: z.string().min(1).optional(),
+  personaVersion: z.string().min(1).optional(),
+  scenarioId: z.string().min(1).optional(),
+  scenarioVersion: z.string().min(1).optional(),
+  /** Canonical BCP 47 tag. `lang` stays the base language. */
+  locale: z.string().min(1).optional(),
+  promptVersion: z.string().min(1).optional(),
 })
 
 export type SessionLogHeader = z.infer<typeof sessionLogHeaderSchema>

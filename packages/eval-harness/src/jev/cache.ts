@@ -21,6 +21,8 @@ export interface JevCacheKeyInput {
   readonly rubricVersion: string
   readonly extractionVersion: string
   readonly providerSurface: string
+  /** Canonical locale, when the judgment is locale-specific. */
+  readonly locale?: string
 }
 
 /** SHA-256 of the canonical JSON form; stable across key insertion order. */
@@ -32,6 +34,7 @@ export function computeJevCacheKey(input: JevCacheKeyInput): string {
       rubricVersion: input.rubricVersion,
       extractionVersion: input.extractionVersion,
       providerSurface: input.providerSurface,
+      ...(input.locale === undefined ? {} : { locale: input.locale }),
     }),
   )
 }

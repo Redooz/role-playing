@@ -30,6 +30,24 @@ export function formatRunResult(result: RunResult): string[] {
     )
   }
 
+  if (result.passMetrics !== undefined) {
+    lines.push(
+      '',
+      `reliability: pass^1 = ${formatNumber(result.passMetrics.pass1)}` +
+        (result.passMetrics.passK === undefined
+          ? ''
+          : `, pass^${result.passMetrics.k} = ${formatNumber(result.passMetrics.passK)}`),
+    )
+    for (const task of result.passMetrics.tasks) {
+      lines.push(
+        `  ${task.lang}/${task.taskId}: ${task.successes}/${task.trials} passed (pass^1 ${formatNumber(task.pass1)}` +
+          (task.passK === undefined
+            ? ')'
+            : `, pass^${result.passMetrics.k} ${formatNumber(task.passK)})`),
+      )
+    }
+  }
+
   lines.push('', 'reasons:')
   for (const reason of result.verdict.reasons) lines.push(`  - ${reason}`)
 

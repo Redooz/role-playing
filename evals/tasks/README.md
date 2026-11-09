@@ -30,9 +30,39 @@ root (the directory that contains `evals/`).
 Codes: `EVALS_DIR_MISSING`, `UNREADABLE_DIRECTORY`,
 `UNREADABLE_FILE`, `INVALID_JSON`, `INVALID_LAYOUT`, `SCHEMA_VIOLATION`,
 `MISSING_PROVENANCE`, `MISSING_CONSENT_SCOPE`, `MISSING_ANNOTATION_VERSIONS`,
-`LANG_PATH_MISMATCH`, `DUPLICATE_ID`, `SPLIT_LEAKAGE`,
+`LANG_PATH_MISMATCH`, `LOCALE_PATH_MISMATCH`, `DUPLICATE_ID`, `SPLIT_LEAKAGE`,
 `GOLDEN_AGREEMENT_MISSING`, `GOLDEN_TASK_MISSING`,
-`GOLDEN_TASK_SPLIT_MISMATCH`.
+`GOLDEN_TASK_SPLIT_MISMATCH`, `GOLDEN_LOCALE_MISMATCH`,
+`SESSION_REFERENCE_MISSING`, `SESSION_VERSION_MISMATCH`,
+`SESSION_LOCALE_MISSING`, `SESSION_PERSONA_MISMATCH`.
+
+## Session tasks (M2)
+
+`mode: "session"` tasks point at a registered persona and scenario instead of
+storing persona turns:
+
+```json
+{
+  "mode": "session",
+  "locale": "en-GB",
+  "content": { "turns": [] },
+  "session": {
+    "personaId": "manager",
+    "personaVersion": "1.0.0",
+    "scenarioId": "request-deadline-extension",
+    "scenarioVersion": "1.0.0",
+    "scriptedUserTurns": ["Could I have two more days?"]
+  }
+}
+```
+
+- `locale` is optional and defaults to the base language. It must be a canonical
+  BCP 47 tag whose base language matches `lang`.
+- A missing persona/scenario variant for the task locale is a validation error,
+  never a fallback.
+- `recordedPersonaTurns` is a canned-regression fixture only. A live run ignores
+  it and the model generates the persona turns.
+- A replay task (`mode` omitted or `"replay"`) keeps `content.turns`.
 
 ## Provenance and consent
 
@@ -78,6 +108,34 @@ entry may only use `status: "stable"` when agreement was measured with at least
 two distinct annotators and a stated metric/value (§4.4.4). The seeded English
 and French entries are `draft` on purpose: a single annotation pass is not
 agreement, so they are not ground truth yet.
+
+A session task runs several rounds, so `taskId` alone does not identify the
+transcript being labelled. A labelled trial may add `runId`, `round` and
+`trialId`; supply all three together. `trialId` must use the harness form
+`${round}:${lang}:${taskId}` (for example
+`2:en:en-b1-deadline-manager-101`). Entries without a trial reference remain
+valid for task-level labels.
+
+## M2 labelling plan
+
+The accepted Gemma runs are the candidate `m2-persona-scenarios-lk` and the
+generic baseline `m2-persona-baseline-lk`. Label the transcripts, not the
+`grades.jsonl` scores.
+
+**Sample-size check.** The base run has 6 tasks × 5 rounds = 30 trials, i.e.
+**15 per language**. The M2 plan asks for 30 labels per base language. Resolve
+this before labelling:
+
+- label both baseline and candidate: 15 + 15 = 30 per language, no new model
+  calls (recommended); or
+- run 10 rounds of the candidate: 3 tasks × 10 = 30 per language; or
+- add a second scenario per language: 6 tasks × 5 rounds = 30 per language.
+
+The locale probe has 3 tasks × 3 rounds = **9 per locale**, but the plan asks for 10. Label baseline plus variants (18 per locale), or run a fourth round.
+
+Use `m2-annotation-guideline-v1`. Each entry records `runId`, `round` and
+`trialId`; keep entries `draft` until the double-labelled subset has a measured
+agreement block.
 
 ## Deletion propagation (§4.6.9)
 

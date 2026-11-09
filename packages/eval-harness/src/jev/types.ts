@@ -38,6 +38,8 @@ export type JevQuestion = JevNoulQuestion | JevChoiceQuestion | JevScoreQuestion
 export interface JevQuestionMetadata {
   readonly id: string
   readonly lang: JevLang
+  /** Canonical BCP 47 locale; it enters the cache key so variants never share a score. */
+  readonly locale?: string
   readonly rubricVersion: string
   readonly graderVersion: string
   readonly extractionVersion: string

@@ -10,6 +10,15 @@
       "type": "string",
       "enum": ["en", "fr"]
     },
+    "locale": {
+      "type": "string",
+      "minLength": 2
+    },
+    "mode": {
+      "default": "replay",
+      "type": "string",
+      "enum": ["replay", "session"]
+    },
     "domain": {
       "type": "string",
       "minLength": 1
@@ -73,7 +82,6 @@
           "minLength": 1
         },
         "turns": {
-          "minItems": 1,
           "type": "array",
           "items": {
             "type": "object",
@@ -94,11 +102,57 @@
       },
       "required": ["turns"],
       "additionalProperties": false
+    },
+    "session": {
+      "type": "object",
+      "properties": {
+        "personaId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "personaVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scenarioId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scenarioVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scriptedUserTurns": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "recordedPersonaTurns": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "personaId",
+        "personaVersion",
+        "scenarioId",
+        "scenarioVersion",
+        "scriptedUserTurns"
+      ],
+      "additionalProperties": false
     }
   },
   "required": [
     "id",
     "lang",
+    "mode",
     "domain",
     "scenarioType",
     "cefrBand",

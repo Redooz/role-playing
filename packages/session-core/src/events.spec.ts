@@ -219,6 +219,13 @@ describe('event payload schemas', () => {
 })
 
 describe('sessionEventSchema', () => {
+  it('accepts one event of every §2.1 kind', () => {
+    for (const name of sessionEventNames) {
+      const good = payloadCases[name].good
+      expect(sessionEventSchema.safeParse({ type: name, payload: good }).success, name).toBe(true)
+    }
+  })
+
   it('accepts a well-formed event and narrows its payload', () => {
     const parsed = sessionEventSchema.safeParse({
       type: 'turn.granted',

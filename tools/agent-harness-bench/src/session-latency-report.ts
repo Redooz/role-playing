@@ -34,15 +34,17 @@ export function modelSlug(model: string): string {
 }
 
 /**
- * Probe path for a comparison model. Each model gets its own directory so a new
- * probe never overwrites the previous one or the M1 baseline.
+ * Probe path for a comparison model. Each provider/model pair gets its own
+ * directory so a new probe never overwrites the previous one or the M1
+ * baseline.
  */
-export function probeTextLatencyReportPath(model: string): string {
+export function probeTextLatencyReportPath(model: string, provider?: string): string {
+  const prefix = provider === undefined ? '' : `${provider}-`
   return join(
     REPO_ROOT,
     'evals',
     'results',
-    `m1-text-latency-probe-${modelSlug(model)}`,
+    `m1-text-latency-probe-${prefix}${modelSlug(model)}`,
     'latency.json',
   )
 }

@@ -7,6 +7,7 @@ import type {
 import {
   defaultTimingClock,
   streamOpenAiCompatible,
+  type OpenAiGenerationOptions,
   type TextRequestTiming,
 } from './openai-compatible.js'
 
@@ -27,6 +28,19 @@ export const GROQ_BASE_URL = 'https://api.groq.com/openai/v1'
 export const GROQ_PERSONA_MODEL = 'openai/gpt-oss-20b'
 export const GROQ_TEXT_MODEL_LABEL = `groq/${GROQ_PERSONA_MODEL}`
 
+/**
+ * Fixed persona generation profile from the M2 plan. The model, temperature,
+ * top_p, token cap and reasoning effort are recorded with every run; changing
+ * one is a prompt-contract change, not a runtime option.
+ */
+export const GROQ_GENERATION_PARAMETERS: OpenAiGenerationOptions = {
+  temperature: 0.6,
+  topP: 0.95,
+  maxCompletionTokens: 512,
+  reasoningEffort: 'low',
+  includeReasoning: false,
+}
+
 export type GroqRequestTiming = TextRequestTiming
 
 export interface GroqTextModelOptions {
@@ -39,6 +53,8 @@ export interface GroqTextModelOptions {
   readonly onTiming?: (timing: GroqRequestTiming) => void
   /** Injectable clock for the timing boundary; defaults to `performance.now`. */
   readonly now?: () => number
+  /** Override the fixed persona generation profile (tests or a probe only). */
+  readonly generation?: OpenAiGenerationOptions
 }
 
 export class GroqTextModelError extends Error {
@@ -77,6 +93,7 @@ export function createGroqTextModel(options: GroqTextModelOptions): TextModelPor
         onTiming: options.onTiming,
         now,
         providerName: 'Groq',
+        generation: options.generation ?? GROQ_GENERATION_PARAMETERS,
         createError: (message, errorOptions) => new GroqTextModelError(message, errorOptions),
       })
     },

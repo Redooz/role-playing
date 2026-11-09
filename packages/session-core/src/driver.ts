@@ -45,6 +45,22 @@ export interface CreateTextSessionDriverOptions {
   /** Minted once per process; never reused across restarts (M1 D3). */
   readonly sessionId: string
   readonly lang: SessionLanguage
+  /**
+   * Prepared system instructions (M2 D4). Prepended to every model request and
+   * kept out of the rolling history, so trimming can never drop them.
+   */
+  readonly instructions?: readonly TextModelMessage[]
+  /**
+   * Instructions for the opening turn only. The two-bucket prompt uses the
+   * greeting pack alone for the first turn and the full pack afterwards.
+   * Defaults to `instructions` when absent.
+   */
+  readonly greetingInstructions?: readonly TextModelMessage[]
+  /**
+   * Canonical BCP 47 locale (M2 D4). `lang` stays the base language; the locale
+   * is a separate stamp used for prompt selection and cached-request identity.
+   */
+  readonly locale?: string
   /** Present only when the session replays a registered task. */
   readonly taskId?: string
   /** `wall` for a live session, `simulated` in tests and replay. */
@@ -73,6 +89,12 @@ export interface SessionDriver {
   readonly sessionId: string
   /** One consumer. Events are yielded as they are produced, not after the turn. */
   readonly events: AsyncIterable<SessionEvent>
+  /**
+   * Open the first persona turn without a learner utterance (M2 D4). This is
+   * the text-only proxy for pickup → first word and uses the same grant
+   * machinery as `send()`.
+   */
+  start(): Promise<void>
   /** Commit one user utterance and stream the reply. Resolves when the turn ends. */
   send(text: string): Promise<void>
   /** Abort the in-flight reply. No-op when nothing is streaming. */
@@ -197,6 +219,7 @@ interface ActiveTurn {
   readonly turnId: string
   readonly grantId: string
   readonly expiresAtMs: number
+  readonly greeting: boolean
   readonly controller: AbortController
   readonly done: Promise<void>
 }
@@ -216,6 +239,9 @@ class TextSessionDriver implements SessionDriver {
   readonly #clock: Clock
   readonly #model: TextModelPort
   readonly #lang: SessionLanguage
+  readonly #locale: string | undefined
+  readonly #instructions: readonly TextModelMessage[]
+  readonly #greetingInstructions: readonly TextModelMessage[]
   readonly #personaId: string
   readonly #grantTtlMs: number
   readonly #maxHistoryMessages: number
@@ -225,12 +251,17 @@ class TextSessionDriver implements SessionDriver {
   #closing: Promise<void> | undefined
   #turnCounter = 0
   #active: ActiveTurn | undefined
+  /** True once a greeting has committed; trimming must never drop it. */
+  #greetingCommitted = false
 
   constructor(options: CreateTextSessionDriverOptions) {
     this.sessionId = options.sessionId
     this.#clock = options.clock
     this.#model = options.model
     this.#lang = options.lang
+    this.#locale = options.locale
+    this.#instructions = [...(options.instructions ?? [])]
+    this.#greetingInstructions = [...(options.greetingInstructions ?? options.instructions ?? [])]
     this.#personaId = options.personaId ?? DEFAULT_PERSONA_ID
     this.#grantTtlMs = options.grantTtlMs ?? DEFAULT_GRANT_TTL_MS
     this.#maxHistoryMessages = options.maxHistoryMessages ?? DEFAULT_MAX_HISTORY_MESSAGES
@@ -253,6 +284,18 @@ class TextSessionDriver implements SessionDriver {
     })
   }
 
+  async start(): Promise<void> {
+    if (this.#closed) throw new SessionClosedError()
+    if (this.#messages.length > 0 || this.#turnCounter > 0) {
+      throw new SessionDriverError('start() only opens an empty session')
+    }
+
+    if (this.#active !== undefined) await this.interrupt()
+    if (this.#closed) throw new SessionClosedError()
+
+    await this.#openTurn(true)
+  }
+
   async send(text: string): Promise<void> {
     if (this.#closed) throw new SessionClosedError()
     if (text.trim() === '') throw new SessionDriverError('an utterance must not be empty')
@@ -264,6 +307,10 @@ class TextSessionDriver implements SessionDriver {
     this.#emit('user.utterance.committed', { text })
     this.#appendMessage({ role: 'user', content: text })
 
+    await this.#openTurn(false)
+  }
+
+  async #openTurn(greeting: boolean): Promise<void> {
     this.#turnCounter += 1
     const turnId = `${this.sessionId}-turn-${this.#turnCounter}`
     const grantId = `${this.sessionId}-grant-${this.#turnCounter}`
@@ -279,7 +326,7 @@ class TextSessionDriver implements SessionDriver {
       },
     })
 
-    await this.#runTurn({ turnId, grantId, expiresAtMs })
+    await this.#runTurn({ turnId, grantId, expiresAtMs, greeting })
   }
 
   async interrupt(): Promise<void> {
@@ -307,16 +354,30 @@ class TextSessionDriver implements SessionDriver {
   #appendMessage(message: TextModelMessage): void {
     this.#messages.push(message)
     const overflow = this.#messages.length - this.#maxHistoryMessages
-    if (overflow > 0) {
-      this.#messages.splice(0, overflow)
-      // Keep the context starting with a user turn. Chat-completions APIs accept
-      // an assistant-first history, but a user/assistant pair is clearer and
-      // avoids dropping the user turn that the assistant reply answers.
-      while (this.#messages[0]?.role === 'assistant') this.#messages.shift()
+    if (overflow <= 0) return
+
+    // The greeting is the first assistant turn and is part of the session's
+    // identity; trimming starts after it so a long conversation cannot drop it.
+    const protectedCount = this.#greetingCommitted ? 1 : 0
+    const removable = this.#messages.length - protectedCount
+    if (removable <= 0) return
+    this.#messages.splice(protectedCount, Math.min(overflow, removable))
+
+    // Keep the retained context starting with a user turn after the greeting.
+    // Chat-completions APIs accept an assistant-first history, but a
+    // user/assistant pair is clearer and avoids dropping the user turn that the
+    // assistant reply answers.
+    while (this.#messages[protectedCount]?.role === 'assistant') {
+      this.#messages.splice(protectedCount, 1)
     }
   }
 
-  async #runTurn(turn: { turnId: string; grantId: string; expiresAtMs: number }): Promise<void> {
+  async #runTurn(turn: {
+    turnId: string
+    grantId: string
+    expiresAtMs: number
+    greeting: boolean
+  }): Promise<void> {
     const controller = new AbortController()
     let resolveDone: () => void = () => undefined
     const done = new Promise<void>((resolve) => {
@@ -333,7 +394,12 @@ class TextSessionDriver implements SessionDriver {
   }
 
   async #streamResponse(
-    turn: { readonly turnId: string; readonly grantId: string; readonly expiresAtMs: number },
+    turn: {
+      readonly turnId: string
+      readonly grantId: string
+      readonly expiresAtMs: number
+      readonly greeting: boolean
+    },
     controller: AbortController,
   ): Promise<void> {
     this.#emit('persona.response.started', { grantId: turn.grantId })
@@ -351,8 +417,14 @@ class TextSessionDriver implements SessionDriver {
       iterator = this.#model
         .complete(
           {
-            messages: [...this.#messages],
-            metadata: { lang: this.#lang },
+            messages: [
+              ...(turn.greeting ? this.#greetingInstructions : this.#instructions),
+              ...this.#messages,
+            ],
+            metadata: {
+              lang: this.#lang,
+              ...(this.#locale === undefined ? {} : { locale: this.#locale }),
+            },
             requestId: turn.turnId,
           },
           { signal: controller.signal },
@@ -471,6 +543,7 @@ class TextSessionDriver implements SessionDriver {
         ...(usage === undefined ? {} : { usage }),
       })
       this.#appendMessage({ role: 'assistant', content: text })
+      if (turn.greeting) this.#greetingCommitted = true
       return
     }
 

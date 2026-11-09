@@ -76,6 +76,62 @@ describe('main session id argument', () => {
     }
   })
 
+  it.each([
+    ['--locale', 'en-UK'],
+    ['--locale', 'fr-CA', '--lang', 'en'],
+    ['--persona', 'unknown'],
+    ['--scenario', 'unknown'],
+    ['--prompt-date', 'today'],
+  ])('rejects invalid M2 selection %j with exit code 2', async (...args) => {
+    const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+    try {
+      await expect(main(args)).resolves.toBe(2)
+      expect(err).toHaveBeenCalled()
+    } finally {
+      err.mockRestore()
+    }
+  })
+
+  it('requires an explicit persona for live mode', async () => {
+    const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+    try {
+      await expect(
+        main(['--provider', 'live', '--scenario', 'request-deadline-extension']),
+      ).resolves.toBe(2)
+      expect(err.mock.calls.map((call) => String(call[0])).join('')).toContain('--persona')
+    } finally {
+      err.mockRestore()
+    }
+  })
+
+  it('requires LiveKit credentials for live mode', async () => {
+    const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+    const savedKey = process.env['LIVEKIT_API_KEY']
+    const savedSecret = process.env['LIVEKIT_API_SECRET']
+    delete process.env['LIVEKIT_API_KEY']
+    delete process.env['LIVEKIT_API_SECRET']
+
+    try {
+      await expect(
+        main([
+          '--provider',
+          'live',
+          '--persona',
+          'manager',
+          '--scenario',
+          'request-deadline-extension',
+        ]),
+      ).resolves.toBe(2)
+      expect(err.mock.calls.map((call) => String(call[0])).join('')).toContain('LIVEKIT_API_KEY')
+    } finally {
+      if (savedKey === undefined) delete process.env['LIVEKIT_API_KEY']
+      else process.env['LIVEKIT_API_KEY'] = savedKey
+      if (savedSecret === undefined) delete process.env['LIVEKIT_API_SECRET']
+      else process.env['LIVEKIT_API_SECRET'] = savedSecret
+      err.mockRestore()
+    }
+  })
+
   it('reports an existing session log instead of throwing', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'rp-main-'))
     const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)

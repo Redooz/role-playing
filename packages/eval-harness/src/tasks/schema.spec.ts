@@ -17,6 +17,7 @@ function taskEntry(overrides: Partial<TaskEntry> = {}): TaskEntry {
   return {
     id: 'en-task-001',
     lang: 'en',
+    mode: 'replay',
     domain: 'workplace',
     scenarioType: 'request-deadline-extension',
     cefrBand: 'B1',
@@ -140,6 +141,33 @@ describe('goldenEntrySchema', () => {
       goldenEntry({ dimensionScores: { clarity: { score: 6 } } }),
     )
     expect(result.success).toBe(false)
+  })
+
+  it('accepts a trial reference that matches the harness trial id', () => {
+    const result = goldenEntrySchema.safeParse(
+      goldenEntry({
+        taskId: 'en-b1-report-deadline-001',
+        runId: 'm2-persona-scenarios-lk',
+        round: 2,
+        trialId: '2:en:en-b1-report-deadline-001',
+      }),
+    )
+    expect(result.success).toBe(true)
+  })
+
+  it('requires the trial reference fields together and a matching trial id', () => {
+    const partial = goldenEntrySchema.safeParse(goldenEntry({ runId: 'run-1' }))
+    expect(partial.success).toBe(false)
+
+    const mismatched = goldenEntrySchema.safeParse(
+      goldenEntry({
+        taskId: 'en-b1-report-deadline-001',
+        runId: 'run-1',
+        round: 2,
+        trialId: '3:en:en-b1-report-deadline-001',
+      }),
+    )
+    expect(mismatched.success).toBe(false)
   })
 })
 

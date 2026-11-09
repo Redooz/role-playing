@@ -1,0 +1,42 @@
+{
+  "id": "en-b2-decline-client-103",
+  "lang": "en",
+  "locale": "en",
+  "mode": "session",
+  "domain": "workplace",
+  "scenarioType": "decline-meeting-invitation",
+  "cefrBand": "B2",
+  "speakerId": "syn-en-session-cal-03",
+  "split": "calibration",
+  "provenance": {
+    "source": "synthetic"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "rubric": "m2-persona-rubric-v1",
+    "annotationGuideline": "m2-annotation-guideline-v1"
+  },
+  "content": {
+    "scenarioBrief": "An external client asks to move a meeting; the account manager must decline and offer an alternative.",
+    "turns": []
+  },
+  "session": {
+    "personaId": "client",
+    "personaVersion": "1.0.0",
+    "scenarioId": "decline-meeting-invitation",
+    "scenarioVersion": "1.0.0",
+    "scriptedUserTurns": [
+      "I need to move our meeting to tomorrow at 9. Can you make that work?",
+      "That's not ideal. I have a board call on Thursday morning. Is there anything earlier?",
+      "I understand, but I need an answer today. Can you confirm something in writing?",
+      "Thursday at 10 works. Please send the invitation and I'll accept it this afternoon."
+    ],
+    "recordedPersonaTurns": [
+      "Good morning. I am afraid the meeting needs to move. Do you have a moment?",
+      "I understand. Tomorrow at 9 is difficult. Could we look at Thursday instead?",
+      "Thursday at 10 is available. I can confirm that in writing today.",
+      "I appreciate the urgency. I will send the invitation for Thursday at 10.",
+      "Thank you. I will look out for the invitation and accept it this afternoon."
+    ]
+  }
+}

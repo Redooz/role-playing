@@ -29,6 +29,13 @@ import {
 } from './manifest.js'
 import { buildCannedEntriesForTask, replayTask, ReplayError } from './replay.js'
 import {
+  SESSION_PROMPT_TEMPLATE_VERSIONS,
+  buildSessionCannedEntries,
+  runSessionTask,
+} from './session-runner.js'
+import { speechMetricsFromRecords } from './speech.js'
+import { computePassMetrics } from './pass-k.js'
+import {
   RUN_RESULT_SCHEMA_VERSION,
   buildVersions,
   metricReadingsSchema,
@@ -39,7 +46,12 @@ import {
   type RunResult,
   type RunSummary,
 } from './results.js'
-import { createDeterministicInvariantGrader, type Grader, type TrialRecord } from './grader.js'
+import {
+  createDeterministicInvariantGrader,
+  type Grader,
+  type SemanticGrade,
+  type TrialRecord,
+} from './grader.js'
 import {
   TrialTimeoutError,
   createTrialEnvironment,
@@ -120,6 +132,8 @@ export interface EvaluationRun {
   readonly transcripts: readonly TrialTranscriptFile[]
   /** Loaded tasks, so exporters can attach task metadata without re-reading disk. */
   readonly tasks: readonly LoadedTask[]
+  /** Raw semantic judgments from the injected grader, when it produced any. */
+  readonly gradeDetails: readonly SemanticGrade[]
 }
 
 /**
@@ -135,6 +149,7 @@ export async function loadSelectedTasks(
 ): Promise<LoadedTask[]> {
   const root = resolve(repoRoot)
   const selected: LoadedTask[] = []
+  const requestedLocales = new Set(selection.locales ?? selection.languages)
 
   for (const lang of selection.languages) {
     const directory = join(root, 'evals', 'tasks', selection.dataset, selection.version, lang)
@@ -158,6 +173,7 @@ export async function loadSelectedTasks(
 
       if (selection.splits !== undefined && !selection.splits.includes(task.split)) continue
       if (selection.ids !== undefined && !selection.ids.includes(task.id)) continue
+      if (!requestedLocales.has(task.locale ?? task.lang)) continue
 
       selected.push({ task, relativePath })
     }
@@ -165,10 +181,10 @@ export async function loadSelectedTasks(
 
   const seen = new Set<string>()
   for (const { task } of selected) {
-    const key = `${task.lang}\u0000${task.id}`
+    const key = `${task.lang}\u0000${task.locale ?? task.lang}\u0000${task.id}`
     if (seen.has(key)) {
       throw new HarnessConfigError(
-        `task id "${task.id}" appears more than once in language "${task.lang}"`,
+        `task id "${task.id}" appears more than once in language "${task.lang}" locale "${task.locale ?? task.lang}"`,
       )
     }
     seen.add(key)
@@ -177,7 +193,15 @@ export async function loadSelectedTasks(
   for (const lang of selection.languages) {
     if (!selected.some(({ task }) => task.lang === lang)) {
       throw new HarnessConfigError(
-        `manifest selects no task for language "${lang}" after split/id filters`,
+        `manifest selects no task for language "${lang}" after split/id/locale filters`,
+      )
+    }
+  }
+
+  for (const locale of requestedLocales) {
+    if (!selected.some(({ task }) => (task.locale ?? task.lang) === locale)) {
+      throw new HarnessConfigError(
+        `manifest selects no task for locale "${locale}" after split/id filters`,
       )
     }
   }
@@ -205,6 +229,7 @@ export async function executeRun(options: ExecuteRunOptions): Promise<Evaluation
   const executionId = deriveExecutionId(manifest.run.runId, startedAt)
 
   const tasks = await loadSelectedTasks(options.repoRoot, manifest.tasks)
+  assertSessionPrompt(manifest, tasks)
   const providerFactory = options.providerFactory ?? createProviderFactory(manifest, tasks)
 
   const rng = createSeededRandom(manifest.seeds.master)
@@ -228,21 +253,50 @@ export async function executeRun(options: ExecuteRunOptions): Promise<Evaluation
           round,
           task,
           providerFactory,
-          ...(options.trialTimeoutMs === undefined ? {} : { timeoutMs: options.trialTimeoutMs }),
+          ...(options.trialTimeoutMs === undefined
+            ? task.mode === 'session'
+              ? { timeoutMs: 180_000 }
+              : {}
+            : { timeoutMs: options.trialTimeoutMs }),
         })
         const trial = environment
 
-        const replayed = await withTrialTimeout(trial, (signal) =>
-          replayTask({
-            runId: manifest.run.runId,
-            executionId,
-            task: trial.task,
-            clock: trial.clock,
-            provider: trial.provider,
-            wallNow: wallClock,
-            signal,
-          }),
-        )
+        const replayed: { records: readonly TranscriptRecord[]; jsonl: string } =
+          await withTrialTimeout(
+            trial,
+            (signal): Promise<{ records: readonly TranscriptRecord[]; jsonl: string }> => {
+              if (trial.task.mode === 'session') {
+                const currentDate = manifest.prompt?.currentDate
+                if (currentDate === undefined) {
+                  throw new HarnessConfigError(
+                    'a session task requires manifest.prompt.currentDate',
+                  )
+                }
+                return runSessionTask({
+                  runId: manifest.run.runId,
+                  executionId,
+                  task: trial.task,
+                  clock: trial.clock,
+                  provider: trial.provider,
+                  wallNow: wallClock,
+                  currentDate,
+                  promptMode: manifest.prompt?.mode ?? 'persona',
+                  promptStyle: manifest.prompt?.style ?? 'harmony',
+                  signal,
+                })
+              }
+
+              return replayTask({
+                runId: manifest.run.runId,
+                executionId,
+                task: trial.task,
+                clock: trial.clock,
+                provider: trial.provider,
+                wallNow: wallClock,
+                signal,
+              })
+            },
+          )
 
         const events: SessionEvent[] = []
         for (const record of replayed.records) {
@@ -279,6 +333,8 @@ export async function executeRun(options: ExecuteRunOptions): Promise<Evaluation
           sequenceValid: sequence.ok,
           contentClassValid,
           providerOutage: false,
+          speech: speechMetricsFromRecords(replayed.records),
+          task: trial.task,
         })
 
         transcripts.push({
@@ -333,6 +389,9 @@ export async function executeRun(options: ExecuteRunOptions): Promise<Evaluation
   }
 
   const metrics = await score(manifest, grader, trials)
+  const gradeDetails =
+    grader.details === undefined ? [] : await grader.details({ manifest, trials })
+  const passMetrics = computePassMetrics(passTrials(trials, gradeDetails), 3)
   const invariants = computeInvariants(manifest, trials)
   const summary = summarize(manifest, trials, failedRounds)
   const providerOutages = trials.filter((trial) => trial.providerOutage).length
@@ -358,6 +417,7 @@ export async function executeRun(options: ExecuteRunOptions): Promise<Evaluation
     verdict,
     metrics,
     invariants,
+    passMetrics,
     trials: trials.map(toTrialOutcome),
     transcripts: transcripts.map((transcript) => ({
       taskId: transcript.taskId,
@@ -374,7 +434,7 @@ export async function executeRun(options: ExecuteRunOptions): Promise<Evaluation
 
   // Parse the artifact we are about to persist: a result that does not satisfy
   // its own schema must never reach disk.
-  return { result: parseRunResult(result), transcripts, tasks: orderedTasks }
+  return { result: parseRunResult(result), transcripts, tasks: orderedTasks, gradeDetails }
 }
 
 function assertGraderMatchesManifest(grader: Grader, manifest: RunManifest): void {
@@ -389,6 +449,32 @@ function assertGraderMatchesManifest(grader: Grader, manifest: RunManifest): voi
   }
 }
 
+function assertSessionPrompt(manifest: RunManifest, tasks: readonly LoadedTask[]): void {
+  const sessionTasks = tasks.filter(({ task }) => task.mode === 'session')
+  if (sessionTasks.length === 0) return
+
+  const prompt = manifest.prompt
+  if (prompt === undefined) {
+    throw new HarnessConfigError(
+      'a manifest selecting session tasks must register prompt.currentDate so the prompt is reproducible',
+    )
+  }
+  if (prompt.version !== undefined) {
+    const style = prompt.style ?? 'harmony'
+    const expected = SESSION_PROMPT_TEMPLATE_VERSIONS[style]
+    if (prompt.version !== expected) {
+      throw new HarnessConfigError(
+        `manifest prompt version "${prompt.version}" does not match the ${style} template "${expected}"`,
+      )
+    }
+  }
+  for (const { task } of sessionTasks) {
+    if (task.session === undefined) {
+      throw new HarnessConfigError(`session task ${task.id} has no session block`)
+    }
+  }
+}
+
 function createProviderFactory(
   manifest: RunManifest,
   tasks: readonly LoadedTask[],
@@ -397,7 +483,19 @@ function createProviderFactory(
     return () => createLiveProvider(manifest.provider.label)
   }
 
-  const entries = tasks.flatMap(({ task }) => buildCannedEntriesForTask(task))
+  const currentDate = manifest.prompt?.currentDate
+  const style = manifest.prompt?.style ?? 'harmony'
+  const entries = tasks.flatMap(({ task }) => {
+    if (task.mode === 'session') {
+      if (currentDate === undefined) {
+        throw new HarnessConfigError(
+          `canned session replay for ${task.id} requires manifest.prompt.currentDate`,
+        )
+      }
+      return buildSessionCannedEntries(task, currentDate, style)
+    }
+    return buildCannedEntriesForTask(task)
+  })
   // Validate the recorded bundle once, before any trial runs. A bad bundle is a
   // configuration error, not a failed trial. Each trial still gets a fresh
   // provider instance.
@@ -486,6 +584,23 @@ function computeInvariants(
       : 'every text-bearing record is restricted and operational records are contentFree',
   )
 
+  const speech = completed.map((trial) => trial.speech)
+  add(
+    'response.plain_text',
+    !nothingCompleted &&
+      speech.every(
+        (metrics) =>
+          metrics !== undefined &&
+          metrics.plainTextRate === 1 &&
+          metrics.emojiCount === 0 &&
+          metrics.markdownCount === 0 &&
+          metrics.emptyResponses === 0,
+      ),
+    nothingCompleted
+      ? noDataDetail
+      : 'every completed reply is plain text with no Markdown, no emoji and no empty reply',
+  )
+
   return results
 }
 
@@ -509,6 +624,39 @@ function summarize(
   }
 }
 
+/**
+ * Reduce each trial to the binary outcome `pass^k` needs.
+ *
+ * A completed trial passes when every semantic axis it was judged on clears the
+ * pre-registered line. A trial with no semantic details (a replay suite) uses
+ * the harness outcome alone.
+ */
+function passTrials(
+  trials: readonly TrialRecord[],
+  details: readonly SemanticGrade[],
+): Array<{ round: number; taskId: string; lang: string; passed: boolean }> {
+  const byTrial = new Map<string, SemanticGrade[]>()
+  for (const detail of details) {
+    const rows = byTrial.get(detail.trialId) ?? []
+    rows.push(detail)
+    byTrial.set(detail.trialId, rows)
+  }
+
+  return trials.map((trial) => {
+    const rows = byTrial.get(`${trial.round}:${trial.lang}:${trial.taskId}`)
+    const semanticPass =
+      rows === undefined || rows.length === 0
+        ? true
+        : rows.every((row) => row.probability >= row.threshold)
+    return {
+      round: trial.round,
+      taskId: trial.taskId,
+      lang: trial.lang,
+      passed: trial.ok && semanticPass,
+    }
+  })
+}
+
 function failedTrial(round: number, task: TaskEntry, error: unknown): TrialRecord {
   return {
     round,
@@ -522,6 +670,7 @@ function failedTrial(round: number, task: TaskEntry, error: unknown): TrialRecor
     contentClassValid: false,
     error: errorMessage(error),
     providerOutage: error instanceof ProviderUnavailableError || error instanceof TrialTimeoutError,
+    task,
   }
 }
 

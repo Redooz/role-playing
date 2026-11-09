@@ -10,7 +10,8 @@ import { z } from 'zod'
  *   `session.started` event, the optional `executionId` record field, and the
  *   content-class rule; `1.2.0` added optional `usage` to
  *   `persona.response.committed`; `1.3.0` added the optional
- *   `persona.response.cancelled.detail`.
+ *   `persona.response.cancelled.detail`; `1.4.0` added the optional
+ *   persona/scenario/locale/prompt stamps to the session log header.
  * - **Breaking change → major bump** (`1.x.y` → `2.0.0`) **and** a task
  *   migration note. Removed or renamed events/fields, changed field meaning,
  *   new required fields, or narrowed enums break readers and therefore require
@@ -22,7 +23,7 @@ import { z } from 'zod'
  * replaying it: a different major version must be migrated first, never parsed
  * leniently.
  */
-export const TRANSCRIPT_SCHEMA_VERSION = '1.3.0'
+export const TRANSCRIPT_SCHEMA_VERSION = '1.4.0'
 
 /**
  * First schema version whose records must satisfy the structural content-class

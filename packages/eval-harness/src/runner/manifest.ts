@@ -1,6 +1,7 @@
 import { hashValue } from '@rp/shared'
+import { PROMPT_STYLES } from '@rp/persona-kit'
 import { z } from 'zod'
-import { langSchema, splitSchema } from '../tasks/schema.js'
+import { langSchema, localeTagSchema, splitSchema } from '../tasks/schema.js'
 
 /**
  * Pre-registered run manifest (M0 D3, Architecture Plan v5 §4.1).
@@ -41,6 +42,7 @@ export const INVARIANT_IDS = [
   'transcript.guard_clean',
   'transcript.seq_monotonic',
   'transcript.content_class',
+  'response.plain_text',
 ] as const
 
 export const invariantIdSchema = z.enum(INVARIANT_IDS)
@@ -95,6 +97,12 @@ export const taskSelectionSchema = z
     version: pathSafeIdSchema,
     /** Every requested language must have at least one selected task. */
     languages: z.array(langSchema).min(1),
+    /**
+     * Optional locale filter. Omitted selects only the base `en`/`fr` variants,
+     * so a base run cannot accidentally include the locale matrix. A locale
+     * probe names `en-GB`/`fr-CA` explicitly.
+     */
+    locales: z.array(localeTagSchema).min(1).optional(),
     /** Optional split filter. Omitted means both calibration and holdout. */
     splits: z.array(splitSchema).min(1).optional(),
     /** Optional exact id filter, useful for a focused replay. */
@@ -118,6 +126,26 @@ export const taskSelectionSchema = z
         path: ['splits'],
         message: 'splits must not repeat',
       })
+    }
+
+    if (selection.locales !== undefined) {
+      if (new Set(selection.locales).size !== selection.locales.length) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['locales'],
+          message: 'locales must not repeat',
+        })
+      }
+      for (const locale of selection.locales) {
+        const base = locale.split('-')[0]
+        if (!(selection.languages as readonly string[]).includes(base ?? '')) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['locales'],
+            message: `locale "${locale}" does not belong to a selected language`,
+          })
+        }
+      }
     }
 
     if (selection.ids !== undefined && new Set(selection.ids).size !== selection.ids.length) {
@@ -256,6 +284,11 @@ export const providerRegistrationSchema = z
     label: z.string().min(1),
     /** Explicit opt-in required before a live provider may run. */
     allowLive: z.boolean(),
+    /**
+     * Minimum wall-clock gap between live model calls. Provider rate limits are
+     * real; pacing is recorded in the manifest rather than hidden in the client.
+     */
+    paceMs: z.int().nonnegative().optional(),
   })
   .superRefine((provider, ctx) => {
     if (provider.mode === 'live' && !provider.allowLive) {
@@ -268,6 +301,36 @@ export const providerRegistrationSchema = z
   })
 
 export type ProviderRegistration = z.infer<typeof providerRegistrationSchema>
+
+/**
+ * Prompt registration (M2 D3a/D6).
+ *
+ * The pinned date is data, not the wall clock: the rendered prompt and its hash
+ * must be reproducible after the run. `version` lets a manifest assert the
+ * template version it was written against; a mismatch is a configuration error.
+ */
+export const promptRegistrationSchema = z.strictObject({
+  version: z.string().min(1).optional(),
+  /** `persona` is the M2 candidate; `generic` measures the M1-style baseline. */
+  mode: z.enum(['persona', 'generic']).optional(),
+  /**
+   * Prompt family. `harmony` is the pinned Groq style; `gemma` is the Gemma
+   * probe pack. The manifest's `version` must match this style.
+   */
+  style: z.enum(PROMPT_STYLES).optional(),
+  currentDate: z.iso.date(),
+  parameters: z
+    .strictObject({
+      temperature: z.number().finite().min(0).max(2).optional(),
+      topP: z.number().finite().min(0).max(1).optional(),
+      maxCompletionTokens: z.int().positive().optional(),
+      reasoningEffort: z.enum(['low', 'medium', 'high']).optional(),
+      includeReasoning: z.boolean().optional(),
+    })
+    .optional(),
+})
+
+export type PromptRegistration = z.infer<typeof promptRegistrationSchema>
 
 export const runManifestSchema = z
   .strictObject({
@@ -282,6 +345,8 @@ export const runManifestSchema = z
     guardrails: z.array(guardrailRegistrationSchema).min(1),
     invariants: z.array(invariantIdSchema).min(1),
     provider: providerRegistrationSchema,
+    /** Required for session tasks, optional for replay-only suites. */
+    prompt: promptRegistrationSchema.optional(),
     baseline: baselineReferenceSchema.optional(),
   })
   .superRefine((manifest, ctx) => {

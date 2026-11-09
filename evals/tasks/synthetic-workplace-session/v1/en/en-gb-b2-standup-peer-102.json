@@ -1,0 +1,42 @@
+{
+  "id": "en-gb-b2-standup-peer-102",
+  "lang": "en",
+  "locale": "en-GB",
+  "mode": "session",
+  "domain": "workplace",
+  "scenarioType": "clarify-task-in-standup",
+  "cefrBand": "B2",
+  "speakerId": "syn-en-gb-session-cal-02",
+  "split": "calibration",
+  "provenance": {
+    "source": "synthetic"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "rubric": "m2-persona-rubric-v1",
+    "annotationGuideline": "m2-annotation-guideline-v1"
+  },
+  "content": {
+    "scenarioBrief": "A teammate asks a colleague to clarify the acceptance criteria for PAY-214 after stand-up.",
+    "turns": []
+  },
+  "session": {
+    "personaId": "peer",
+    "personaVersion": "1.0.0",
+    "scenarioId": "clarify-task-in-standup",
+    "scenarioVersion": "1.0.0",
+    "scriptedUserTurns": [
+      "I didn't quite follow the acceptance criteria for PAY-214. Could you clarify what counts as done?",
+      "So a payment that fails twice should be retried automatically, but only before the demo? What should happen afterwards?",
+      "Should I also show the retry count in the UI, or is that out of scope for Thursday?",
+      "Right, I'll sort out automatic retries before the demo and keep the count internal for now."
+    ],
+    "recordedPersonaTurns": [
+      "Morning. What is unclear about the ticket?",
+      "Yes, automatic retry after two failures, but only until the demo. Afterwards we keep the current behaviour.",
+      "Keep the count internal for now. We can surface it after Thursday.",
+      "Spot on. Retries before the demo, count stays internal.",
+      "Lovely, that is the plan. Shout if the API contract gets in the way."
+    ]
+  }
+}

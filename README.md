@@ -5,10 +5,15 @@ characters talk with one user in real time, and every change that affects
 behaviour is checked by evals before it is accepted.
 
 M0 (the eval foundation) and M0.1 (the self-hosted Langfuse review layer) are
-complete. **M1** (single-agent text) is complete: a transport-agnostic session driver, a
-line CLI, an append-only session log, a Groq text adapter, trial isolation and a
-frozen mutation floor. Gates M1-G1–G6 are recorded in `evals/decisions.md`.
-There is no audio path yet.
+complete. **M1** (single-agent text) is complete. **M2** (personas and scenarios)
+adds versioned persona/scenario data with `en`/`fr`/`en-GB`/`fr-CA` variants, the
+two-bucket prompt, greeting-first sessions, the plain-text output hook, a live
+session runner, the Jev axial grader and `pass^k` reporting. Gates M1-G1–G6 are
+recorded in `evals/decisions.md`. The default persona model is LiveKit Gemma
+`google/gemma-4-31b-it`; the Gemma live gate needs
+`LIVEKIT_API_KEY`/`LIVEKIT_API_SECRET` and semantic grading needs OpenRouter.
+The semantic axes stay provisional until human agreement is measured. There is
+no audio path yet.
 
 ## Eval vocabulary
 
@@ -60,14 +65,27 @@ npm run format:check    # Prettier
 npm run typecheck       # tsc project references
 npm run test:unit       # fast suite, the PR gate
 npm run test:bench      # wall-time measurements, never the PR gate
+# Latency probe: LATENCY_PROVIDER=groq|openrouter|livekit, LATENCY_MODEL=<id>
+LATENCY_PROVIDER=livekit LATENCY_MODEL=google/gemma-4-31b-it npm run test:bench -- tools/agent-harness-bench/src/session-latency.bench.spec.ts
 npm run mutation        # Stryker over packages/session-core (not a PR gate yet)
 
-# Text session CLI (M1). Live mode needs GROQ_API_KEY in .env.
+# Text session CLI (M2). Live mode needs LIVEKIT_API_KEY/LIVEKIT_API_SECRET in .env.
 npm run chat -- --provider canned
-npm run chat -- --provider live
+npm run chat -- --provider canned --locale en-GB --persona peer --scenario clarify-task-in-standup
+npm run chat -- --provider live --persona manager --scenario request-deadline-extension
 
 npm run validate:tasks  # task/golden validator (gate G3)
+npm run label:export -- --lang en --run evals/results/m2-persona-scenarios-lk --run evals/results/m2-persona-baseline-lk
 npm run eval -- run --manifest evals/manifests/m0-canned-replay.json
+npm run eval -- run --manifest evals/manifests/m2-persona-replay.json
+npm run eval -- run --manifest evals/manifests/m2-persona-baseline-lk.json   # Gemma default baseline
+npm run eval -- run --manifest evals/manifests/m2-persona-scenarios-lk.json  # Gemma default capability
+npm run eval -- run --manifest evals/manifests/m2-persona-baseline.json      # historical Groq baseline
+npm run eval -- run --manifest evals/manifests/m2-persona-scenarios.json     # historical Groq capability
+npm run eval -- run --manifest evals/manifests/m2-locale-variants.json       # historical Groq locale probe
+npm run eval -- run --manifest evals/manifests/m2-persona-baseline-or.json   # retired OpenRouter probe
+npm run eval -- run --manifest evals/manifests/m2-persona-scenarios-or.json  # retired OpenRouter probe
+npm run eval -- run --manifest evals/manifests/m2-locale-variants-or.json    # retired OpenRouter locale probe
 npm run eval -- compare --baseline evals/baselines/m0-canned-replay.json --run <run dir>
 
 # Self-hosted Langfuse review layer (M0.1)
@@ -77,6 +95,19 @@ npm run langfuse:tunnel   # forward localhost:3000 to the Docker host
 npm run langfuse:verify   # check an exported run against the Langfuse API
 npm run langfuse:down
 ```
+
+Provider base URLs are optional `.env` overrides: `GROQ_BASE_URL`,
+`OPENROUTER_BASE_URL` and `LIVEKIT_INFERENCE_URL`. The defaults live in the
+adapters, so a proxy or gateway can be swapped without a code edit. LiveKit
+Inference also needs `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET`; its tokens are
+minted per request and never stored.
+
+Session prompts come in two versioned families: `gemma` for the default LiveKit
+Gemma path and `harmony` for the historical Groq path. The Gemma pack drops the
+OpenAI-specific Harmony header and channel vocabulary, writes the instructions
+as a direct first-turn preamble (Google's Gemma 3 guidance), and uses plain-text
+section labels plus short examples. A manifest names the family and the matching
+template version.
 
 ## Review layer
 
@@ -100,10 +131,16 @@ is published, on the host's loopback interface; open an SSH tunnel to reach it.
 
 ## Layout
 
-- `packages/shared` — canonical JSON, fake clock, seeded RNG, transcript sink
-- `packages/session-core` — event/grant/transcript schemas and runtime guards (types only)
-- `packages/eval-harness` — task workflow, Jev grader, evaluation harness core,
-  pure observation plan and grade sidecar
+- `packages/shared` — canonical JSON, fake clock, seeded RNG, transcript sink,
+  BCP 47 locale helpers and the plain-text filter
+- `packages/session-core` — event/grant/transcript schemas, runtime guards and the
+  greeting-first session driver
+- `packages/scenario-kit` — versioned scenarios and scripted users with locale variants
+- `packages/persona-kit` — versioned personas and the deterministic prompt builder
+- `packages/pipeline` — Groq/OpenRouter/LiveKit text adapters and the plain-text
+  stream hook
+- `packages/eval-harness` — task workflow, Jev axial grader, replay and live
+  session runners, `pass^k`, evaluation harness core, observation plan and grades
 - `tools/eval-harness-cli` — CLI for runs, comparisons, task validation and the
   Langfuse adapter
 - `tools/agent-harness-bench` — agent-harness overhead benchmarks (bench project)

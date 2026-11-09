@@ -119,6 +119,12 @@ describe('computeJevCacheKey', () => {
       }),
     ).not.toBe(key)
   })
+
+  it('changes when the locale changes', () => {
+    const key = computeJevCacheKey({ ...baseKeyInput, locale: 'en' })
+    expect(computeJevCacheKey({ ...baseKeyInput, locale: 'en-GB' })).not.toBe(key)
+    expect(computeJevCacheKey({ ...baseKeyInput, locale: 'fr-CA' })).not.toBe(key)
+  })
 })
 
 describe('createFileJevCache', () => {

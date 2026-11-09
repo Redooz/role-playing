@@ -146,6 +146,47 @@ describe('Langfuse export in the eval CLI', () => {
     expect(io.out.join('\n')).toContain('exported 12 item trace(s)')
   })
 
+  it('re-exports an existing run without executing the provider', async () => {
+    const base = await runCli([], ENV_DISABLED)
+    const plans: ObservationPlan[] = []
+    const io = captureIo()
+
+    const code = await main(['export-run', '--run', join(base.root, 'm0-canned-replay')], io.io, {
+      repoRoot,
+      env: ENV_ENABLED,
+      observerFactory: fakeObserver(plans),
+    })
+
+    expect(code).toBe(0)
+    expect(plans).toHaveLength(1)
+    expect(plans[0]?.items).toHaveLength(12)
+    expect(io.out.join('\n')).toContain('exported 12 item trace(s)')
+
+    const artifact = await readArtifact(base.root)
+    expect(artifact['status']).toBe('exported')
+    expect(Object.keys(artifact['traceIds'] as Record<string, string>)).toHaveLength(12)
+  })
+
+  it('can omit automated scores for blind labelling', async () => {
+    const base = await runCli([], ENV_DISABLED)
+    const plans: ObservationPlan[] = []
+    const io = captureIo()
+
+    const code = await main(
+      ['export-run', '--run', join(base.root, 'm0-canned-replay'), '--no-scores'],
+      io.io,
+      {
+        repoRoot,
+        env: ENV_ENABLED,
+        observerFactory: fakeObserver(plans),
+      },
+    )
+
+    expect(code).toBe(0)
+    expect(plans[0]?.items).toHaveLength(12)
+    expect(plans[0]?.items.every((item) => item.scores.length === 0)).toBe(true)
+  })
+
   it('keeps the verdict when the export fails', async () => {
     const failing: ObserverFactory = async () => {
       throw new Error('langfuse is unreachable')

@@ -114,6 +114,9 @@ describe('executeRun (gate G1)', () => {
 
     expect(Object.keys(result.metrics).sort()).toEqual([
       'replay.deterministic_rate',
+      'response.emoji_count',
+      'response.markdown_count',
+      'response.plain_text_rate',
       'run.failure_rate',
       'transcript.content_class_rate',
       'transcript.guard_violations',

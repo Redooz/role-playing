@@ -6,14 +6,30 @@ limits, and the gates. The evaluation harness validates it before it executes
 anything and refuses an incomplete one, naming every missing field (gate G2). The
 manifest hash (`canonicalJson` → SHA-256) is stored with the run.
 
-| File                                | Status       | Purpose                                                                             |
-| ----------------------------------- | ------------ | ----------------------------------------------------------------------------------- |
-| `m0-canned-replay.json`             | schema-valid | Gate G1: two canned rounds over all six synthetic EN/FR tasks (12 trials).          |
-| `m0-incomplete-missing-limits.json` | **invalid**  | Test/doc task: no `limits` section. The harness must reject it. Never run it in CI. |
+| File                                | Status       | Purpose                                                                                       |
+| ----------------------------------- | ------------ | --------------------------------------------------------------------------------------------- |
+| `m0-canned-replay.json`             | schema-valid | Gate G1: two canned rounds over all six synthetic EN/FR tasks (12 trials).                    |
+| `m0-incomplete-missing-limits.json` | **invalid**  | Test/doc task: no `limits` section. The harness must reject it. Never run it in CI.           |
+| `m2-persona-baseline.json`          | schema-valid | Historical Groq generic baseline. Superseded by `m2-persona-baseline-lk`.                     |
+| `m2-persona-scenarios.json`         | schema-valid | Historical Groq capability gate. Superseded by `m2-persona-scenarios-lk`.                     |
+| `m2-locale-variants.json`           | schema-valid | Historical Groq locale probe; the Gemma locale probe still needs a run.                       |
+| `m2-persona-replay.json`            | schema-valid | M2 regression: canned session replay with the Gemma prompt pack, byte-identical.              |
+| `m2-persona-baseline-or.json`       | schema-valid | Retired OpenRouter safeguard generic baseline.                                                |
+| `m2-persona-scenarios-or.json`      | schema-valid | Retired OpenRouter safeguard capability probe.                                                |
+| `m2-locale-baseline-or.json`        | schema-valid | Retired OpenRouter safeguard generic locale baseline.                                         |
+| `m2-locale-variants-or.json`        | schema-valid | Retired OpenRouter safeguard locale probe; rejected on clarity and locale MDE.                |
+| `m2-persona-baseline-lk.json`       | schema-valid | Default LiveKit Gemma generic baseline.                                                       |
+| `m2-persona-scenarios-lk.json`      | schema-valid | Default LiveKit Gemma capability run with the `gemma` prompt pack; semantic gate provisional. |
 
 The `grader.kind` field states which of the three grader types produced the
 scores: `code`, `system-one-model`, or `human`. M0 uses `code` only. A
 `system-one-model` grader must also name its pinned model.
+
+A session manifest may register `prompt.style`: `harmony` (the pinned Groq
+persona style) or `gemma` (the LiveKit Gemma probe). The manifest's
+`prompt.version` must name the template that belongs to that style:
+`m2-prompt-v1` or `m2-prompt-gemma-v1`. The Gemma pack is a different prompt
+contract, not a wording variant of the Harmony prompt.
 
 Every manifest also declares `run.purpose`:
 
