@@ -1,6 +1,9 @@
 # M2 annotation review — 2026-11-09
 
-Status: **analysis and proposal only. No threshold or grader change applied.**
+Status: **applied on 2026-11-09.** `M2_JEV_THRESHOLD` is 0.75 and rubric v2
+(`m2-persona-rubric-v2`, `m2-annotation-guideline-v2`) is in the M2 tree. The
+acceptance re-runs `m2-persona-*-lk-v2` are pending. The French grader is
+unchanged for M2; see the note at the end.
 
 ## What was measured
 
@@ -67,9 +70,12 @@ Held-out check (tune on rounds 0–2, test on rounds 3–4, two-pass consensus):
 overall balanced match 72% → 85%; task-help 50% → 87%; language 63% → 88%;
 persona unchanged (already 100%).
 
-## Proposal
+## Applied decision
 
-1. Move `M2_JEV_THRESHOLD` from `0.50` to `0.75` **provisionally**, not now.
+1. `M2_JEV_THRESHOLD` moved from `0.50` to `0.75` on 2026-11-09, for the whole
+   M2 Jev grader (all axes, both languages, locale probe). There are no per-axis
+   thresholds: the decision-model notes require one frozen line per grader
+   version, and five 30–58-label samples would overfit.
    `M2_JEV_THRESHOLD` is a code constant in
    `packages/eval-harness/src/jev/grader.ts` and is recorded on every grade row.
    It is not an environment setting.
@@ -78,13 +84,16 @@ persona unchanged (already 100%).
 3. `register.fit` in French is not a threshold problem: Jev barely ranks it
    (AUC 0.62 overall, 0.48 French). Revisit the question or use a
    French-specific grader.
-4. Blocking rule: M2 plan §2 says “No Jev threshold tuning in M2. Keep the
-   default 0.50 until our own labelled data justifies a change.” The two passes
-   are agent labels, not human labels. Do not change the constant until a human
-   pass confirms it on a held-out split.
-5. Run a French-grader research spike (Mistral and alternatives) before changing
-   the grader. Record the chosen model, API shape, probability/calibration method,
-   cost and a pre-registered comparison on the 30 French traces.
+4. The two passes are agent labels, not human labels. The 0.75 line is applied
+   provisionally and must be revalidated on a human pass. M2 plan §2 previously
+   said “no threshold tuning in M2”; the decision log records the exception and
+   the provisional status.
+5. French grader: no switch in M2. Jev remains, with the v2 French criteria.
+   Research recommends **Mistral Large 4** (`mistral-large-4`, OpenRouter
+   `mistralai/mistral-large-4-0`) as the first future spike because it exposes
+   token logprobs; **Gemini 3.1 Pro Preview** is the fallback if a verbalised
+   probability can be calibrated. Jev's French `register.fit` ranking is weak
+   (AUC about 0.48–0.62), so a future spike should test that axis first.
 
 ## Artefacts
 

@@ -1,4 +1,4 @@
-# Annotation rubric — M2 persona trials (v1)
+# Annotation rubric — M2 persona trials (v2)
 
 You are the annotator. Score **one whole trial** at a time: the greeting turn, every
 learner turn and every persona reply in that transcript. Do not score individual
@@ -33,17 +33,21 @@ Do all persona replies stay in the same professional role and voice?
 
 Are the persona replies in correct target-language English/French, with appropriate grammar and vocabulary?
 
-- 5: Fluent, natural, no distracting error.
-- 3: One noticeable grammar or vocabulary error; meaning is still clear.
+For French, spelling counts: missing or wrong accents (`role` for `rôle`, `pret` for `prêt`) and missing hyphens (`Est ce que`, `Avez vous`) are language errors, not register issues.
+
+- 5: Fluent, natural, no distracting error; French accents and hyphens are correct.
+- 3: One noticeable grammar, accent, hyphen or vocabulary error; meaning is still clear.
 - 1: Serious errors make the reply hard to understand, or the wrong language is used.
 
 ### `register.fit`
 
 Is the register appropriate for the workplace relationship in the scenario? Use `personaId`: a manager is direct, a peer is informal, a client is formal and diplomatic.
 
-- 5: Matches the expected formality and diplomacy.
-- 3: Slightly too casual or too formal; still plausible.
-- 1: Impolite, hostile, or wildly inappropriate for the relationship.
+For French, the `tu`/`vous` choice must be consistent with the learner and the relationship. A persona that replies with `vous` while the learner uses `tu` is a register mismatch, even if the sentence is otherwise polite.
+
+- 5: Matches the expected formality and diplomacy; the `tu`/`vous` choice is consistent.
+- 3: Slightly too casual or too formal, or one inconsistent `tu`/`vous` turn; still plausible.
+- 1: Impolite, hostile, wildly inappropriate for the relationship, or the `tu`/`vous` choice is incoherent across the trial.
 
 ### `response.clarity`
 
