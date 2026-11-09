@@ -6,10 +6,12 @@ behaviour is checked by evals before it is accepted.
 
 M0 (the eval foundation) and M0.1 (the self-hosted Langfuse review layer) are
 complete. **M1** (single-agent text) is complete. **M2** (personas and scenarios)
-adds versioned persona/scenario data with `en`/`fr`/`en-GB`/`fr-CA` variants, the
-two-bucket prompt, greeting-first sessions, the plain-text output hook, a live
-session runner, the Jev axial grader and `pass^k` reporting. Gates M1-G1–G6 are
-recorded in `evals/decisions.md`. The default persona model is LiveKit Gemma
+is complete: it adds versioned persona/scenario data with
+`en`/`fr`/`en-GB`/`fr-CA` variants, the two-bucket prompt, greeting-first
+sessions, the plain-text output hook, a live session runner, the Jev axial grader
+and `pass^k` reporting. Gates M1-G1–G6 and M2-G4 are recorded in
+`evals/decisions.md`; the accepted M2 results are promoted to
+`evals/baselines/m2-persona-*.json`. The default persona model is LiveKit Gemma
 `google/gemma-4-31b-it`; the Gemma live gate needs
 `LIVEKIT_API_KEY`/`LIVEKIT_API_SECRET` and semantic grading needs OpenRouter.
 The semantic axes stay provisional until human agreement is measured. There is
@@ -29,10 +31,11 @@ no audio path yet.
 - **Trial** — one attempt at one task. In M0 a trial is one replay of one task.
 - **Trial isolation** — every trial starts from a clean environment: its own
   clock, RNG stream, provider instance and copy of the task. A failed trial
-  cannot change the next one. M0 covers in-memory state only; process/worker
-  isolation, per-trial timeouts, and resets for an external database,
-  filesystem, environment variables and live provider connections still need to
-  arrive with the M1 agent harness.
+  cannot change the next one. M0–M2 cover in-memory state, a wall-clock timeout
+  and `dispose()` in `finally`. Process or container boundaries, external
+  database reset and seeding, a per-trial filesystem workspace, network mocks
+  and module-cache reset, and live-provider teardown remain gaps; see
+  `AGENTS.md`.
 - **Round** — one pass over every task in a suite. `rounds × tasks = trials`.
 - **Grader** — the logic that scores an aspect of a trial. There are three types:
   **code-based** (deterministic checks and counts), **system-1-model-based** (a
@@ -48,7 +51,8 @@ no audio path yet.
   traces, per-axis scores and experiment comparisons. It observes; the harness
   still replays, grades and decides. There is no custom transcript viewer, grade
   table, comparison dashboard or results web UI.
-- **Agent harness** — the system that lets a model act. It arrives in M1+.
+- **Agent harness** — the system that lets a model act: the session engine, its
+  tools and its transport (M1+).
 
 ## Requirements
 
@@ -67,7 +71,7 @@ npm run test:unit       # fast suite, the PR gate
 npm run test:bench      # wall-time measurements, never the PR gate
 # Latency probe: LATENCY_PROVIDER=groq|openrouter|livekit, LATENCY_MODEL=<id>
 LATENCY_PROVIDER=livekit LATENCY_MODEL=google/gemma-4-31b-it npm run test:bench -- tools/agent-harness-bench/src/session-latency.bench.spec.ts
-npm run mutation        # Stryker over packages/session-core (not a PR gate yet)
+npm run mutation        # Stryker + per-package floor check; not a PR gate
 
 # Text session CLI (M2). Live mode needs LIVEKIT_API_KEY/LIVEKIT_API_SECRET in .env.
 npm run chat -- --provider canned
@@ -87,6 +91,7 @@ npm run eval -- run --manifest evals/manifests/m2-persona-baseline-or.json   # r
 npm run eval -- run --manifest evals/manifests/m2-persona-scenarios-or.json  # retired OpenRouter probe
 npm run eval -- run --manifest evals/manifests/m2-locale-variants-or.json    # retired OpenRouter locale probe
 npm run eval -- compare --baseline evals/baselines/m0-canned-replay.json --run <run dir>
+npm run eval -- compare --baseline evals/baselines/m2-persona-scenarios.json --run <run dir>
 
 # Self-hosted Langfuse review layer (M0.1)
 npm run langfuse:deploy   # copy infra/langfuse to the Docker host, start, sync keys

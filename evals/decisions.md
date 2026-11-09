@@ -277,16 +277,20 @@ records stay unchanged.
 
 Results:
 
-- `m2-persona-replay-v2` accepted: 12 trials, byte-identical transcripts, all
-  invariants and guardrails pass at prompt gemma v2.
-- `m2-persona-scenarios-lk-v5` accepted: 30/30 trials, 0 failures, against the
-  `m2-persona-baseline-lk-v3` baseline. Candidate vs baseline:
-  `persona.consistency` 0.877 vs 0.347, `language.quality` 0.938 vs 0.817,
-  `register.fit` 0.922 vs 0.736, `response.clarity` 0.923 vs 0.902,
-  `objective.completion` 0.917 vs 0.848; `pass^1` 0.933 / `pass^3` 0.850. All
-  guardrails and invariants pass. Five of six tasks are 5/5; the French client
-  task is 3/5, down from 5/5 in v4, but its mean consistency axis stays inside
-  the guardrail.
+- `m2-persona-replay-v2` accepted and promoted to
+  `evals/baselines/m2-persona-replay.json` after a re-run on merge commit
+  `05b986a`: 12 trials, byte-identical transcripts, all invariants and guardrails
+  pass at prompt gemma v2.
+- `m2-persona-scenarios-lk-v5` accepted and promoted to
+  `evals/baselines/m2-persona-scenarios.json` after a re-run on merge commit
+  `05b986a`: 30/30 trials, 0 failures, against the `m2-persona-baseline-lk-v3`
+  baseline. Candidate vs baseline: `persona.consistency` 0.882 vs 0.347,
+  `language.quality` 0.944 vs 0.817, `register.fit` 0.917 vs 0.736,
+  `response.clarity` 0.926 vs 0.902, `objective.completion` 0.921 vs 0.848;
+  `pass^1` 0.967 / `pass^3` 0.900. All guardrails and invariants pass. Five of
+  six tasks are 5/5; the French client task is 4/5. The earlier run of the same
+  manifest was produced before the fix commit (`codeSha` `e7e492c`) and is not
+  promoted.
 - `m2-persona-fr-register-v1` **rejected**: 15/15 trials completed with 0
   failures, and French `register.fit` held at 0.932 vs the v4 French subset
   0.931. The run failed its own `persona.consistency` target: 0.844 vs 0.861.

@@ -12,8 +12,9 @@ driver, line CLI, append-only session log, Groq text adapter, trial isolation an
 mutation floor exist. **M2** (personas and scenarios) implements versioned
 persona/scenario data, BCP 47 locale variants, the two-bucket persona prompt, a
 greeting-first driver, the plain-text output hook, a live session runner, the Jev
-axial grader and `pass^k` reporting. M2 acceptance is recorded in
-`evals/decisions.md`; the default persona model is LiveKit Gemma
+axial grader and `pass^k` reporting. M2 is complete and merged. M2 acceptance is
+recorded in `evals/decisions.md`; the accepted runs are promoted to
+`evals/baselines/m2-persona-*.json`. The default persona model is LiveKit Gemma
 `google/gemma-4-31b-it`, semantic grading needs OpenRouter, and the Gemma live
 gate needs `LIVEKIT_API_KEY`/`LIVEKIT_API_SECRET`. There is no audio path yet.
 Do not invent commands, folders or build steps that do not exist.
