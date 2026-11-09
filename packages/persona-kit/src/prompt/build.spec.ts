@@ -1,8 +1,18 @@
-import { scenarioById } from '@rp/scenario-kit'
+import { scenarioById, type ScenarioSpec } from '@rp/scenario-kit'
 import { describe, expect, it } from 'vitest'
-import { PersonaVariantMissingError, personaById } from '../index.js'
+import { PersonaVariantMissingError, personaById, type PersonaSpec } from '../index.js'
 import { buildPersonaPrompt, PromptVariantError } from './build.js'
-import { GEMMA_PROMPT_TEMPLATE_VERSION, PROMPT_TEMPLATE_VERSION } from './version.js'
+import {
+  BASE_LANGUAGE_CONVENTIONS,
+  DEFAULT_PROMPT_STYLE,
+  GEMMA_PROMPT_TEMPLATE_VERSION,
+  LOCALE_CONVENTIONS,
+  PROMPT_KNOWLEDGE_CUTOFF,
+  PROMPT_STYLES,
+  PROMPT_TEMPLATE_VERSION,
+  PERSONA_GENERATION_PARAMETERS,
+  promptVersionForStyle,
+} from './version.js'
 
 const DATE = '2026-11-08'
 
@@ -132,5 +142,306 @@ describe('persona prompt builder', () => {
     expect(gemma.promptHash).not.toBe(harmony.promptHash)
     expect(gemmaBritish.promptHash).not.toBe(gemma.promptHash)
     expect(gemmaBritish.sessionSystemPrompt).toContain('British English spelling')
+  })
+
+  it('pins the prompt version constants and style switch', () => {
+    expect(PROMPT_TEMPLATE_VERSION).toBe('m2-prompt-v1')
+    expect(GEMMA_PROMPT_TEMPLATE_VERSION).toBe('m2-prompt-gemma-v1')
+    expect(PROMPT_KNOWLEDGE_CUTOFF).toBe('2024-06')
+    expect(PROMPT_STYLES).toEqual(['harmony', 'gemma'])
+    expect(DEFAULT_PROMPT_STYLE).toBe('harmony')
+    expect(promptVersionForStyle('harmony')).toBe('m2-prompt-v1')
+    expect(promptVersionForStyle('gemma')).toBe('m2-prompt-gemma-v1')
+    expect(PERSONA_GENERATION_PARAMETERS).toEqual({
+      temperature: 0.6,
+      topP: 0.95,
+      maxCompletionTokens: 512,
+      reasoningEffort: 'low',
+      includeReasoning: false,
+    })
+  })
+
+  it('pins every locale and base-language convention line', () => {
+    expect(BASE_LANGUAGE_CONVENTIONS).toEqual({
+      en: ['Reply in English only.', 'Do not switch language because the learner does.'],
+      fr: ['Répondez uniquement en français.', 'Ne changez pas de langue si l’apprenant le fait.'],
+    })
+    expect(LOCALE_CONVENTIONS['en']).toEqual([
+      'Use region-neutral English.',
+      'Keep spelling and vocabulary consistent within one reply.',
+    ])
+    expect(LOCALE_CONVENTIONS['en-GB']).toEqual([
+      'Use British English spelling: organise, prioritise, colour, centre.',
+      'Prefer British workplace phrasing such as "sort out", "booked" and "afterwards".',
+      'Write dates as day month year, for example 6 November.',
+    ])
+    expect(LOCALE_CONVENTIONS['fr']).toEqual([
+      'Utilisez un français standard.',
+      'Vouvoyez la personne dans un contexte professionnel.',
+      'Utilisez la ponctuation française, avec une espace avant les deux-points et le point d’interrogation.',
+    ])
+    expect(LOCALE_CONVENTIONS['fr-CA']).toEqual([
+      'Utilisez le français québécois courant : courriel, échéancier, fin de semaine, rencontre.',
+      'Évitez les anglicismes inutiles et les tournures proprement européennes.',
+      'Vouvoyez la personne dans un contexte professionnel.',
+    ])
+  })
+
+  const SCENARIO_FOR: Readonly<Record<string, string>> = {
+    manager: 'request-deadline-extension',
+    peer: 'clarify-task-in-standup',
+    client: 'decline-meeting-invitation',
+  }
+
+  const COMBINATIONS = (['manager', 'peer', 'client'] as const).flatMap((personaId) =>
+    (['en', 'en-GB', 'fr', 'fr-CA'] as const).flatMap((locale) =>
+      (['harmony', 'gemma'] as const).map((style) => ({ personaId, locale, style })),
+    ),
+  )
+
+  it.each(COMBINATIONS)(
+    'matches the golden prompt for $personaId/$locale/$style',
+    ({ personaId, locale, style }) => {
+      const prompt = buildPersonaPrompt({
+        persona: personaById(personaId),
+        scenario: scenarioById(SCENARIO_FOR[personaId] as string),
+        locale,
+        currentDate: DATE,
+        style,
+      })
+      expect(prompt.greetingPack).toMatchSnapshot('greeting')
+      expect(prompt.sessionPack).toMatchSnapshot('session')
+      expect(prompt.greetingSystemPrompt).toMatchSnapshot('greeting-system')
+      expect(prompt.sessionSystemPrompt).toMatchSnapshot('session-system')
+      expect(prompt.promptHash).toMatchSnapshot('hash')
+      if (style === 'gemma') {
+        expect(prompt.greetingSystemPrompt).toBe(prompt.greetingPack)
+      } else {
+        expect(prompt.greetingSystemPrompt).toContain(prompt.greetingPack)
+      }
+      expect(prompt.systemMessages.greeting).toEqual([
+        { role: 'system', content: prompt.greetingSystemPrompt },
+      ])
+      expect(prompt.systemMessages.session).toEqual([
+        { role: 'system', content: prompt.sessionSystemPrompt },
+      ])
+      expect(prompt.sessionSystemPrompt.startsWith(prompt.greetingSystemPrompt)).toBe(true)
+    },
+  )
+
+  it.each(['2026-11-8', '2026-1-08', 'x2026-11-08', '2026-11-08x', '2026/11/08', '2026-11-08 '])(
+    'rejects the unpinned date %j at the boundary',
+    (currentDate) => {
+      expect(() => build('en', { currentDate })).toThrow(PromptVariantError)
+    },
+  )
+
+  it('exposes a typed prompt-variant error with the offending date', () => {
+    try {
+      build('en', { currentDate: 'today' })
+      expect.unreachable()
+    } catch (error) {
+      expect(error).toBeInstanceOf(PromptVariantError)
+      expect((error as Error).name).toBe('PromptVariantError')
+      expect((error as Error).message).toBe(
+        'currentDate must be a pinned YYYY-MM-DD string, got "today"',
+      )
+    }
+  })
+
+  it('wraps a non-variant lookup failure in PromptVariantError', () => {
+    const persona = personaById('manager')
+    const broken = {
+      ...persona,
+      get variants(): PersonaSpec['variants'] {
+        throw new Error('lookup exploded')
+      },
+    }
+    try {
+      buildPersonaPrompt({
+        persona: broken,
+        scenario: scenarioById('request-deadline-extension'),
+        locale: 'en',
+        currentDate: DATE,
+      })
+      expect.unreachable()
+    } catch (error) {
+      expect(error).toBeInstanceOf(PromptVariantError)
+      expect((error as Error).message).toBe('lookup exploded')
+    }
+  })
+
+  it('names the persona the scenario does not include', () => {
+    try {
+      buildPersonaPrompt({
+        persona: personaById('client'),
+        scenario: scenarioById('request-deadline-extension'),
+        locale: 'en',
+        currentDate: DATE,
+      })
+      expect.unreachable()
+    } catch (error) {
+      expect(error).toBeInstanceOf(PromptVariantError)
+      expect((error as Error).message).toBe(
+        'scenario "request-deadline-extension" does not include persona "client"',
+      )
+    }
+  })
+
+  it('rejects a scenario whose opening is assigned to another persona', () => {
+    const scenario = scenarioById('request-deadline-extension')
+    const variant = scenario.variants['en']!
+    const mismatched: ScenarioSpec = {
+      ...scenario,
+      variants: {
+        ...scenario.variants,
+        en: {
+          ...variant,
+          opening: { ...variant.opening, personaId: 'peer' },
+        },
+      },
+    }
+    expect(() =>
+      buildPersonaPrompt({
+        persona: personaById('manager'),
+        scenario: mismatched,
+        locale: 'en',
+        currentDate: DATE,
+      }),
+    ).toThrow(/opens with persona "peer"/)
+  })
+
+  it('renders a locale with no regional convention entry', () => {
+    const persona = personaById('manager')
+    const scenario = scenarioById('request-deadline-extension')
+    const personaVariant = persona.variants['en']!
+    const scenarioVariant = scenario.variants['en']!
+    const syntheticPersona: PersonaSpec = {
+      ...persona,
+      variants: {
+        'en-AU': { ...personaVariant, locale: 'en-AU', lang: 'en' },
+      },
+    }
+    const syntheticScenario: ScenarioSpec = {
+      ...scenario,
+      variants: {
+        'en-AU': {
+          ...scenarioVariant,
+          locale: 'en-AU',
+          lang: 'en',
+          personaIds: ['manager'],
+          opening: { ...scenarioVariant.opening, personaId: 'manager' },
+        },
+      },
+    }
+
+    const harmony = buildPersonaPrompt({
+      persona: syntheticPersona,
+      scenario: syntheticScenario,
+      locale: 'en-AU',
+      currentDate: DATE,
+    })
+    const gemma = buildPersonaPrompt({
+      persona: syntheticPersona,
+      scenario: syntheticScenario,
+      locale: 'en-AU',
+      currentDate: DATE,
+      style: 'gemma',
+    })
+
+    expect(harmony.sessionSystemPrompt).toContain('Locale: en-AU.')
+    expect(harmony.sessionSystemPrompt).not.toContain('Use region-neutral English.')
+    expect(gemma.sessionSystemPrompt).toContain('Locale: en-AU.')
+    expect(gemma.sessionSystemPrompt).not.toContain('Use region-neutral English.')
+    // Only the two base-language bullets remain; an unknown locale invents none.
+    expect(harmony.greetingPack.match(/^- /gm)).toHaveLength(2)
+    // Gemma adds five HOW TO REPLY bullets on top of the language bullets.
+    expect(gemma.greetingPack.match(/^- /gm)).toHaveLength(7)
+  })
+
+  it('renders empty avoid/example lists and the no-question policy', () => {
+    const persona = personaById('manager')
+    const scenario = scenarioById('request-deadline-extension')
+    const variant = persona.variants['en']!
+    const syntheticPersona: PersonaSpec = {
+      ...persona,
+      variants: {
+        en: {
+          ...variant,
+          style: { ...variant.style, avoid: [], questionPolicy: 'none' },
+          examples: [],
+        },
+      },
+    }
+
+    const harmony = buildPersonaPrompt({
+      persona: syntheticPersona,
+      scenario,
+      locale: 'en',
+      currentDate: DATE,
+    })
+    const gemma = buildPersonaPrompt({
+      persona: syntheticPersona,
+      scenario,
+      locale: 'en',
+      currentDate: DATE,
+      style: 'gemma',
+    })
+
+    expect(harmony.sessionSystemPrompt).not.toContain('Avoid:')
+    expect(harmony.sessionSystemPrompt).not.toContain('Stryker was here')
+    expect(harmony.sessionSystemPrompt).not.toContain('## Examples')
+    expect(gemma.sessionSystemPrompt).toContain('Do not ask questions.')
+    expect(gemma.sessionSystemPrompt).not.toContain('Ask at most one question per turn.')
+    expect(gemma.sessionSystemPrompt).not.toContain('- Avoid:')
+    expect(gemma.sessionSystemPrompt).not.toContain('Stryker was here')
+    expect(gemma.sessionSystemPrompt).not.toContain('EXAMPLES')
+  })
+
+  it('renders both persona and scenario required disclosures', () => {
+    const persona = personaById('manager')
+    const scenario = scenarioById('request-deadline-extension')
+    const variant = persona.variants['en']!
+    const scenarioVariant = scenario.variants['en']!
+    const disclosedPersona: PersonaSpec = {
+      ...persona,
+      variants: {
+        en: {
+          ...variant,
+          greeting: { ...variant.greeting, requiredDisclosure: 'I am the manager.' },
+        },
+      },
+    }
+    const disclosedScenario: ScenarioSpec = {
+      ...scenario,
+      variants: {
+        en: {
+          ...scenarioVariant,
+          opening: {
+            ...scenarioVariant.opening,
+            requiredDisclosure: 'The deadline is Friday.',
+          },
+        },
+      },
+    }
+
+    const harmony = buildPersonaPrompt({
+      persona: disclosedPersona,
+      scenario: disclosedScenario,
+      locale: 'en',
+      currentDate: DATE,
+    })
+    const gemma = buildPersonaPrompt({
+      persona: disclosedPersona,
+      scenario: disclosedScenario,
+      locale: 'en',
+      currentDate: DATE,
+      style: 'gemma',
+    })
+
+    for (const prompt of [harmony, gemma]) {
+      expect(prompt.greetingSystemPrompt).toContain('You must disclose: I am the manager.')
+      expect(prompt.greetingSystemPrompt).toContain('You must disclose: The deadline is Friday.')
+    }
   })
 })

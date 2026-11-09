@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { TextModelChunk, TextModelPort, TextModelRequest } from '@rp/session-core'
-import { createPersonaTextModel, createPlainTextModel } from './plain-text.adapter.js'
+import {
+  createPersonaTextModel,
+  createPlainTextModel,
+  personaModelGeneration,
+} from './plain-text.adapter.js'
 
 function scripted(
   chunks: readonly string[],
@@ -94,5 +98,59 @@ describe('plain-text streaming decorator', () => {
     await collect(model)
     await model.dispose?.()
     expect(disposed).toBe(true)
+  })
+
+  it('allows a model without dispose', async () => {
+    const model = createPlainTextModel({
+      kind: 'canned',
+      label: 'no-dispose',
+      async *complete(): AsyncIterable<TextModelChunk> {
+        yield { text: 'ok', done: true }
+      },
+    })
+    expect(model.dispose?.()).toBeUndefined()
+  })
+
+  it('skips empty provider chunks and empty filtered output', async () => {
+    const model = createPlainTextModel(scripted(['', '   ', 'Hi. ', '😀', '']))
+    const chunks: TextModelChunk[] = []
+    for await (const chunk of model.complete(REQUEST)) chunks.push(chunk)
+    expect(chunks).toStrictEqual([
+      { text: 'Hi.', done: false },
+      { text: '', done: true },
+    ])
+  })
+
+  it('reports stats even when the provider ends without a final chunk', async () => {
+    const seen: Array<{ emojiCount: number; markdownCount: number }> = []
+    const model = createPersonaTextModel(scripted(['**Hi** 😀. '], { endWithoutDone: true }), {
+      onStats: (stats) => seen.push(stats),
+    })
+    expect(await collect(model)).toBe('Hi.')
+    expect(seen).toHaveLength(1)
+    expect(seen[0]?.emojiCount).toBe(1)
+    expect(seen[0]?.markdownCount).toBeGreaterThanOrEqual(1)
+  })
+
+  it('exposes a static generation profile when present', () => {
+    const generation = { model: 'gemma', temperature: 0.6 }
+    const withGeneration: TextModelPort & { generation: typeof generation } = {
+      kind: 'live',
+      label: 'with-generation',
+      generation,
+      async *complete() {
+        yield { text: '', done: true }
+      },
+    }
+    expect(personaModelGeneration(withGeneration)).toBe(generation)
+    expect(
+      personaModelGeneration({
+        kind: 'canned',
+        label: 'without-generation',
+        async *complete() {
+          yield { text: '', done: true }
+        },
+      }),
+    ).toEqual({})
   })
 })

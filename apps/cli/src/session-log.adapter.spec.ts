@@ -147,6 +147,25 @@ describe('file-backed session log', () => {
     expect(stored.records[0]?.tSim).toBe(1_000)
   })
 
+  it('writes appended records as utf8', async () => {
+    const dir = await tempDir()
+    const path = join(dir, 'session-1.jsonl')
+    const encodings: string[] = []
+    const log = await createFileSessionLog({
+      path,
+      header,
+      clock: new FakeClock(0),
+      wallClock: () => 1_700_000_000_000,
+      appendFileImpl: async (file, data, encoding) => {
+        encodings.push(encoding)
+        await appendFile(file, data, encoding)
+      },
+    })
+
+    await log.append({ type: 'session.completed', payload: {} })
+    expect(encodings).toEqual(['utf8'])
+  })
+
   it('refuses further appends after a partial write', async () => {
     const dir = await tempDir()
     const path = join(dir, 'session-1.jsonl')

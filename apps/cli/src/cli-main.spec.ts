@@ -1,9 +1,13 @@
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import {
   TRANSCRIPT_SCHEMA_VERSION,
   buildSessionLogRecord,
   createTextSessionDriver,
   sessionLogHeaderLine,
   sessionLogRecordLine,
+  type SessionDriver,
   type SessionEvent,
   type SessionLogHeader,
   type TextModelChunk,
@@ -57,6 +61,22 @@ function captureIo(): { io: CliIo; text: () => string; errors: string[] } {
     },
     text: () => chunks.join(''),
     errors,
+  }
+}
+
+function captureIoWithWrites() {
+  const base = captureIo()
+  const writes: string[] = []
+  return {
+    ...base,
+    writes,
+    io: {
+      ...base.io,
+      write: (text: string) => {
+        writes.push(text)
+        base.io.write(text)
+      },
+    },
   }
 }
 
@@ -414,5 +434,571 @@ describe('text session CLI', () => {
 
     expect(io.errors[0]).toContain('replay failed: no such file')
     expect(events.at(-1)?.type).toBe('session.completed')
+  })
+
+  it('replays through the default file reader', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'rp-replay-'))
+    const path = join(dir, 'session.jsonl')
+    const saved = logText([
+      {
+        type: 'session.started',
+        payload: { sessionId: 'session-1', clockMode: 'simulated', lang: 'en' },
+      },
+      { type: 'session.completed', payload: {} },
+    ])
+    await writeFile(path, saved, 'utf8')
+    const io = captureIo()
+    try {
+      await runCli({
+        input: linesOf(`/replay    ${path}`),
+        io: io.io,
+        driver: driverWith(scriptedModel(['unused'])),
+        provider: { kind: 'canned', label: 'canned/demo' },
+      })
+      expect(io.text()).toContain('session session-1')
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('reports /replay without a file and ignores blank input lines', async () => {
+    const io = captureIo()
+    const model = scriptedModel(['unused'])
+
+    await runCli({
+      input: linesOf('', '   ', '/replay'),
+      io: io.io,
+      driver: driverWith(model),
+      provider: { kind: 'canned', label: 'canned/demo' },
+    })
+
+    expect(io.errors).toContain('usage: /replay <file>')
+    expect(model.requests).toHaveLength(0)
+  })
+
+  it('strips a carriage return from an input line', async () => {
+    const io = captureIo()
+    const model = scriptedModel(['ok'])
+
+    await runCli({
+      input: linesOf('hello\r'),
+      io: io.io,
+      driver: driverWith(model),
+      provider: { kind: 'canned', label: 'canned/demo' },
+    })
+
+    expect(model.requests[0]?.messages).toEqual([{ role: 'user', content: 'hello' }])
+  })
+
+  it('reports a send rejection and still closes the driver', async () => {
+    const io = captureIo()
+    let closed = 0
+    const driver: SessionDriver = {
+      sessionId: 'fake',
+      events: (async function* () {
+        yield* []
+      })() as AsyncIterable<SessionEvent>,
+      async start() {},
+      async send() {
+        throw new Error('send broke')
+      },
+      async interrupt() {},
+      async close() {
+        closed += 1
+      },
+    }
+
+    await runCli({
+      input: linesOf('hello'),
+      io: io.io,
+      driver,
+      provider: { kind: 'canned', label: 'canned/demo' },
+    })
+
+    expect(io.errors[0]).toContain('send failed: send broke')
+    expect(closed).toBe(1)
+  })
+
+  it('renders every cancellation reason and newline-closes an open prompt', async () => {
+    const reasons = [
+      ['provider_failure', 'provider failure'],
+      ['interrupted', 'interrupted'],
+      ['timeout', 'timeout'],
+      ['user_barge_in', 'user barge-in'],
+      ['revoked', 'grant revoked'],
+    ] as const
+    for (const [reason, label] of reasons) {
+      const io = captureIo()
+      const driver: SessionDriver = {
+        sessionId: 'fake',
+        events: (async function* () {
+          yield {
+            type: 'persona.response.chunk',
+            payload: { grantId: 'grant-1', text: 'Half', sequence: 0 },
+          }
+          yield {
+            type: 'persona.response.cancelled',
+            payload: { grantId: 'grant-1', reason },
+          }
+          yield { type: 'session.completed', payload: {} }
+        })() as AsyncIterable<SessionEvent>,
+        async start() {},
+        async send() {},
+        async interrupt() {},
+        async close() {},
+      }
+      await runCli({
+        input: linesOf('hello'),
+        io: io.io,
+        driver,
+        provider: { kind: 'canned', label: 'canned/demo' },
+      })
+      expect(io.text()).toContain(`[cancelled: ${label}]`)
+    }
+  })
+
+  it('prints replay cancelled turns with and without partial text', async () => {
+    const io = captureIo()
+    const saved = logText([
+      {
+        type: 'session.started',
+        payload: { sessionId: 'session-1', clockMode: 'simulated', lang: 'en' },
+      },
+      {
+        type: 'persona.response.cancelled',
+        payload: { grantId: 'grant-1', reason: 'interrupted', partialText: 'Half' },
+      },
+      {
+        type: 'persona.response.cancelled',
+        payload: { grantId: 'grant-2', reason: 'timeout' },
+      },
+      { type: 'session.completed', payload: {} },
+    ])
+
+    await runCli({
+      input: linesOf('/replay /tmp/cancelled.jsonl'),
+      io: io.io,
+      driver: driverWith(scriptedModel(['unused'])),
+      provider: { kind: 'canned', label: 'canned/demo' },
+      readFile: async () => saved,
+    })
+
+    expect(io.text()).toContain('persona> Half [cancelled: interrupted]')
+    expect(io.text()).toContain('persona> [cancelled: timeout]')
+  })
+
+  it('reports truncation and does not print an empty unfinished chunk', async () => {
+    const io = captureIo()
+    const complete = logText([
+      {
+        type: 'session.started',
+        payload: { sessionId: 'session-1', clockMode: 'simulated', lang: 'en' },
+      },
+      {
+        type: 'persona.response.chunk',
+        payload: { grantId: 'grant-1', text: '', sequence: 0 },
+      },
+    ])
+    const truncated = `${complete.slice(0, complete.length - 5)}`
+
+    await runCli({
+      input: linesOf('/replay /tmp/truncated.jsonl'),
+      io: io.io,
+      driver: driverWith(scriptedModel(['unused'])),
+      provider: { kind: 'canned', label: 'canned/demo' },
+      readFile: async () => truncated,
+    })
+
+    expect(io.text()).toContain('[truncated:')
+    expect(io.text()).not.toContain('[unfinished]')
+  })
+
+  it('omits the selection and log path when they are not provided', async () => {
+    const io = captureIo()
+    await runCli({
+      input: linesOf('/quit'),
+      io: io.io,
+      driver: driverWith(scriptedModel(['unused'])),
+      provider: { kind: 'canned', label: 'canned/demo' },
+    })
+    expect(io.text()).not.toContain('persona:')
+    expect(io.text()).not.toContain('log:')
+    expect(io.text()).toContain('type /help for commands')
+  })
+
+  it('prints every help line verbatim', async () => {
+    const io = captureIo()
+    await runCli({
+      input: linesOf('/help'),
+      io: io.io,
+      driver: driverWith(scriptedModel(['unused'])),
+      provider: { kind: 'canned', label: 'canned/demo' },
+    })
+    for (const line of [
+      'commands:',
+      '  /interrupt      stop the reply in flight',
+      '  /replay <file>  print a saved session log',
+      '  /quit           close the session and exit',
+      '  /help           show this help',
+      'any other line is sent to the persona',
+    ]) {
+      expect(io.text()).toContain(line)
+    }
+  })
+
+  it('does not send blank or whitespace-only lines', async () => {
+    const io = captureIo()
+    const sent: string[] = []
+    const driver: SessionDriver = {
+      sessionId: 'fake',
+      events: (async function* () {
+        yield* []
+      })() as AsyncIterable<SessionEvent>,
+      async start() {},
+      async send(text) {
+        sent.push(text)
+      },
+      async interrupt() {},
+      async close() {},
+    }
+    await runCli({
+      input: linesOf('', '   ', '\t', '/quit'),
+      io: io.io,
+      driver,
+      provider: { kind: 'canned', label: 'canned/demo' },
+    })
+    expect(sent).toEqual([])
+  })
+
+  it('keeps an interior carriage return', async () => {
+    const io = captureIo()
+    const sent: string[] = []
+    const driver: SessionDriver = {
+      sessionId: 'fake',
+      events: (async function* () {
+        yield* []
+      })() as AsyncIterable<SessionEvent>,
+      async start() {},
+      async send(text) {
+        sent.push(text)
+      },
+      async interrupt() {},
+      async close() {},
+    }
+    await runCli({
+      input: linesOf('hel\rlo', '/quit'),
+      io: io.io,
+      driver,
+      provider: { kind: 'canned', label: 'canned/demo' },
+    })
+    expect(sent).toEqual(['hel\rlo'])
+  })
+
+  it('closes exactly once on /quit', async () => {
+    const io = captureIo()
+    let closes = 0
+    const driver: SessionDriver = {
+      sessionId: 'fake',
+      events: (async function* () {
+        yield* []
+      })() as AsyncIterable<SessionEvent>,
+      async start() {},
+      async send() {},
+      async interrupt() {},
+      async close() {
+        closes += 1
+      },
+    }
+    await runCli({
+      input: linesOf('/quit'),
+      io: io.io,
+      driver,
+      provider: { kind: 'canned', label: 'canned/demo' },
+    })
+    expect(closes).toBe(1)
+  })
+
+  it('starts a fresh persona prompt after each committed reply', async () => {
+    const io = captureIo()
+    const driver: SessionDriver = {
+      sessionId: 'fake',
+      events: (async function* () {
+        yield {
+          type: 'persona.response.chunk',
+          payload: { grantId: 'g1', text: 'One', sequence: 0 },
+        }
+        yield {
+          type: 'persona.response.committed',
+          payload: { grantId: 'g1', text: 'One' },
+        }
+        yield {
+          type: 'persona.response.chunk',
+          payload: { grantId: 'g2', text: 'Two', sequence: 0 },
+        }
+        yield {
+          type: 'persona.response.committed',
+          payload: { grantId: 'g2', text: 'Two' },
+        }
+      })() as AsyncIterable<SessionEvent>,
+      async start() {},
+      async send() {},
+      async interrupt() {},
+      async close() {},
+    }
+    await runCli({
+      input: linesOf('hello'),
+      io: io.io,
+      driver,
+      provider: { kind: 'canned', label: 'canned/demo' },
+    })
+    expect(io.text().match(/persona> /g)).toHaveLength(2)
+    expect(io.text()).toContain('One\n')
+    expect(io.text()).toContain('Two\n')
+  })
+
+  it('starts a fresh persona prompt after an empty committed reply', async () => {
+    const io = captureIo()
+    const driver: SessionDriver = {
+      sessionId: 'fake',
+      events: (async function* () {
+        yield {
+          type: 'persona.response.committed',
+          payload: { grantId: 'g1', text: '' },
+        }
+        yield {
+          type: 'persona.response.chunk',
+          payload: { grantId: 'g2', text: 'Two', sequence: 0 },
+        }
+      })() as AsyncIterable<SessionEvent>,
+      async start() {},
+      async send() {},
+      async interrupt() {},
+      async close() {},
+    }
+    await runCli({
+      input: linesOf('hello'),
+      io: io.io,
+      driver,
+      provider: { kind: 'canned', label: 'canned/demo' },
+    })
+    expect(io.text()).toContain('persona> [empty response]')
+    expect(io.text().match(/persona> /g)).toHaveLength(2)
+  })
+
+  it('newline-closes an open prompt when the session completes', async () => {
+    const io = captureIo()
+    const driver: SessionDriver = {
+      sessionId: 'fake',
+      events: (async function* () {
+        yield {
+          type: 'persona.response.chunk',
+          payload: { grantId: 'g1', text: 'Half', sequence: 0 },
+        }
+        yield { type: 'session.completed', payload: {} }
+      })() as AsyncIterable<SessionEvent>,
+      async start() {},
+      async send() {},
+      async interrupt() {},
+      async close() {},
+    }
+    await runCli({
+      input: linesOf('hello'),
+      io: io.io,
+      driver,
+      provider: { kind: 'canned', label: 'canned/demo' },
+    })
+    expect(io.text()).toContain('Half\n')
+  })
+
+  it('newline-closes an open prompt before a cancellation', async () => {
+    const io = captureIo()
+    const driver: SessionDriver = {
+      sessionId: 'fake',
+      events: (async function* () {
+        yield {
+          type: 'persona.response.chunk',
+          payload: { grantId: 'g1', text: 'Half', sequence: 0 },
+        }
+        yield {
+          type: 'persona.response.cancelled',
+          payload: { grantId: 'g1', reason: 'interrupted' },
+        }
+      })() as AsyncIterable<SessionEvent>,
+      async start() {},
+      async send() {},
+      async interrupt() {},
+      async close() {},
+    }
+    await runCli({
+      input: linesOf('hello'),
+      io: io.io,
+      driver,
+      provider: { kind: 'canned', label: 'canned/demo' },
+    })
+    expect(io.text()).toContain('Half\n[cancelled: interrupted]')
+  })
+
+  it('does not print an empty unfinished chunk on replay', async () => {
+    const io = captureIo()
+    const saved = logText([
+      {
+        type: 'session.started',
+        payload: { sessionId: 'session-1', clockMode: 'simulated', lang: 'en' },
+      },
+      {
+        type: 'persona.response.chunk',
+        payload: { grantId: 'grant-1', text: '', sequence: 0 },
+      },
+    ])
+    await runCli({
+      input: linesOf('/replay /tmp/empty.jsonl'),
+      io: io.io,
+      driver: driverWith(scriptedModel(['unused'])),
+      provider: { kind: 'canned', label: 'canned/demo' },
+      readFile: async () => saved,
+    })
+    expect(io.text()).toContain('[unterminated:')
+    expect(io.text()).not.toContain('[unfinished]')
+  })
+
+  it('does not write a newline before a cancellation with no open prompt', async () => {
+    const io = captureIoWithWrites()
+    const driver: SessionDriver = {
+      sessionId: 'fake',
+      events: (async function* () {
+        yield {
+          type: 'persona.response.cancelled',
+          payload: { grantId: 'g1', reason: 'interrupted' },
+        }
+        yield {
+          type: 'persona.response.cancelled',
+          payload: { grantId: 'g2', reason: 'timeout' },
+        }
+      })() as AsyncIterable<SessionEvent>,
+      async start() {},
+      async send() {},
+      async interrupt() {},
+      async close() {},
+    }
+    await runCli({
+      input: linesOf('hello'),
+      io: io.io,
+      driver,
+      provider: { kind: 'canned', label: 'canned/demo' },
+    })
+    expect(io.writes).not.toContain('\n')
+    expect(io.text()).toContain('[cancelled: interrupted]')
+    expect(io.text()).toContain('[cancelled: timeout]')
+  })
+
+  it('does not write a newline for session.completed with no open prompt', async () => {
+    const io = captureIoWithWrites()
+    const driver: SessionDriver = {
+      sessionId: 'fake',
+      events: (async function* () {
+        yield { type: 'session.completed', payload: {} }
+      })() as AsyncIterable<SessionEvent>,
+      async start() {},
+      async send() {},
+      async interrupt() {},
+      async close() {},
+    }
+    await runCli({
+      input: linesOf('hello'),
+      io: io.io,
+      driver,
+      provider: { kind: 'canned', label: 'canned/demo' },
+    })
+    expect(io.writes).not.toContain('\n')
+  })
+
+  it('does not report log errors when no log is configured', async () => {
+    const io = captureIo()
+    await runCli({
+      input: linesOf('/help'),
+      io: io.io,
+      driver: driverWith(scriptedModel(['unused'])),
+      provider: { kind: 'canned', label: 'canned/demo' },
+    })
+    expect(io.errors).toEqual([])
+    expect(io.text()).not.toContain('Stryker was here!')
+  })
+
+  it('does not print truncation or unterminated markers for a complete replay', async () => {
+    const io = captureIo()
+    const saved = logText([
+      {
+        type: 'session.started',
+        payload: { sessionId: 'session-1', clockMode: 'simulated', lang: 'en' },
+      },
+      { type: 'session.completed', payload: {} },
+    ])
+    await runCli({
+      input: linesOf('/replay /tmp/complete.jsonl'),
+      io: io.io,
+      driver: driverWith(scriptedModel(['unused'])),
+      provider: { kind: 'canned', label: 'canned/demo' },
+      readFile: async () => saved,
+    })
+    expect(io.text()).not.toContain('[truncated:')
+    expect(io.text()).not.toContain('[unterminated:')
+  })
+
+  it('does not print a cancelled grant as unfinished after replay', async () => {
+    const io = captureIo()
+    const saved = logText([
+      {
+        type: 'session.started',
+        payload: { sessionId: 'session-1', clockMode: 'simulated', lang: 'en' },
+      },
+      {
+        type: 'persona.response.chunk',
+        payload: { grantId: 'grant-1', text: 'Half', sequence: 0 },
+      },
+      {
+        type: 'persona.response.cancelled',
+        payload: { grantId: 'grant-1', reason: 'interrupted', partialText: 'Half' },
+      },
+    ])
+    await runCli({
+      input: linesOf('/replay /tmp/cancelled-open.jsonl'),
+      io: io.io,
+      driver: driverWith(scriptedModel(['unused'])),
+      provider: { kind: 'canned', label: 'canned/demo' },
+      readFile: async () => saved,
+    })
+    expect(io.text()).toContain('[cancelled: interrupted]')
+    expect(io.text()).not.toContain('[unfinished]')
+  })
+
+  it('does not print an earlier committed grant as unfinished after replay', async () => {
+    const io = captureIo()
+    const saved = logText([
+      {
+        type: 'session.started',
+        payload: { sessionId: 'session-1', clockMode: 'simulated', lang: 'en' },
+      },
+      {
+        type: 'persona.response.chunk',
+        payload: { grantId: 'grant-1', text: 'Done', sequence: 0 },
+      },
+      {
+        type: 'persona.response.committed',
+        payload: { grantId: 'grant-1', text: 'Done' },
+      },
+      {
+        type: 'persona.response.cancelled',
+        payload: { grantId: 'grant-2', reason: 'timeout' },
+      },
+    ])
+    await runCli({
+      input: linesOf('/replay /tmp/committed-open.jsonl'),
+      io: io.io,
+      driver: driverWith(scriptedModel(['unused'])),
+      provider: { kind: 'canned', label: 'canned/demo' },
+      readFile: async () => saved,
+    })
+    expect(io.text()).toContain('persona> Done')
+    expect(io.text()).not.toContain('Done [unfinished]')
   })
 })

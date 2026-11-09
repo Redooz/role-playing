@@ -210,6 +210,60 @@ describe('transcriptRecordSchema', () => {
     expect(transcriptRecordSchema.safeParse({ ...record(0), seq: -1 }).success).toBe(false)
     expect(transcriptRecordSchema.safeParse({ ...record(0), seq: 0.5 }).success).toBe(false)
   })
+
+  it('reports the payload issue path and message', () => {
+    const result = transcriptRecordSchema.safeParse({
+      ...record(0),
+      kind: 'persona.response.chunk',
+      payload: { grantId: 'grant-1', text: 'Hi' },
+      contentClass: 'restricted',
+    })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues[0]?.code).toBe('custom')
+      expect(result.error.issues[0]?.path).toEqual(['payload', 'sequence'])
+      expect(result.error.issues[0]?.message.length).toBeGreaterThan(0)
+    }
+  })
+
+  it('reports the exact content-class diagnostic for events and non-events', () => {
+    const wrongEvent = transcriptRecordSchema.safeParse({ ...record(0), contentClass: 'public' })
+    expect(wrongEvent.success).toBe(false)
+    if (!wrongEvent.success) {
+      expect(wrongEvent.error.issues[0]?.code).toBe('custom')
+      expect(wrongEvent.error.issues[0]?.path).toEqual(['contentClass'])
+      expect(wrongEvent.error.issues[0]?.message).toBe(
+        'user.started_speaking must be contentClass "contentFree", got "public"',
+      )
+    }
+
+    const publicNonEvent = transcriptRecordSchema.safeParse({
+      ...record(0),
+      kind: 'engine.latency_ms',
+      payload: { value: 1 },
+      contentClass: 'public',
+    })
+    expect(publicNonEvent.success).toBe(false)
+    if (!publicNonEvent.success) {
+      expect(publicNonEvent.error.issues[0]?.code).toBe('custom')
+      expect(publicNonEvent.error.issues[0]?.path).toEqual(['contentClass'])
+      expect(publicNonEvent.error.issues[0]?.message).toBe(
+        'non-event record "engine.latency_ms" may not be contentClass "public"; use "contentFree" or "restricted"',
+      )
+    }
+  })
+
+  it('applies the event-kind rule to non-events from 1.1.0', () => {
+    expect(
+      transcriptRecordSchema.safeParse({
+        ...record(0),
+        schemaVersion: '1.1.0',
+        kind: 'engine.latency_ms',
+        payload: { value: 1 },
+        contentClass: 'restricted',
+      }).success,
+    ).toBe(true)
+  })
 })
 
 describe('parseTranscriptRecord', () => {
@@ -227,6 +281,23 @@ describe('parseTranscriptRecord', () => {
     expect(() => parseTranscriptRecord({ ...record(0), schemaVersion: '2.0.0' })).toThrow(
       TranscriptSchemaVersionError,
     )
+  })
+
+  it('names the unreadable version and the expected build version', () => {
+    try {
+      parseTranscriptRecord({ ...record(0), schemaVersion: '2.0.0' })
+      expect.unreachable()
+    } catch (error) {
+      expect(error).toBeInstanceOf(TranscriptSchemaVersionError)
+      expect((error as TranscriptSchemaVersionError).name).toBe('TranscriptSchemaVersionError')
+      expect((error as TranscriptSchemaVersionError).version).toBe('2.0.0')
+      expect((error as TranscriptSchemaVersionError).expectedVersion).toBe(
+        TRANSCRIPT_SCHEMA_VERSION,
+      )
+      expect((error as Error).message).toBe(
+        `transcript schema 2.0.0 is not readable by this build (current ${TRANSCRIPT_SCHEMA_VERSION}); migrate it first`,
+      )
+    }
   })
 
   it('reports an incompatible version before a v2-shaped payload is called corrupt', () => {
@@ -249,6 +320,9 @@ describe('parseTranscriptRecord', () => {
       ZodError,
     )
     expect(() => parseTranscriptRecord({ ...record(0), schemaVersion: 5 })).toThrow(ZodError)
+    expect(() => parseTranscriptRecord(5)).toThrow(ZodError)
+    expect(() => parseTranscriptRecord('record')).toThrow(ZodError)
+    expect(() => parseTranscriptRecord({ ...record(0), schemaVersion: {} })).toThrow(ZodError)
   })
 })
 
@@ -269,6 +343,13 @@ describe('eventFromTranscriptRecord', () => {
   it('throws when an event payload is invalid', () => {
     const broken = { ...record(0), kind: 'turn.granted', payload: {} }
     expect(() => eventFromTranscriptRecord(broken)).toThrow()
+  })
+})
+
+describe('normalized constants', () => {
+  it('pins the literal normalization values', () => {
+    expect(NORMALIZED_T_WALL).toBe(0)
+    expect(NORMALIZED_EXECUTION_ID).toBe('normalized')
   })
 })
 

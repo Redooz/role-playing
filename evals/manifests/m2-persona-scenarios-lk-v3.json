@@ -9,13 +9,8 @@
   "tasks": {
     "dataset": "synthetic-workplace-session",
     "version": "v1",
-    "languages": [
-      "en",
-      "fr"
-    ],
-    "splits": [
-      "calibration"
-    ]
+    "languages": ["en", "fr"],
+    "splits": ["calibration"]
   },
   "seeds": {
     "master": 20261108,
@@ -29,9 +24,7 @@
   },
   "rubric": {
     "version": "m2-persona-rubric-v2",
-    "ids": [
-      "m2-persona-rubric-v2"
-    ]
+    "ids": ["m2-persona-rubric-v2"]
   },
   "limits": {
     "rounds": 5,

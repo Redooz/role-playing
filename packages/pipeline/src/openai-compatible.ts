@@ -196,7 +196,7 @@ export async function* streamOpenAiCompatible(
 }
 
 /** Map the internal generation profile to the provider's snake_case fields. */
-function bodyForGeneration(
+export function bodyForGeneration(
   generation: OpenAiGenerationOptions | undefined,
 ): Record<string, number | string | boolean> {
   if (generation === undefined) return {}

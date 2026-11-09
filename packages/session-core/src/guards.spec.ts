@@ -249,4 +249,153 @@ describe('observeTurnEvent', () => {
     expect(outcome.ledger.currentGrant?.grantId).toBe('grant-1')
     expect(outcome.violations).toEqual([])
   })
+
+  it('leaves the ledger unchanged for events outside the grant state machine', () => {
+    const ledger = createGrantLedger()
+    const outcome = observeTurnEvent(ledger, {
+      type: 'turn.opened',
+      payload: { turnId: TURN_ID },
+    })
+    expect(outcome.ledger).toStrictEqual(ledger)
+    expect(outcome.violations).toEqual([])
+  })
+})
+
+describe('guard diagnostics', () => {
+  it('exposes a typed error name and a readable message', () => {
+    try {
+      guardTurnEvents([granted('grant-1'), granted('grant-2')], { strict: true })
+      expect.unreachable()
+    } catch (error) {
+      expect(error).toBeInstanceOf(GuardViolationError)
+      expect((error as GuardViolationError).name).toBe('GuardViolationError')
+      expect((error as Error).message).toBe(
+        'session guard violated: grant_conflict (grant grant-2 issued while grant grant-1 is still current)',
+      )
+      expect((error as GuardViolationError).violations).toHaveLength(1)
+    }
+  })
+
+  it('uses an exact message for each violation class', () => {
+    const cases: ReadonlyArray<readonly [SessionEvent[], string]> = [
+      [
+        [granted('grant-1'), revoked('grant-1'), granted('grant-1')],
+        'grant grant-1 was already issued; grant ids must not be reused',
+      ],
+      [
+        [granted('grant-1'), revoked('grant-404')],
+        'turn.revoked names grant grant-404, which was never granted',
+      ],
+      [
+        [granted('grant-1'), chunk('grant-404', 0)],
+        'persona.response.chunk names grant grant-404, which was never granted',
+      ],
+      [
+        [granted('grant-1'), committed('grant-1'), chunk('grant-1', 0)],
+        'persona.response.chunk names grant grant-1, which is not the current grant',
+      ],
+      [
+        [granted('grant-1'), chunk('grant-1', 2), chunk('grant-1', 1)],
+        'persona.response.chunk sequence 1 for grant grant-1 is not greater than 2',
+      ],
+    ]
+    for (const [events, message] of cases) {
+      const report = guardTurnEvents(events)
+      expect(report.violations[0]?.message).toBe(message)
+    }
+  })
+
+  it('treats an empty-string grantId as missing', () => {
+    const malformed = {
+      type: 'persona.response.chunk',
+      payload: { grantId: '', text: 'no grant', sequence: 0 },
+    } as unknown as SessionEvent
+    const report = guardTurnEvents([granted('grant-1'), malformed])
+    expect(codes(report)).toEqual(['response_missing_grant_id'])
+    expect(report.violations[0]?.message).toBe('persona.response.chunk requires a grantId')
+  })
+
+  it('keeps the current grant when an already-revoked grant is revoked again', () => {
+    const report = guardTurnEvents([
+      granted('grant-1'),
+      revoked('grant-1'),
+      granted('grant-2'),
+      revoked('grant-1'),
+    ])
+    expect(report.violations).toEqual([])
+    expect(report.ledger.currentGrant?.grantId).toBe('grant-2')
+  })
+
+  it('does not apply sequence checks to closing events', () => {
+    const committedWithSequence = {
+      type: 'persona.response.committed',
+      payload: { grantId: 'grant-1', text: 'done', sequence: 1 },
+    } as unknown as SessionEvent
+    const report = guardTurnEvents([granted('grant-1'), chunk('grant-1', 5), committedWithSequence])
+    expect(report.violations).toEqual([])
+  })
+
+  it('keeps the highest sequence after a stale chunk so later gaps stay visible', () => {
+    const report = guardTurnEvents([
+      granted('grant-1'),
+      chunk('grant-1', 5),
+      chunk('grant-1', 3),
+      chunk('grant-1', 4),
+    ])
+    expect(codes(report)).toEqual(['stale_sequence', 'stale_sequence'])
+  })
+
+  it('ignores holes in a sparse transcript sequence list', () => {
+    const sparse = [{ seq: 0 }, undefined, { seq: 1 }] as unknown as Array<{ seq: number }>
+    expect(checkTranscriptSequence(sparse)).toEqual({ ok: true, violations: [] })
+  })
+
+  it('checks a response.started event like every other response event', () => {
+    expect(codes(guardTurnEvents([granted('grant-1'), started('grant-404')]))).toEqual([
+      'response_unknown_grant',
+    ])
+    expect(codes(guardTurnEvents([granted('grant-1'), started('')]))).toEqual([
+      'response_missing_grant_id',
+    ])
+  })
+
+  it('does not read a sequence from response events that have none', () => {
+    const startedWithSequence = (sequence: unknown): SessionEvent =>
+      ({
+        type: 'persona.response.started',
+        payload: { grantId: 'grant-1', sequence },
+      }) as unknown as SessionEvent
+
+    const report = guardTurnEvents([
+      granted('grant-1'),
+      startedWithSequence(5),
+      startedWithSequence(1),
+    ])
+    expect(report.violations).toEqual([])
+  })
+
+  it('ignores a non-numeric sequence instead of treating it as monotonic', () => {
+    const first = {
+      type: 'persona.response.chunk',
+      payload: { grantId: 'grant-1', text: 'tok', sequence: '5' },
+    } as unknown as SessionEvent
+    const second = {
+      type: 'persona.response.chunk',
+      payload: { grantId: 'grant-1', text: 'tok', sequence: 1 },
+    } as unknown as SessionEvent
+    const report = guardTurnEvents([granted('grant-1'), first, second])
+    expect(report.violations).toEqual([])
+  })
+
+  it('joins multiple violations in one strict error message', () => {
+    try {
+      guardTurnEvents([granted('grant-1'), granted('grant-2'), chunk('grant-404', 0)], {
+        strict: true,
+      })
+      expect.unreachable()
+    } catch (error) {
+      expect(error).toBeInstanceOf(GuardViolationError)
+      expect((error as Error).message).toContain('; ')
+    }
+  })
 })

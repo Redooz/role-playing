@@ -171,11 +171,11 @@ French criteria: accents and hyphens for `language.quality`; a consistent
 `tu`/`vous` choice for `register.fit`. The new manifests
 `m2-persona-scenarios-lk-v2` and `m2-persona-baseline-lk-v2` carry v2.
 
-| Date       | Gate                            | Run ID                            | Verdict                              | Evidence                                                                                                                                 |
-| ---------- | ------------------------------- | --------------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-11-09 | M2 annotation review            | `annotation-kit-m2`               | accepted (agent labels, provisional) | 60/60 traces, two passes; threshold evidence recorded in `evals/analysis/m2-annotation-review-2026-11-09.md`; human pass still required. |
+| Date       | Gate                              | Run ID                                                      | Verdict                              | Evidence                                                                                                                                                                                                                                                                                                     |
+| ---------- | --------------------------------- | ----------------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-11-09 | M2 annotation review              | `annotation-kit-m2`                                         | accepted (agent labels, provisional) | 60/60 traces, two passes; threshold evidence recorded in `evals/analysis/m2-annotation-review-2026-11-09.md`; human pass still required.                                                                                                                                                                     |
 | 2026-11-09 | M2-G4 base capability (rubric v2) | `m2-persona-scenarios-lk-v2` vs `m2-persona-baseline-lk-v2` | accepted (provisional semantic gate) | 30/30 trials, 0 failures each. Candidate vs baseline: persona 0.875 vs 0.280, language 0.944 vs 0.742, register 0.839 vs 0.679, clarity 0.895 vs 0.881, objective 0.860 vs 0.752; `pass^1` 0.700 / `pass^3` 0.533 vs 0/0. All guardrails and invariants pass. Gate provisional: labels are agent, not human. |
-| 2026-11-09 | M2-G4 post-M2 fixes | `m2-persona-scenarios-lk-v4` vs `m2-persona-baseline-lk-v3` | accepted (provisional semantic gate) | 30/30 trials, 0 failures. Candidate persona 0.888 vs baseline 0.347; language 0.941 vs 0.817; register 0.917 vs 0.736; clarity 0.925 vs 0.902; objective 0.903 vs 0.848; `pass^1` **1.000** / `pass^3` **1.000** vs 0/0. All six tasks 5/5. |
+| 2026-11-09 | M2-G4 post-M2 fixes               | `m2-persona-scenarios-lk-v4` vs `m2-persona-baseline-lk-v3` | accepted (provisional semantic gate) | 30/30 trials, 0 failures. Candidate persona 0.888 vs baseline 0.347; language 0.941 vs 0.817; register 0.917 vs 0.736; clarity 0.925 vs 0.902; objective 0.903 vs 0.848; `pass^1` **1.000** / `pass^3` **1.000** vs 0/0. All six tasks 5/5.                                                                  |
 
 ### Post-M2 quality fixes (2026-11-09)
 
@@ -193,15 +193,15 @@ Four targeted fixes were applied after the v2 acceptance:
 The v3 baseline (generic prompt on the fixed tasks) still failed every trial
 (`pass^1` 0). The v4 candidate passed all six tasks, 5/5 each:
 
-| Axis                     | v4 candidate | v3 baseline |
-| ------------------------ | ------------ | ----------- |
-| `persona.consistency`    | 0.888        | 0.347       |
-| `language.quality`       | 0.941        | 0.817       |
-| `register.fit`           | 0.917        | 0.736       |
-| `response.clarity`       | 0.925        | 0.902       |
-| `objective.completion`   | 0.903        | 0.848       |
-| `pass^1`                 | **1.000**    | 0           |
-| `pass^3`                 | **1.000**    | 0           |
+| Axis                   | v4 candidate | v3 baseline |
+| ---------------------- | ------------ | ----------- |
+| `persona.consistency`  | 0.888        | 0.347       |
+| `language.quality`     | 0.941        | 0.817       |
+| `register.fit`         | 0.917        | 0.736       |
+| `response.clarity`     | 0.925        | 0.902       |
+| `objective.completion` | 0.903        | 0.848       |
+| `pass^1`               | **1.000**    | 0           |
+| `pass^3`               | **1.000**    | 0           |
 
 All guardrails and invariants pass. `m2-persona-scenarios-lk-v4` is the final M2
 capability run; v2 and v3 are superseded. The v4 candidate uses the
@@ -210,12 +210,17 @@ capability run; v2 and v3 are superseded. The v4 candidate uses the
 Mutation floor: the scope now includes the behaviour-bearing `persona-kit` prompt
 and lookup, `scenario-kit` lookup/helper, `shared/locale`, `shared/plain-text`
 and `apps/cli/main.ts`; static data/schema files are excluded because mutating
-them produces compile errors. The measured global is 68.21% total / 72.74%
-covered, with per-package floors in `evals/baselines/m1-mutation.json`.
-`pipeline` (74.01/77.66) and `session-core` (85.77/86.85) improved; `apps/cli`
-(57.49/71.36) is lower because `main.ts` joined the package scope; `persona-kit`
-(31.94/34.19) and `shared` (61.86/63.49) are new low floors. Those are M3 test
-backlog, not permission to lower an existing floor. See `stryker.triage.md`.
+them produces compile errors. On 2026-11-09 the suite was raised from global
+68.21/72.74 to **95.01/95.42**, with per-package floors in
+`evals/baselines/m1-mutation.json`. `apps/cli` rose to **95.95/97.13**,
+`persona-kit` to **99.10/99.40**, `pipeline` to **99.01/99.01** and
+`scenario-kit` to **100.00/100.00**. Two packages remain below 95:
+`session-core` **91.96/92.24** and `shared` **93.27/93.57**. Their remaining
+survivors are either Zod schema/static vocabulary mutants, which this task
+explicitly excludes, or documented equivalent mutants; see `stryker.triage.md`
+for the line-by-line inventory and the smallest next step. No floor was lowered:
+the recorded floors are the new measured values and the Stryker break threshold
+was raised from 68.21 to 95.
 
 M2 is closed with the semantic gate **provisional by project choice**. The project
 uses agent annotation for now; no human pass is planned. “Provisional” means the

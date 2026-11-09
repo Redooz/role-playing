@@ -3,7 +3,9 @@ import type { TextModelChunk } from '@rp/session-core'
 import { describe, expect, it } from 'vitest'
 import {
   LIVEKIT_GEMMA_MODEL,
+  LIVEKIT_GENERATION_PARAMETERS,
   LIVEKIT_INFERENCE_DEFAULT_BASE_URL,
+  LIVEKIT_TOKEN_TTL_SECONDS,
   LiveKitInferenceTextModelError,
   createLiveKitInferenceAccessToken,
   createLiveKitInferenceTextModel,
@@ -75,13 +77,33 @@ describe('LiveKit Inference access token', () => {
     expect(signature).toBe(expected)
   })
 
-  it('refuses an empty key or secret', () => {
+  it('refuses an empty or whitespace-only key or secret', () => {
     expect(() => createLiveKitInferenceAccessToken({ apiKey: '', apiSecret: API_SECRET })).toThrow(
       LiveKitInferenceTextModelError,
     )
+    expect(() =>
+      createLiveKitInferenceAccessToken({ apiKey: '   ', apiSecret: API_SECRET }),
+    ).toThrow(LiveKitInferenceTextModelError)
     expect(() => createLiveKitInferenceAccessToken({ apiKey: API_KEY, apiSecret: '' })).toThrow(
       LiveKitInferenceTextModelError,
     )
+    expect(() => createLiveKitInferenceAccessToken({ apiKey: API_KEY, apiSecret: '  ' })).toThrow(
+      LiveKitInferenceTextModelError,
+    )
+    expect(() => createLiveKitInferenceAccessToken({ apiKey: '', apiSecret: API_SECRET })).toThrow(
+      'LIVEKIT_API_KEY and LIVEKIT_API_SECRET are required; the adapter cannot start',
+    )
+  })
+
+  it('uses the real clock when no nowSeconds is injected', () => {
+    const before = Math.floor(Date.now() / 1000)
+    const token = createLiveKitInferenceAccessToken({ apiKey: API_KEY, apiSecret: API_SECRET })
+    const after = Math.floor(Date.now() / 1000)
+    const payload = JSON.parse(
+      Buffer.from(token.split('.')[1] as string, 'base64url').toString(),
+    ) as { exp: number }
+    expect(payload.exp).toBeGreaterThanOrEqual(before + LIVEKIT_TOKEN_TTL_SECONDS)
+    expect(payload.exp).toBeLessThanOrEqual(after + LIVEKIT_TOKEN_TTL_SECONDS)
   })
 
   it('uses the fixed ten-minute default TTL', () => {
@@ -98,9 +120,51 @@ describe('LiveKit Inference access token', () => {
 })
 
 describe('LiveKit Inference text adapter', () => {
-  it('pins the Gemma model id and public label', () => {
+  it('pins the Gemma model id, base URL, label and generation profile', () => {
     expect(LIVEKIT_GEMMA_MODEL).toBe('google/gemma-4-31b-it')
+    expect(LIVEKIT_INFERENCE_DEFAULT_BASE_URL).toBe('https://agent-gateway.livekit.cloud/v1')
+    expect(LIVEKIT_TOKEN_TTL_SECONDS).toBe(600)
+    expect(LIVEKIT_GENERATION_PARAMETERS).toEqual({
+      temperature: 0.6,
+      topP: 0.95,
+      maxCompletionTokens: 1024,
+    })
     expect(liveKitModelLabel(LIVEKIT_GEMMA_MODEL)).toBe('livekit/google/gemma-4-31b-it')
+  })
+
+  it('keeps a cause and status on its typed error', () => {
+    const cause = new Error('underlying')
+    const withCause = new LiveKitInferenceTextModelError('wrapped', { cause, status: 401 })
+    expect(withCause.name).toBe('LiveKitInferenceTextModelError')
+    expect(withCause.status).toBe(401)
+    expect(withCause.cause).toBe(cause)
+    const withoutCause = new LiveKitInferenceTextModelError('plain')
+    expect(withoutCause.cause).toBeUndefined()
+    expect('cause' in withoutCause).toBe(false)
+  })
+
+  it('uses the real clock for the default per-request token', async () => {
+    let authorization = ''
+    const before = Math.floor(Date.now() / 1000)
+    const model = createLiveKitInferenceTextModel({
+      apiKey: API_KEY,
+      apiSecret: API_SECRET,
+      model: MODEL,
+      fetchImpl: async (_url, init) => {
+        authorization = String(
+          (init?.headers as Record<string, string> | undefined)?.['Authorization'],
+        )
+        return sseResponse(['{"choices":[{"delta":{},"finish_reason":"stop"}]}', '[DONE]'])
+      },
+    })
+    await collect(model)
+    const after = Math.floor(Date.now() / 1000)
+    const payload = JSON.parse(
+      Buffer.from(authorization.split(' ')[1]?.split('.')[1] as string, 'base64url').toString(),
+    ) as { exp: number }
+    expect(payload.exp).toBeGreaterThanOrEqual(before + LIVEKIT_TOKEN_TTL_SECONDS)
+    expect(payload.exp).toBeLessThanOrEqual(after + LIVEKIT_TOKEN_TTL_SECONDS)
+    expect(Number.isNaN(payload.exp)).toBe(false)
   })
 
   it('streams plain text and carries usage from the final chunk', async () => {
@@ -265,10 +329,19 @@ describe('LiveKit Inference text adapter', () => {
       createLiveKitInferenceTextModel({ apiKey: '', apiSecret: API_SECRET, model: MODEL }),
     ).toThrow(/LIVEKIT_API_KEY/)
     expect(() =>
+      createLiveKitInferenceTextModel({ apiKey: '  ', apiSecret: API_SECRET, model: MODEL }),
+    ).toThrow('LIVEKIT_API_KEY is empty; the adapter cannot start')
+    expect(() =>
       createLiveKitInferenceTextModel({ apiKey: API_KEY, apiSecret: '', model: MODEL }),
     ).toThrow(/LIVEKIT_API_SECRET/)
     expect(() =>
+      createLiveKitInferenceTextModel({ apiKey: API_KEY, apiSecret: '   ', model: MODEL }),
+    ).toThrow('LIVEKIT_API_SECRET is empty; the adapter cannot start')
+    expect(() =>
       createLiveKitInferenceTextModel({ apiKey: API_KEY, apiSecret: API_SECRET, model: '' }),
     ).toThrow(/model id/)
+    expect(() =>
+      createLiveKitInferenceTextModel({ apiKey: API_KEY, apiSecret: API_SECRET, model: '  ' }),
+    ).toThrow('a LiveKit Inference model id is required')
   })
 })
