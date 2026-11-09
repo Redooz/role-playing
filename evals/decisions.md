@@ -190,12 +190,19 @@ Jev remains the M2 grader. The French questions now carry the accents/hyphens an
 `tu`/`vous` criteria, but Jev's French `register.fit` ranking is weak (AUC about
 0.48–0.62); a threshold change will not fix that.
 
-Research recommends **Mistral Large 4** (`mistral-large-4`, OpenRouter
-`mistralai/mistral-large-4-0`) as the first candidate for a future decision-model
-spike, because it exposes token `logprobs` and can return a probability. Gemini
-3.1 Pro Preview is the fallback if a verbalised probability can be calibrated;
-it has the stronger published French score but no logprobs via OpenRouter. No
-grader switch in M2. Revisit in M3 with human labels and the 30 French traces.
+Research suggested **Mistral Large 4** as the first candidate because it was
+listed with token `logprobs`. The 2026-11-09 spike found that OpenRouter rejects
+`logprobs` for that model (“Logprobs are not enabled for this model”) and forces
+reasoning, so a one-token probability is not available. The practical test used
+**Mistral Large 3** (`mistralai/mistral-large-2512`) on the 30 French traces.
+
+Jev v2 was better on persona (balanced accuracy 1.000 vs 0.542), language
+(0.800 vs 0.650) and register (0.925 vs 0.250; Mistral’s register was inverted).
+Objective was mixed (Mistral binary 0.917 vs 0.861; Jev AUC 0.944 vs 0.917).
+No grader switch in M2. See
+`evals/analysis/m2-french-grader-spike-2026-11-09.md`. If a second grader is still
+wanted later, test Mistral Large 4 with a proper reasoning budget and a human
+audit, or a strong multilingual model with a calibrated verbalised probability.
 
 ## Accepted and rejected changes
 
