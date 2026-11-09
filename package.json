@@ -25,6 +25,7 @@
     "mutation": "stryker run && node scripts/check-mutation-floor.mjs",
     "chat": "node --env-file-if-exists=.env apps/cli/src/cli.ts",
     "eval": "node --env-file-if-exists=.env tools/eval-harness-cli/src/cli.ts",
+    "label:export": "node scripts/export-label-set.mjs",
     "validate:tasks": "node --env-file-if-exists=.env tools/eval-harness-cli/src/cli.ts validate-tasks",
     "langfuse:deploy": "bash scripts/langfuse.sh deploy",
     "langfuse:up": "bash scripts/langfuse.sh up",

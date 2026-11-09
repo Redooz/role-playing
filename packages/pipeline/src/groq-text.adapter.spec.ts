@@ -83,6 +83,25 @@ describe('Groq text adapter', () => {
     expect(body).not.toHaveProperty('response_format')
   })
 
+  it('sends the fixed persona generation profile', async () => {
+    let init: RequestInit | undefined
+    const model = createGroqTextModel({
+      apiKey: API_KEY,
+      fetchImpl: async (_url, requestInit) => {
+        init = requestInit
+        return sseResponse(['[DONE]'])
+      },
+    })
+    await collect(model)
+
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>
+    expect(body['temperature']).toBe(0.6)
+    expect(body['top_p']).toBe(0.95)
+    expect(body['max_completion_tokens']).toBe(512)
+    expect(body['reasoning_effort']).toBe('low')
+    expect(body['include_reasoning']).toBe(false)
+  })
+
   it('turns a non-2xx response into an error that does not leak the key', async () => {
     const model = createGroqTextModel({
       apiKey: API_KEY,

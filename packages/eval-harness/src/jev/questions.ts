@@ -6,6 +6,8 @@ import type { JevJudgment, JevLang, JevQuestion, JevQuestionMetadata, JevState }
 export interface JevQuestionMetadataInput {
   readonly id: string
   readonly lang: JevLang
+  /** Canonical BCP 47 locale, when a locale variant is being judged. */
+  readonly locale?: string
   readonly rubricVersion: string
   /** Defaults to the pinned grader; a different value is rejected. */
   readonly graderVersion?: string
@@ -23,6 +25,7 @@ export function declareJevQuestionMetadata(input: JevQuestionMetadataInput): Jev
   const parsed = jevQuestionMetadataSchema.safeParse({
     id: input.id,
     lang: input.lang,
+    ...(input.locale === undefined ? {} : { locale: input.locale }),
     rubricVersion: input.rubricVersion,
     graderVersion: input.graderVersion ?? JEV_GRADER_VERSION,
     extractionVersion: input.extractionVersion ?? NO_EXTRACTION_VERSION,

@@ -10,7 +10,7 @@ import {
   type TextModelRequest,
   type TextModelUsage,
 } from './index.js'
-import { SessionClosedError, SessionDriverError } from './driver.js'
+import { SessionDriverError } from './driver.js'
 
 /**
  * Scripted model used to drive the session in tests. It records every request
@@ -73,7 +73,13 @@ interface SessionHarness {
 
 function openSession(
   model: TextModelPort,
-  options: { grantTtlMs?: number; clock?: FakeClock; maxHistoryMessages?: number } = {},
+  options: {
+    grantTtlMs?: number
+    clock?: FakeClock
+    maxHistoryMessages?: number
+    instructions?: readonly { role: 'system'; content: string }[]
+    locale?: string
+  } = {},
 ): SessionHarness {
   const clock = options.clock ?? new FakeClock(0)
   const driver = createTextSessionDriver({
@@ -85,6 +91,8 @@ function openSession(
     model,
     grantTtlMs: options.grantTtlMs,
     maxHistoryMessages: options.maxHistoryMessages,
+    ...(options.instructions === undefined ? {} : { instructions: options.instructions }),
+    ...(options.locale === undefined ? {} : { locale: options.locale }),
   })
 
   const events: SessionEvent[] = []
@@ -262,6 +270,322 @@ describe('text session driver', () => {
       { role: 'assistant', content: 'One' },
       { role: 'user', content: 'second' },
     ])
+  })
+
+  it('starts a greeting turn without a learner utterance', async () => {
+    const model = scriptedModel({ chunks: ['Hello'] })
+    const harness = openSession(model)
+
+    await harness.driver.start()
+    const events = await runToEnd(harness)
+
+    expect(types(events)).toContain('turn.granted')
+    expect(events.some((event) => event.type === 'user.utterance.committed')).toBe(false)
+    expect(
+      events.find((event) => event.type === 'persona.response.committed')?.payload,
+    ).toMatchObject({ text: 'Hello' })
+    expect(model.requests[0]?.messages).toEqual([])
+  })
+
+  it('only opens an empty session with start()', async () => {
+    const model = scriptedModel({ chunks: ['Hello'] })
+    const harness = openSession(model)
+
+    await harness.driver.send('first')
+    await expect(harness.driver.start()).rejects.toMatchObject({
+      name: 'SessionDriverError',
+      message: 'start() only opens an empty session',
+    })
+    await runToEnd(harness)
+  })
+
+  it('keeps the greeting as the first assistant turn and then sends the learner reply', async () => {
+    const model = scriptedModel({ chunks: ['Hello'] })
+    const harness = openSession(model)
+
+    await harness.driver.start()
+    await harness.driver.send('reply')
+    await runToEnd(harness)
+
+    expect(model.requests).toHaveLength(2)
+    expect(model.requests[1]?.messages).toEqual([
+      { role: 'assistant', content: 'Hello' },
+      { role: 'user', content: 'reply' },
+    ])
+  })
+
+  it('prepends prepared instructions once and keeps them out of history', async () => {
+    const model = scriptedModel({ chunks: ['ok'] })
+    const harness = openSession(model, {
+      instructions: [{ role: 'system', content: 'SYSTEM INSTRUCTIONS' }],
+      locale: 'en-GB',
+    })
+
+    await harness.driver.send('first')
+    await harness.driver.send('second')
+    await runToEnd(harness)
+
+    expect(model.requests[0]?.messages).toEqual([
+      { role: 'system', content: 'SYSTEM INSTRUCTIONS' },
+      { role: 'user', content: 'first' },
+    ])
+    expect(model.requests[1]?.messages).toEqual([
+      { role: 'system', content: 'SYSTEM INSTRUCTIONS' },
+      { role: 'user', content: 'first' },
+      { role: 'assistant', content: 'ok' },
+      { role: 'user', content: 'second' },
+    ])
+    expect(model.requests[0]?.metadata).toEqual({ lang: 'en', locale: 'en-GB' })
+  })
+
+  it('never trims the committed greeting', async () => {
+    const model = scriptedModel({ chunks: ['Hello'] })
+    const harness = openSession(model, { maxHistoryMessages: 3 })
+
+    await harness.driver.start()
+    await harness.driver.send('one')
+    await harness.driver.send('two')
+    await runToEnd(harness)
+
+    const messages = model.requests.at(-1)?.messages ?? []
+    expect(messages[0]).toEqual({ role: 'assistant', content: 'Hello' })
+    expect(messages.at(-1)).toEqual({ role: 'user', content: 'two' })
+    expect(messages.length).toBeLessThanOrEqual(3)
+  })
+
+  it('interrupts an in-flight greeting without committing it', async () => {
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'silent-greeting',
+      complete() {
+        return {
+          [Symbol.asyncIterator]() {
+            return {
+              next(): Promise<IteratorResult<TextModelChunk>> {
+                return new Promise(() => undefined)
+              },
+            }
+          },
+        }
+      },
+    }
+    const harness = openSession(model, { grantTtlMs: 60_000 })
+
+    const starting = harness.driver.start()
+    await new Promise((resolve) => setTimeout(resolve, 5))
+    await harness.driver.interrupt()
+    await starting
+    const events = await runToEnd(harness)
+
+    expect(events.some((event) => event.type === 'persona.response.committed')).toBe(false)
+    expect(
+      events.find((event) => event.type === 'persona.response.cancelled')?.payload,
+    ).toMatchObject({ reason: 'interrupted' })
+  })
+
+  it('rejects start() after a greeting turn counter exists', async () => {
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'silent-start',
+      complete() {
+        return {
+          [Symbol.asyncIterator]() {
+            return {
+              next(): Promise<IteratorResult<TextModelChunk>> {
+                return new Promise(() => undefined)
+              },
+            }
+          },
+        }
+      },
+    }
+    const harness = openSession(model, { grantTtlMs: 60_000 })
+    const starting = harness.driver.start()
+    await new Promise((resolve) => setTimeout(resolve, 5))
+    await harness.driver.interrupt()
+    await starting
+
+    // The turn counter advanced even though no greeting committed.
+    await expect(harness.driver.start()).rejects.toBeInstanceOf(SessionDriverError)
+    await runToEnd(harness)
+  })
+
+  it('rejects start() after close', async () => {
+    const harness = openSession(scriptedModel({ chunks: ['ok'] }))
+    await harness.driver.close()
+    await expect(harness.driver.start()).rejects.toMatchObject({
+      name: 'SessionClosedError',
+      message: 'the session is closed; send() is no longer accepted',
+    })
+  })
+
+  it('uses the general instructions for the greeting when no greeting pack is set', async () => {
+    const model = scriptedModel({ chunks: ['ok'] })
+    const harness = openSession(model, {
+      instructions: [{ role: 'system', content: 'FULL' }],
+    })
+
+    await harness.driver.start()
+    await runToEnd(harness)
+
+    expect(model.requests[0]?.messages).toEqual([{ role: 'system', content: 'FULL' }])
+  })
+
+  it('lets a user turn supersede an in-flight greeting', async () => {
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'slow-greeting',
+      complete() {
+        return {
+          [Symbol.asyncIterator]() {
+            return {
+              next(): Promise<IteratorResult<TextModelChunk>> {
+                return new Promise(() => undefined)
+              },
+            }
+          },
+        }
+      },
+    }
+    const harness = openSession(model, { grantTtlMs: 20 })
+    const starting = harness.driver.start()
+    await new Promise((resolve) => setTimeout(resolve, 5))
+
+    const sending = harness.driver.send('hello')
+    await sending
+    await starting
+    const events = await runToEnd(harness)
+
+    expect(
+      events.filter((event) => event.type === 'persona.response.cancelled').length,
+    ).toBeGreaterThanOrEqual(1)
+    expect(types(events)).toContain('user.utterance.committed')
+  })
+
+  it('keeps the greeting first after later turns', async () => {
+    const model = scriptedModel({ chunks: ['Hello'] })
+    const harness = openSession(model, { maxHistoryMessages: 2 })
+
+    // A successful greeting is the only thing that is protected from trimming.
+    await harness.driver.start()
+    await harness.driver.send('one')
+    await harness.driver.send('two')
+    await runToEnd(harness)
+
+    expect(model.requests.at(-1)?.messages[0]).toEqual({
+      role: 'assistant',
+      content: 'Hello',
+    })
+  })
+
+  it('keeps a one-message history with a greeting', async () => {
+    const model = scriptedModel({ chunks: ['Hello'] })
+    const harness = openSession(model, { maxHistoryMessages: 1 })
+
+    await harness.driver.start()
+    await harness.driver.send('one')
+    await runToEnd(harness)
+
+    expect(model.requests.at(-1)?.messages).toHaveLength(1)
+    expect(model.requests.at(-1)?.messages[0]).toEqual({
+      role: 'assistant',
+      content: 'Hello',
+    })
+  })
+
+  it('does not mark a provider-failed greeting as committed', async () => {
+    let calls = 0
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'fail-first',
+      async *complete() {
+        calls += 1
+        if (calls === 1) throw new Error('first call failed')
+        yield { text: 'Hello', done: true }
+      },
+    }
+    const harness = openSession(model)
+
+    await harness.driver.start()
+    await harness.driver.send('one')
+    await runToEnd(harness)
+
+    const committed = harness.events.filter((event) => event.type === 'persona.response.committed')
+    expect(committed).toHaveLength(1)
+    expect(committed[0]?.payload).toMatchObject({ text: 'Hello' })
+  })
+
+  it('describes a non-Error provider throw without inventing a message', async () => {
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'string-throw',
+      complete() {
+        // A provider can reject with a plain string; the driver must not crash
+        // while formatting the cause.
+        throw 'boom'
+      },
+    }
+    const harness = openSession(model)
+
+    await harness.driver.send('go')
+    const events = await runToEnd(harness)
+    const cancelled = events.find((event) => event.type === 'persona.response.cancelled')
+
+    expect(cancelled?.payload).toMatchObject({
+      reason: 'provider_failure',
+      detail: 'Error: boom',
+    })
+  })
+
+  it('bounds a long provider failure detail to one line', async () => {
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'long-error',
+      complete() {
+        throw new Error(`line one\n\n${'x'.repeat(400)}`)
+      },
+    }
+    const harness = openSession(model)
+
+    await harness.driver.send('go')
+    const events = await runToEnd(harness)
+    const cancelled = events.find((event) => event.type === 'persona.response.cancelled')
+    const detail = (cancelled?.payload as { detail?: string }).detail
+
+    expect(detail).toBeDefined()
+    expect(detail?.length).toBeLessThanOrEqual(200)
+    expect(detail).toContain('Error: line one x')
+    expect(detail?.endsWith('...')).toBe(true)
+    expect(detail).not.toContain('\n')
+  })
+
+  it('closes a provider iterator that has no return method', async () => {
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'no-return',
+      complete() {
+        let sent = false
+        return {
+          [Symbol.asyncIterator]() {
+            return {
+              next(): Promise<IteratorResult<TextModelChunk>> {
+                if (sent) return Promise.resolve({ value: undefined, done: true })
+                sent = true
+                return Promise.resolve({ value: { text: 'ok', done: true }, done: false })
+              },
+            }
+          },
+        }
+      },
+    }
+    const harness = openSession(model)
+
+    await harness.driver.send('go')
+    const events = await runToEnd(harness)
+
+    expect(
+      events.find((event) => event.type === 'persona.response.committed')?.payload,
+    ).toMatchObject({ text: 'ok' })
   })
 
   it('caps the context history to the configured number of messages', async () => {
@@ -1158,7 +1482,10 @@ describe('text session driver', () => {
     await harness.finished()
 
     expect(types(harness.events)).toEqual(['session.started', 'session.completed'])
-    await expect(harness.driver.send('after close')).rejects.toBeInstanceOf(SessionClosedError)
+    await expect(harness.driver.send('after close')).rejects.toMatchObject({
+      name: 'SessionClosedError',
+      message: 'the session is closed; send() is no longer accepted',
+    })
   })
 
   it('shares one closing promise while an interrupt is in flight', async () => {
@@ -1200,7 +1527,10 @@ describe('text session driver', () => {
   it('rejects an empty utterance without emitting a user event', async () => {
     const harness = openSession(scriptedModel({ chunks: ['One'] }))
 
-    await expect(harness.driver.send('   ')).rejects.toBeInstanceOf(SessionDriverError)
+    await expect(harness.driver.send('   ')).rejects.toMatchObject({
+      name: 'SessionDriverError',
+      message: 'an utterance must not be empty',
+    })
     const events = await runToEnd(harness)
 
     expect(events.some((event) => event.type === 'user.utterance.committed')).toBe(false)

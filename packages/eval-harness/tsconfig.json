@@ -5,5 +5,10 @@
     "outDir": "dist"
   },
   "include": ["src/**/*.ts"],
-  "references": [{ "path": "../shared" }, { "path": "../session-core" }]
+  "references": [
+    { "path": "../shared" },
+    { "path": "../session-core" },
+    { "path": "../scenario-kit" },
+    { "path": "../persona-kit" }
+  ]
 }

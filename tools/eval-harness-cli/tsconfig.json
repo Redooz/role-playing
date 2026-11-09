@@ -8,6 +8,9 @@
   "references": [
     { "path": "../../packages/shared" },
     { "path": "../../packages/session-core" },
-    { "path": "../../packages/eval-harness" }
+    { "path": "../../packages/scenario-kit" },
+    { "path": "../../packages/persona-kit" },
+    { "path": "../../packages/eval-harness" },
+    { "path": "../../packages/pipeline" }
   ]
 }

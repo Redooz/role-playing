@@ -34,6 +34,11 @@ export interface ExportRunOptions {
   readonly observerFactory?: ObserverFactory
   readonly noExport: boolean
   readonly requireExport: boolean
+  /**
+   * Include automated scores. A blind labelling export sets this to `false`.
+   * Defaults to `true` for the normal review path.
+   */
+  readonly includeScores?: boolean
 }
 
 /** Export one execution and return the artifact that was written. */
@@ -75,6 +80,7 @@ export async function exportRun(options: ExportRunOptions): Promise<LangfuseArti
       grades: grades.records,
       executionId: grades.executionId,
       expectedOutputs: goldenIndexByTask(golden),
+      ...(options.includeScores === undefined ? {} : { includeScores: options.includeScores }),
     })
     const receipt = await observer.observe(plan)
 

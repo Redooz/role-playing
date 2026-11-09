@@ -7,6 +7,7 @@ import type {
 import {
   defaultTimingClock,
   streamOpenAiCompatible,
+  type OpenAiGenerationOptions,
   type TextRequestTiming,
 } from './openai-compatible.js'
 
@@ -25,6 +26,21 @@ import {
 export const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 export const OPENROUTER_PROBE_MODEL = 'google/gemma-4-31b-it'
 
+/**
+ * Generation profile for the OpenRouter persona probe.
+ *
+ * The reasoning parameters are deliberately omitted: on OpenRouter they route
+ * the Groq endpoint to the `flex` service tier, which rate-limits small bursts
+ * even at a two-second gap. The model still reasons; the adapter reads only the
+ * final content channel, so reasoning never reaches the transcript. The larger
+ * token cap leaves room for reasoning before the spoken reply.
+ */
+export const OPENROUTER_GENERATION_PARAMETERS: OpenAiGenerationOptions = {
+  temperature: 0.6,
+  topP: 0.95,
+  maxCompletionTokens: 2048,
+}
+
 export type OpenRouterRequestTiming = TextRequestTiming
 
 export interface OpenRouterTextModelOptions {
@@ -38,6 +54,8 @@ export interface OpenRouterTextModelOptions {
   readonly now?: () => number
   /** Sent as `X-Title`; OpenRouter uses it for attribution. */
   readonly appName?: string
+  /** Override the fixed generation profile (tests or a probe only). */
+  readonly generation?: OpenAiGenerationOptions
 }
 
 export class OpenRouterTextModelError extends Error {
@@ -85,6 +103,7 @@ export function createOpenRouterTextModel(options: OpenRouterTextModelOptions): 
         now,
         providerName: 'OpenRouter',
         headers: { 'X-Title': options.appName ?? 'role-playing' },
+        generation: options.generation ?? OPENROUTER_GENERATION_PARAMETERS,
         createError: (message, errorOptions) => new OpenRouterTextModelError(message, errorOptions),
       })
     },

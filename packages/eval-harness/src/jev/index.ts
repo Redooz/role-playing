@@ -24,6 +24,15 @@ export { createJevClient } from './client.js'
 export type { JevClient, JevClientOptions } from './client.js'
 
 export {
+  M2_AXES,
+  M2_JEV_GRADER_ID,
+  M2_JEV_RUBRIC_VERSION,
+  M2_JEV_THRESHOLD,
+  createJevAxisGrader,
+} from './grader.js'
+export type { JevAxisGraderOptions, M2Axis } from './grader.js'
+
+export {
   buildEnglishSmokeJudgment,
   buildFrenchSmokeJudgment,
   buildUnsettledSmokeJudgment,

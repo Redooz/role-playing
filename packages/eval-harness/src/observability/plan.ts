@@ -75,6 +75,10 @@ export interface ObservationItem {
   readonly output: {
     readonly status: 'completed' | 'failed'
     readonly finalText?: string
+    /** Full user/persona dialogue in transcript order, for review and labelling. */
+    readonly conversation?: readonly ObservationTurn[]
+    /** Readable rendering of the same dialogue. */
+    readonly transcript?: string
     readonly error?: string
   }
   readonly metadata: Readonly<Record<string, string | number | boolean>>
@@ -113,6 +117,11 @@ export interface BuildObservationPlanOptions {
    * only two tasks and the plan must still be complete without them.
    */
   readonly expectedOutputs?: ReadonlyMap<string, unknown>
+  /**
+   * Include the automated scores on each item. A blind human-labelling export
+   * sets this to `false` so annotators cannot see the model's answers.
+   */
+  readonly includeScores?: boolean
 }
 
 export class ObservationPlanError extends Error {
@@ -145,9 +154,12 @@ export function buildObservationPlan(options: BuildObservationPlanOptions): Obse
     }
 
     const task = requireTask(tasks, trial)
-    const transcript = transcripts.get(itemId)
+    const transcriptFile = transcripts.get(itemId)
     const expectedOutput = options.expectedOutputs?.get(`${trial.lang}:${trial.taskId}`)
-    const trace = buildTrace(task, transcript?.records ?? [])
+    const trace = buildTrace(task, transcriptFile?.records ?? [], result.manifest.provider.label)
+    const readableTranscript = trace.conversation
+      .map((turn) => `${turn.role === 'persona' ? 'Persona' : 'Learner'}: ${turn.text}`)
+      .join('\n')
 
     return {
       itemId,
@@ -159,21 +171,40 @@ export function buildObservationPlan(options: BuildObservationPlanOptions): Obse
         ...(task.content.scenarioBrief === undefined
           ? {}
           : { scenarioBrief: task.content.scenarioBrief }),
-        turns: task.content.turns.map((turn, index) => ({
-          index,
-          role: turn.role,
-          text: turn.text,
-        })),
+        turns:
+          task.mode === 'session' && task.session !== undefined
+            ? task.session.scriptedUserTurns.map((text, index) => ({
+                index,
+                role: 'user' as const,
+                text,
+              }))
+            : task.content.turns.map((turn, index) => ({
+                index,
+                role: turn.role,
+                text: turn.text,
+              })),
       },
       ...(expectedOutput === undefined ? {} : { expectedOutput }),
       output: trial.ok
         ? {
             status: 'completed' as const,
             ...(trace.finalText === undefined ? {} : { finalText: trace.finalText }),
+            ...(trace.conversation.length === 0
+              ? {}
+              : {
+                  conversation: trace.conversation,
+                  transcript: readableTranscript,
+                }),
           }
         : {
             status: 'failed' as const,
             ...(trial.error === undefined ? {} : { error: trial.error }),
+            ...(trace.conversation.length === 0
+              ? {}
+              : {
+                  conversation: trace.conversation,
+                  transcript: readableTranscript,
+                }),
           },
       metadata: {
         round: trial.round,
@@ -199,7 +230,7 @@ export function buildObservationPlan(options: BuildObservationPlanOptions): Obse
         events: trace.events,
         spans: trace.spans,
       },
-      scores: toObservationScores(grade),
+      scores: options.includeScores === false ? [] : toObservationScores(grade),
     }
   })
 
@@ -266,6 +297,7 @@ interface TraceBuild {
   readonly events: readonly ObservationEvent[]
   readonly spans: readonly ObservationSpan[]
   readonly finalText?: string
+  readonly conversation: readonly ObservationTurn[]
 }
 
 interface PersonaState {
@@ -280,15 +312,28 @@ interface PersonaState {
  * Fold the transcript into spans. Simulated timestamps are kept as offsets;
  * the adapter maps them to wall-clock dates at export time.
  */
-function buildTrace(task: TaskEntry, records: readonly TranscriptRecord[]): TraceBuild {
+function buildTrace(
+  task: TaskEntry,
+  records: readonly TranscriptRecord[],
+  sessionProvider: string,
+): TraceBuild {
   const spans: ObservationSpan[] = []
   const events: ObservationEvent[] = []
   const openGrants = new Map<string, number>()
   let lastTurnIndex = -1
   let persona: PersonaState | undefined
   let finalText: string | undefined
+  const conversation: ObservationTurn[] = []
+  const providerLabel = task.mode === 'session' ? sessionProvider : REPLAY_PERSONA_PROVIDER
+  const modelLabel = task.mode === 'session' ? sessionProvider : REPLAY_PERSONA_MODEL
 
   const nextTurn = (role: 'user' | 'persona'): number => {
+    // Session tasks store no replay turns: the transcript is the source of
+    // truth, and turns alternate from the persona greeting onward.
+    if (task.mode === 'session') {
+      lastTurnIndex += 1
+      return lastTurnIndex
+    }
     for (let index = lastTurnIndex + 1; index < task.content.turns.length; index += 1) {
       if (task.content.turns[index]?.role === role) {
         lastTurnIndex = index
@@ -307,6 +352,7 @@ function buildTrace(task: TaskEntry, records: readonly TranscriptRecord[]): Trac
       case 'user.utterance.committed': {
         const index = nextTurn('user')
         const text = readText(record.payload)
+        conversation.push({ index: conversation.length, role: 'user', text })
         spans.push({
           id: `turn-${index}-user`,
           name: `turn ${index} user`,
@@ -332,7 +378,7 @@ function buildTrace(task: TaskEntry, records: readonly TranscriptRecord[]): Trac
           metadata: {
             turnId: grant.turnId,
             personaId: grant.personaId,
-            provider: REPLAY_PERSONA_PROVIDER,
+            provider: providerLabel,
           },
           events: [
             {
@@ -373,6 +419,7 @@ function buildTrace(task: TaskEntry, records: readonly TranscriptRecord[]): Trac
         if (persona === undefined) break
         const text = readText(record.payload)
         finalText = text
+        conversation.push({ index: conversation.length, role: 'persona', text })
         spans.push({
           id: `generation-${persona.turnIndex}`,
           parentId: `turn-${persona.turnIndex}-persona`,
@@ -382,9 +429,9 @@ function buildTrace(task: TaskEntry, records: readonly TranscriptRecord[]): Trac
           endMs: atMs,
           input: requestMessages(task, persona.turnIndex),
           output: text,
-          model: REPLAY_PERSONA_MODEL,
+          model: modelLabel,
           metadata: {
-            provider: REPLAY_PERSONA_PROVIDER,
+            provider: providerLabel,
             grantId: persona.grantId,
           },
           events: [],
@@ -407,9 +454,9 @@ function buildTrace(task: TaskEntry, records: readonly TranscriptRecord[]): Trac
           endMs: atMs,
           input: requestMessages(task, persona.turnIndex),
           ...(partialText === '' ? {} : { output: partialText }),
-          model: REPLAY_PERSONA_MODEL,
+          model: modelLabel,
           metadata: {
-            provider: REPLAY_PERSONA_PROVIDER,
+            provider: providerLabel,
             grantId: persona.grantId,
             cancelled: true,
           },
@@ -469,6 +516,7 @@ function buildTrace(task: TaskEntry, records: readonly TranscriptRecord[]): Trac
     events,
     spans,
     ...(finalText === undefined ? {} : { finalText }),
+    conversation,
   }
 }
 

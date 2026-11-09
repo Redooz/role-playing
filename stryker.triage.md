@@ -61,6 +61,24 @@ before a test can fail; Stryker reports this as a `RuntimeError`. They are not
 survivors and are excluded from both scores. The payload-coverage test still
 asserts one valid and one invalid payload for every event.
 
+### M2 scope note
+
+The default Stryker scope remains `session-core`, `pipeline` and the two CLI
+files. `packages/pipeline/src/**` now also mutates the plain-text adapter and
+the LiveKit Inference adapter. `persona-kit`, `scenario-kit`,
+`shared/plain-text`, `shared/locale` and `apps/cli/main.ts` are covered by unit
+tests but are **not yet** part of the mutation floor: adding them measures below
+the existing global floor. That is a documented gap, not permission to lower
+the floor. Add tests first, then extend the scope and record a new measured
+baseline.
+
+The greeting/locale paths in `driver.ts` are in scope. The remaining survivors
+there are diagnostics, unreachable race guards after an awaited interrupt, the
+one-element trim fast path, and optional iterator-close defences; the behaviour
+itself is covered by the greeting, trimming and failure tests. `events.ts`
+survivors are schema-diagnostic strings except the payload-coverage test, which
+now parses one valid event of every kind.
+
 ### Known limits
 
 - Survivors outside `driver.ts` are recorded by the frozen per-package floor,

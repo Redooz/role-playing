@@ -4,6 +4,8 @@ coverage/
 package-lock.json
 docs/
 .agents/
+.stryker-tmp/
+reports/
 evals/results/
 evals/.cache/
 *.tsbuildinfo

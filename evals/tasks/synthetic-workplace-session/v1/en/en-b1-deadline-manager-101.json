@@ -1,0 +1,42 @@
+{
+  "id": "en-b1-deadline-manager-101",
+  "lang": "en",
+  "locale": "en",
+  "mode": "session",
+  "domain": "workplace",
+  "scenarioType": "request-deadline-extension",
+  "cefrBand": "B1",
+  "speakerId": "syn-en-session-cal-01",
+  "split": "calibration",
+  "provenance": {
+    "source": "synthetic"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "rubric": "m2-persona-rubric-v1",
+    "annotationGuideline": "m2-annotation-guideline-v1"
+  },
+  "content": {
+    "scenarioBrief": "A junior analyst asks their manager for a two-day extension on a quarterly report due on Friday.",
+    "turns": []
+  },
+  "session": {
+    "personaId": "manager",
+    "personaVersion": "1.0.0",
+    "scenarioId": "request-deadline-extension",
+    "scenarioVersion": "1.0.0",
+    "scriptedUserTurns": [
+      "I'm still working on the quarterly report, and I'm worried about the Friday deadline. Could I have two more days?",
+      "The sales figures are late, and I still need to write the summary. I could send the headline numbers on Friday and the full draft on Monday.",
+      "Would Monday afternoon work for you? I want to make sure the board pack is not affected.",
+      "Thanks. I'll send the headline numbers by Friday noon and the final draft on Monday."
+    ],
+    "recordedPersonaTurns": [
+      "Morning. Before we dive in, how is the quarterly report coming along?",
+      "Two more days is more than I expected. What is still missing?",
+      "Send me the headline numbers on Friday and the full draft on Monday afternoon. That works.",
+      "Good. I will keep the board pack in mind. Send the numbers by noon on Friday.",
+      "Agreed. Friday noon for the numbers, Monday afternoon for the final draft."
+    ]
+  }
+}

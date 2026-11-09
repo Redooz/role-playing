@@ -1,0 +1,42 @@
+{
+  "id": "fr-b2-point-matin-peer-102",
+  "lang": "fr",
+  "locale": "fr",
+  "mode": "session",
+  "domain": "workplace",
+  "scenarioType": "clarify-task-in-standup",
+  "cefrBand": "B2",
+  "speakerId": "syn-fr-session-cal-02",
+  "split": "calibration",
+  "provenance": {
+    "source": "synthetic"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "rubric": "m2-persona-rubric-v1",
+    "annotationGuideline": "m2-annotation-guideline-v1"
+  },
+  "content": {
+    "scenarioBrief": "Un collègue demande des précisions sur les critères d’acceptation de PAY-214 après le point du matin.",
+    "turns": []
+  },
+  "session": {
+    "personaId": "peer",
+    "personaVersion": "1.0.0",
+    "scenarioId": "clarify-task-in-standup",
+    "scenarioVersion": "1.0.0",
+    "scriptedUserTurns": [
+      "Je ne suis pas sûr d’avoir compris les critères d’acceptation de PAY-214. Tu peux préciser ce qui compte comme terminé ?",
+      "Donc un paiement qui échoue deux fois doit être retenté automatiquement, mais seulement avant la démonstration ? Et après ?",
+      "Est-ce que je dois aussi afficher le nombre de tentatives dans l’interface, ou c’est hors périmètre pour jeudi ?",
+      "D’accord. Je mets en place les nouvelles tentatives automatiques avant la démonstration et je garde le compteur en interne pour l’instant."
+    ],
+    "recordedPersonaTurns": [
+      "Salut, tu tombes bien. Qu’est-ce qui n’est pas clair dans le ticket ?",
+      "Oui, nouvelle tentative après deux échecs, mais seulement jusqu’à la démonstration. Après, on garde le comportement actuel.",
+      "Garde le compteur en interne pour l’instant. On pourra l’afficher après jeudi.",
+      "Exactement. Les tentatives avant la démonstration, le compteur reste interne.",
+      "Parfait, c’est le plan. Dis-moi si le contrat d’API te bloque."
+    ]
+  }
+}

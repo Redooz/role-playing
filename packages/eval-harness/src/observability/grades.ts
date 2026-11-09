@@ -11,6 +11,7 @@ import {
 import { z } from 'zod'
 import type { EvaluationRun, TrialTranscriptFile } from '../runner/runner.js'
 import type { TrialOutcome } from '../runner/results.js'
+import type { SemanticGrade } from '../runner/grader.js'
 import type { TaskEntry } from '../tasks/schema.js'
 import { deriveExecutionId } from './execution-id.js'
 
@@ -114,12 +115,50 @@ export function buildGrades(options: BuildGradesOptions): GradesArtifact {
   const records = execution.result.trials.map((trial) =>
     buildTrialGrade({ execution, executionId, trial, task: requireTask(tasks, trial) }),
   )
+  const merged = mergeSemanticGrades(records, execution.gradeDetails)
 
   return {
     executionId,
-    records,
-    jsonl: gradesJsonl(records),
+    records: merged,
+    jsonl: gradesJsonl(merged),
   }
+}
+
+/**
+ * Attach raw semantic judgments to the matching per-trial record. They are
+ * numeric probabilities with the full distribution; no boolean label replaces
+ * the model's answer.
+ */
+function mergeSemanticGrades(
+  records: readonly TrialGrade[],
+  details: readonly SemanticGrade[],
+): readonly TrialGrade[] {
+  if (details.length === 0) return records
+
+  const byTrial = new Map<string, GradeScore[]>()
+  for (const detail of details) {
+    const scores = byTrial.get(detail.trialId) ?? []
+    scores.push({
+      metric: detail.metric,
+      kind: 'numeric',
+      value: detail.probability,
+      status: 'graded',
+      evidence: `${detail.axis} judged by ${detail.servedModel}${detail.cacheHit ? ' (cache hit)' : ''}`,
+      raw: {
+        question: detail.question,
+        answer: detail.probability >= detail.threshold ? 'yes' : 'no',
+        probability: detail.probability,
+        distribution: { ...detail.distribution },
+      },
+    })
+    byTrial.set(detail.trialId, scores)
+  }
+
+  return records.map((record) => {
+    const extra = byTrial.get(record.trialId)
+    if (extra === undefined) return record
+    return trialGradeSchema.parse({ ...record, scores: [...record.scores, ...extra] })
+  })
 }
 
 export function gradesJsonl(records: readonly TrialGrade[]): string {

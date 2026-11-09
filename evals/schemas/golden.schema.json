@@ -10,11 +10,28 @@
       "type": "string",
       "enum": ["en", "fr"]
     },
+    "locale": {
+      "type": "string",
+      "minLength": 2
+    },
     "split": {
       "type": "string",
       "enum": ["calibration", "holdout"]
     },
     "taskId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "runId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "round": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "trialId": {
       "type": "string",
       "minLength": 1
     },

@@ -7,5 +7,7 @@
  */
 
 export * from './groq-text.adapter.js'
+export * from './livekit-inference.adapter.js'
 export * from './openai-compatible.js'
 export * from './openrouter-text.adapter.js'
+export * from './plain-text.adapter.js'

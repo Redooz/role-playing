@@ -1,0 +1,42 @@
+{
+  "id": "en-gb-b1-deadline-manager-101",
+  "lang": "en",
+  "locale": "en-GB",
+  "mode": "session",
+  "domain": "workplace",
+  "scenarioType": "request-deadline-extension",
+  "cefrBand": "B1",
+  "speakerId": "syn-en-gb-session-cal-01",
+  "split": "calibration",
+  "provenance": {
+    "source": "synthetic"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "rubric": "m2-persona-rubric-v1",
+    "annotationGuideline": "m2-annotation-guideline-v1"
+  },
+  "content": {
+    "scenarioBrief": "A junior analyst asks their manager for a two-day extension on a quarterly report due on Friday.",
+    "turns": []
+  },
+  "session": {
+    "personaId": "manager",
+    "personaVersion": "1.0.0",
+    "scenarioId": "request-deadline-extension",
+    "scenarioVersion": "1.0.0",
+    "scriptedUserTurns": [
+      "I'm still working on the quarterly report and I'm a little concerned about Friday. Could I have two more days, please?",
+      "The sales figures haven't come through yet and I still need to write the summary. I could get the headline figures over to you on Friday and send the full draft on Monday.",
+      "Would Monday afternoon suit you? I want to make sure the board pack is not held up.",
+      "Thank you. I'll get the headline figures to you by Friday midday and the final draft on Monday."
+    ],
+    "recordedPersonaTurns": [
+      "Morning. How is the quarterly report coming along?",
+      "Two more days is more than I anticipated. What is still outstanding?",
+      "Send the headline figures on Friday and the full draft on Monday afternoon. That should work.",
+      "Understood. I will make sure the board pack is not held up. Friday midday for the figures.",
+      "Agreed. Friday midday for the figures, Monday afternoon for the final draft."
+    ]
+  }
+}

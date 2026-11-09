@@ -1,9 +1,14 @@
 import { readFile } from 'node:fs/promises'
 import type { TextRequestTiming } from '@rp/pipeline'
 import {
+  GROQ_BASE_URL,
   GROQ_PERSONA_MODEL,
+  LIVEKIT_GEMMA_MODEL,
+  LIVEKIT_INFERENCE_DEFAULT_BASE_URL,
+  OPENROUTER_BASE_URL,
   OPENROUTER_PROBE_MODEL,
   createGroqTextModel,
+  createLiveKitInferenceTextModel,
   createOpenRouterTextModel,
 } from '@rp/pipeline'
 import type { TextModelChunk, TextModelPort } from '@rp/session-core'
@@ -22,9 +27,10 @@ import {
  * M1 text latency bench (D5 / gate M1-G4).
  *
  * Runs only under the `bench` Vitest project. The default is the M1 baseline:
- * live Groq `openai/gpt-oss-20b`. Set `LATENCY_PROVIDER=openrouter` and
- * `LATENCY_MODEL=<id>` to measure a comparison model; that run is written to
- * the probe path and never overwrites the baseline.
+ * live Groq `openai/gpt-oss-20b`. Set `LATENCY_PROVIDER=openrouter` or
+ * `LATENCY_PROVIDER=livekit` and `LATENCY_MODEL=<id>` to measure a comparison
+ * model; that run is written to the probe path and never overwrites the
+ * baseline.
  *
  * Defaults: 20 sessions × 5 turns = 100 measured turns, plus one warmup turn.
  * `LATENCY_SESSIONS` / `LATENCY_TURNS_PER_SESSION` override the size;
@@ -32,12 +38,14 @@ import {
  * gap between requests (the Groq free tier allows 8,000 tokens/minute).
  */
 
-type Provider = 'groq' | 'openrouter'
+type Provider = 'groq' | 'openrouter' | 'livekit'
 
 function resolveProvider(): Provider {
   const raw = process.env['LATENCY_PROVIDER'] ?? 'groq'
-  if (raw !== 'groq' && raw !== 'openrouter') {
-    throw new RangeError(`LATENCY_PROVIDER must be "groq" or "openrouter", received: ${raw}`)
+  if (raw !== 'groq' && raw !== 'openrouter' && raw !== 'livekit') {
+    throw new RangeError(
+      `LATENCY_PROVIDER must be "groq", "openrouter" or "livekit", received: ${raw}`,
+    )
   }
   return raw
 }
@@ -55,10 +63,21 @@ function positiveInteger(name: string, fallback: number): number {
 const PROVIDER = resolveProvider()
 const MODEL =
   process.env['LATENCY_MODEL'] ??
-  (PROVIDER === 'groq' ? GROQ_PERSONA_MODEL : OPENROUTER_PROBE_MODEL)
-const KEY_NAME = PROVIDER === 'groq' ? 'GROQ_API_KEY' : 'OPENROUTER_API_KEY'
-const apiKey = process.env[KEY_NAME]
-const hasKey = apiKey !== undefined && apiKey.trim() !== ''
+  (PROVIDER === 'groq'
+    ? GROQ_PERSONA_MODEL
+    : PROVIDER === 'livekit'
+      ? LIVEKIT_GEMMA_MODEL
+      : OPENROUTER_PROBE_MODEL)
+const CREDENTIAL_NAMES =
+  PROVIDER === 'groq'
+    ? ['GROQ_API_KEY']
+    : PROVIDER === 'livekit'
+      ? ['LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET']
+      : ['OPENROUTER_API_KEY']
+const hasKey = CREDENTIAL_NAMES.every((name) => {
+  const value = process.env[name]
+  return value !== undefined && value.trim() !== ''
+})
 const describeLive = hasKey ? describe : describe.skip
 
 const SESSIONS = positiveInteger('LATENCY_SESSIONS', 20)
@@ -67,15 +86,30 @@ const WARMUP = process.env['LATENCY_SKIP_WARMUP'] === '1' ? 0 : 1
 const THROTTLE_MS = positiveInteger('LATENCY_THROTTLE_MS', 3000)
 
 const IS_BASELINE = PROVIDER === 'groq' && MODEL === GROQ_PERSONA_MODEL
-const SUITE = IS_BASELINE ? 'm1-text-latency' : `m1-text-latency-probe-${modelSlug(MODEL)}`
+const SUITE = IS_BASELINE
+  ? 'm1-text-latency'
+  : `m1-text-latency-probe-${PROVIDER}-${modelSlug(MODEL)}`
 const REPORT_PATH = IS_BASELINE
   ? DEFAULT_TEXT_LATENCY_REPORT_PATH
-  : probeTextLatencyReportPath(MODEL)
+  : probeTextLatencyReportPath(MODEL, PROVIDER)
 const NOTE = IS_BASELINE
   ? 'Wall-clock text proxy: session start -> first text chunk. No audio exists in M1. No latency budget is frozen.'
   : `Comparison probe on ${PROVIDER} ${MODEL}. Not the M1 baseline; the product persona model remains Groq ${GROQ_PERSONA_MODEL}. Wall-clock text proxy; no budget is frozen.`
 
 const PROMPT = 'Reply with exactly one word: ok.'
+
+function requireEnv(name: string): string {
+  const value = process.env[name]
+  if (value === undefined || value.trim() === '') {
+    throw new Error(`${name} is required for the ${PROVIDER} latency probe`)
+  }
+  return value
+}
+
+function optionalEnv(name: string): string | undefined {
+  const value = process.env[name]?.trim()
+  return value === undefined || value === '' ? undefined : value
+}
 
 function captureErrors(base: TextModelPort, errors: unknown[]): TextModelPort {
   return {
@@ -105,22 +139,37 @@ function captureErrors(base: TextModelPort, errors: unknown[]): TextModelPort {
   }
 }
 
-function createFactory(key: string) {
+function createModel(onTiming: (timing: TextRequestTiming) => void): TextModelPort {
+  if (PROVIDER === 'groq') {
+    return createGroqTextModel({
+      apiKey: requireEnv('GROQ_API_KEY'),
+      baseUrl: optionalEnv('GROQ_BASE_URL') ?? GROQ_BASE_URL,
+      onTiming,
+    })
+  }
+  if (PROVIDER === 'livekit') {
+    return createLiveKitInferenceTextModel({
+      apiKey: requireEnv('LIVEKIT_API_KEY'),
+      apiSecret: requireEnv('LIVEKIT_API_SECRET'),
+      model: MODEL,
+      baseUrl: optionalEnv('LIVEKIT_INFERENCE_URL') ?? LIVEKIT_INFERENCE_DEFAULT_BASE_URL,
+      onTiming,
+    })
+  }
+  return createOpenRouterTextModel({
+    apiKey: requireEnv('OPENROUTER_API_KEY'),
+    model: MODEL,
+    baseUrl: optionalEnv('OPENROUTER_BASE_URL') ?? OPENROUTER_BASE_URL,
+    appName: 'role-playing-latency-bench',
+    onTiming,
+  })
+}
+
+function createFactory() {
   return () => {
     const timings: TextRequestTiming[] = []
     const errors: unknown[] = []
-    const base =
-      PROVIDER === 'groq'
-        ? createGroqTextModel({
-            apiKey: key,
-            onTiming: (timing) => timings.push(timing),
-          })
-        : createOpenRouterTextModel({
-            apiKey: key,
-            model: MODEL,
-            appName: 'role-playing-latency-bench',
-            onTiming: (timing) => timings.push(timing),
-          })
+    const base = createModel((timing) => timings.push(timing))
     const model = captureErrors(base, errors)
     return { model, timings, errors }
   }
@@ -128,8 +177,7 @@ function createFactory(key: string) {
 
 describeLive(`M1 text latency (${PROVIDER}/${MODEL})`, () => {
   it('measures at least 100 turns and writes the report', { timeout: 20 * 60_000 }, async () => {
-    const key = apiKey as string
-    const factory = createFactory(key)
+    const factory = createFactory()
     const measuredTurns = SESSIONS * TURNS_PER_SESSION
 
     if (WARMUP > 0) {
@@ -192,6 +240,6 @@ describeLive(`M1 text latency (${PROVIDER}/${MODEL})`, () => {
 
 if (!hasKey) {
   console.warn(
-    `M1 text latency bench skipped: ${KEY_NAME} is not set. Add it to .env and rerun npm run test:bench.`,
+    `M1 text latency bench skipped: ${CREDENTIAL_NAMES.join(' and ')} not set. Add them to .env and rerun npm run test:bench.`,
   )
 }

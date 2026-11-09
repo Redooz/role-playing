@@ -60,6 +60,41 @@ describe('buildObservationPlan', () => {
     expect(plan.items).toHaveLength(12)
   })
 
+  it('maps a session transcript without replay turns', async () => {
+    const sessionManifest = JSON.parse(
+      readFileSync(join(repoRoot, 'evals/manifests/m2-persona-replay.json'), 'utf8'),
+    ) as Record<string, unknown>
+    const sessionExecution = await executeRun({
+      repoRoot,
+      manifest: sessionManifest,
+      wallClock: fixedWallClock,
+    })
+    const sessionGrades = buildGrades({ execution: sessionExecution }).records
+    const sessionPlan = buildObservationPlan({
+      execution: sessionExecution,
+      grades: sessionGrades,
+    })
+
+    expect(sessionPlan.items).toHaveLength(12)
+    const item = sessionPlan.items[0]
+    expect(item?.itemId).toMatch(/^0:(en|fr):/)
+    expect(item?.input.turns.length).toBeGreaterThan(0)
+    expect(item?.input.turns.every((turn) => turn.role === 'user')).toBe(true)
+    expect(item?.output.conversation).toBeDefined()
+    expect(item?.output.conversation?.length).toBeGreaterThan(1)
+    expect(item?.output.conversation?.[0]?.role).toBe('persona')
+    expect(item?.output.transcript).toContain('Persona:')
+    expect(item?.output.transcript).toContain('Learner:')
+    const personaSpans = item?.trace.spans.filter((span) => span.name.includes(' persona')) ?? []
+    const userSpans = item?.trace.spans.filter((span) => span.name.includes(' user')) ?? []
+    expect(personaSpans).toHaveLength(userSpans.length + 1)
+    expect(
+      item?.trace.spans
+        .filter((span) => span.type === 'generation')
+        .every((span) => span.model === 'm2-persona-canned-v1'),
+    ).toBe(true)
+  })
+
   it('uses a stable item id per round, language and task', () => {
     const ids = plan.items.map((item) => item.itemId).sort()
     expect(ids).toContain(`0:en:${targetTask}`)

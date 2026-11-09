@@ -116,12 +116,21 @@ describe('text session CLI', () => {
       provider: { kind: 'canned', label: 'canned/demo' },
       log,
       logPath: 'sessions/session-1.jsonl',
+      selection: {
+        personaId: 'manager',
+        personaName: 'Katherine Brooks',
+        scenarioId: 'request-deadline-extension',
+        locale: 'en-GB',
+      },
     })
 
     const output = io.text()
     expect(output).toContain('provider: canned (canned/demo)')
     expect(output).toContain('session: session-1')
     expect(output).toContain('log: sessions/session-1.jsonl')
+    expect(output).toContain(
+      'persona: Katherine Brooks (manager), scenario: request-deadline-extension, locale: en-GB',
+    )
     expect(output).toContain('you> hello')
     expect(output).toContain('persona> Hello there')
     expect(events.map((event) => event.type)).toEqual([

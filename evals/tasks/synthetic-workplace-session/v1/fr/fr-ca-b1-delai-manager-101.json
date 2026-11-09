@@ -1,0 +1,42 @@
+{
+  "id": "fr-ca-b1-delai-manager-101",
+  "lang": "fr",
+  "locale": "fr-CA",
+  "mode": "session",
+  "domain": "workplace",
+  "scenarioType": "request-deadline-extension",
+  "cefrBand": "B1",
+  "speakerId": "syn-fr-ca-session-cal-01",
+  "split": "calibration",
+  "provenance": {
+    "source": "synthetic"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "rubric": "m2-persona-rubric-v1",
+    "annotationGuideline": "m2-annotation-guideline-v1"
+  },
+  "content": {
+    "scenarioBrief": "Une analyste junior demande à sa responsable deux jours de plus pour un rapport trimestriel attendu vendredi.",
+    "turns": []
+  },
+  "session": {
+    "personaId": "manager",
+    "personaVersion": "1.0.0",
+    "scenarioId": "request-deadline-extension",
+    "scenarioVersion": "1.0.0",
+    "scriptedUserTurns": [
+      "Je travaille encore sur le rapport trimestriel et je m’inquiète de l’échéancier de vendredi. Est-ce que je pourrais avoir deux jours de plus ?",
+      "Les chiffres de l’équipe des ventes sont en retard et je dois encore rédiger la synthèse. Je pourrais vous envoyer les chiffres préliminaires vendredi et la version complète lundi.",
+      "Est-ce que lundi après-midi vous conviendrait ? Je veux m’assurer de ne pas retarder le dossier du conseil.",
+      "Merci. Je vous envoie les chiffres préliminaires vendredi midi et la version finale lundi."
+    ],
+    "recordedPersonaTurns": [
+      "Bonjour. Où en est le rapport trimestriel ?",
+      "Deux jours, c’est plus que prévu. Qu’est-ce qui reste à faire ?",
+      "Envoyez-moi les chiffres préliminaires vendredi et la version complète lundi après-midi. Ça me convient.",
+      "Très bien. Je garde le dossier du conseil en tête. Les chiffres vendredi midi.",
+      "D’accord. Vendredi midi pour les chiffres, lundi après-midi pour la version finale."
+    ]
+  }
+}

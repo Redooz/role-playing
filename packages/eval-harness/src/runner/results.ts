@@ -107,6 +107,22 @@ export const runSummarySchema = z.strictObject({
 
 export type RunSummary = z.infer<typeof runSummarySchema>
 
+export const taskPassMetricSchema = z.strictObject({
+  lang: z.string().min(1),
+  taskId: z.string().min(1),
+  trials: z.int().nonnegative(),
+  successes: z.int().nonnegative(),
+  pass1: z.number().finite().min(0).max(1),
+  passK: z.number().finite().min(0).max(1).optional(),
+})
+
+export const passMetricsSchema = z.strictObject({
+  k: z.int().positive(),
+  pass1: z.number().finite().min(0).max(1),
+  passK: z.number().finite().min(0).max(1).optional(),
+  tasks: z.array(taskPassMetricSchema),
+})
+
 export const runResultSchema = z
   .strictObject({
     schemaVersion: z.literal(RUN_RESULT_SCHEMA_VERSION),
@@ -118,6 +134,8 @@ export const runResultSchema = z
     /** Per-axis measurements. No composite score exists on purpose. */
     metrics: metricReadingsSchema,
     invariants: z.array(invariantResultSchema),
+    /** Reliability view over the same trials; reported with pass^1, never alone. */
+    passMetrics: passMetricsSchema.optional(),
     trials: z.array(trialOutcomeSchema),
     transcripts: z.array(transcriptArtifactSchema),
     summary: runSummarySchema,

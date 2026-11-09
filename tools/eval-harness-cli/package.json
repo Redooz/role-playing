@@ -21,6 +21,7 @@
     "@opentelemetry/sdk-node": "0.211.0",
     "@opentelemetry/sdk-trace-base": "2.5.0",
     "@rp/eval-harness": "*",
+    "@rp/pipeline": "*",
     "@rp/session-core": "*",
     "@rp/shared": "*",
     "zod": "^4.6.7"

@@ -1,6 +1,9 @@
 import type { Dirent } from 'node:fs'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
+import { baseLanguageOfLocale } from '@rp/shared'
+import { PERSONAS_BY_ID, personaVariant } from '@rp/persona-kit'
+import { SCENARIOS_BY_ID, scenarioVariant, type ScenarioVariant } from '@rp/scenario-kit'
 import {
   taskEntrySchema,
   goldenEntrySchema,
@@ -53,11 +56,17 @@ export type ViolationCode =
   | 'MISSING_CONSENT_SCOPE'
   | 'MISSING_ANNOTATION_VERSIONS'
   | 'LANG_PATH_MISMATCH'
+  | 'LOCALE_PATH_MISMATCH'
   | 'DUPLICATE_ID'
   | 'SPLIT_LEAKAGE'
   | 'GOLDEN_AGREEMENT_MISSING'
   | 'GOLDEN_TASK_MISSING'
   | 'GOLDEN_TASK_SPLIT_MISMATCH'
+  | 'GOLDEN_LOCALE_MISMATCH'
+  | 'SESSION_REFERENCE_MISSING'
+  | 'SESSION_VERSION_MISMATCH'
+  | 'SESSION_LOCALE_MISSING'
+  | 'SESSION_PERSONA_MISMATCH'
 
 export interface TaskViolation {
   /** Path relative to `rootDir`, always with `/` separators. */
@@ -142,9 +151,16 @@ export async function validateTaskTree(rootDir: string): Promise<TaskViolation[]
       })
     }
 
-    registerId(ids, `${location.scope}\u0000${entry.id}`, entry.id, location.scope, path)
+    registerId(
+      ids,
+      `${location.scope}\u0000${entry.locale ?? entry.lang}\u0000${entry.id}`,
+      entry.id,
+      `${location.scope}/${entry.locale ?? entry.lang}`,
+      path,
+    )
     registerSpeaker(speakers, location.scope, entry.speakerId, path, entry.split)
     registerTaskForGolden(tasksByLangVersion, location, entry, path)
+    checkSessionReferences(entry, path, violations)
   }
 
   for (const path of goldenFiles) {
@@ -198,7 +214,13 @@ export async function validateTaskTree(rootDir: string): Promise<TaskViolation[]
       })
     }
 
-    registerId(ids, `${location.scope}\u0000${entry.id}`, entry.id, location.scope, path)
+    registerId(
+      ids,
+      `${location.scope}\u0000${entry.locale ?? entry.lang}\u0000${entry.id}`,
+      entry.id,
+      `${location.scope}/${entry.locale ?? entry.lang}`,
+      path,
+    )
     checkGoldenTaskLink(entry, location, path, tasksByLangVersion, violations)
   }
 
@@ -385,8 +407,8 @@ function registerId(
   }
 }
 
-function taskLinkKey(lang: Lang, version: string, taskId: string): string {
-  return `${lang}\u0000${version}\u0000${taskId}`
+function taskLinkKey(lang: Lang, version: string, locale: string, taskId: string): string {
+  return `${lang}\u0000${version}\u0000${locale}\u0000${taskId}`
 }
 
 function registerTaskForGolden(
@@ -395,7 +417,7 @@ function registerTaskForGolden(
   entry: TaskEntry,
   path: string,
 ): void {
-  const key = taskLinkKey(entry.lang, location.version, entry.id)
+  const key = taskLinkKey(entry.lang, location.version, entry.locale ?? entry.lang, entry.id)
   const records = tasks.get(key)
   if (records === undefined) {
     tasks.set(key, [{ split: entry.split, path }])
@@ -404,7 +426,7 @@ function registerTaskForGolden(
   }
 }
 
-/** A golden link must resolve to a task in the same language/version and split. */
+/** A golden link must resolve to a task in the same language/version/locale and split. */
 function checkGoldenTaskLink(
   entry: GoldenEntry,
   location: GoldenLocation,
@@ -412,14 +434,23 @@ function checkGoldenTaskLink(
   tasks: Map<string, { split: Split; path: string }[]>,
   violations: TaskViolation[],
 ): void {
+  if (entry.locale !== undefined && baseLanguageOfLocale(entry.locale) !== location.lang) {
+    violations.push({
+      path,
+      code: 'GOLDEN_LOCALE_MISMATCH',
+      message: `entry locale "${entry.locale}" does not match path language "${location.lang}"`,
+    })
+  }
+
   if (entry.taskId === undefined) return
 
-  const records = tasks.get(taskLinkKey(location.lang, location.version, entry.taskId))
+  const locale = entry.locale ?? location.lang
+  const records = tasks.get(taskLinkKey(location.lang, location.version, locale, entry.taskId))
   if (records === undefined || records.length === 0) {
     violations.push({
       path,
       code: 'GOLDEN_TASK_MISSING',
-      message: `taskId "${entry.taskId}" does not resolve to a task with lang "${location.lang}" and version "${location.version}"`,
+      message: `taskId "${entry.taskId}" does not resolve to a task with lang "${location.lang}", locale "${locale}" and version "${location.version}"`,
     })
     return
   }
@@ -430,6 +461,76 @@ function checkGoldenTaskLink(
       path,
       code: 'GOLDEN_TASK_SPLIT_MISMATCH',
       message: `golden entry split "${entry.split}" does not match task "${entry.taskId}" split (${splits})`,
+    })
+  }
+}
+
+function checkSessionReferences(entry: TaskEntry, path: string, violations: TaskViolation[]): void {
+  const session = entry.session
+  if (entry.mode !== 'session' || session === undefined) return
+
+  const locale = entry.locale ?? entry.lang
+  const persona = PERSONAS_BY_ID.get(session.personaId)
+  if (persona === undefined) {
+    violations.push({
+      path,
+      code: 'SESSION_REFERENCE_MISSING',
+      message: `personaId "${session.personaId}" does not resolve to a registered persona`,
+    })
+  } else {
+    if (persona.version !== session.personaVersion) {
+      violations.push({
+        path,
+        code: 'SESSION_VERSION_MISMATCH',
+        message: `persona "${persona.id}" is version "${persona.version}", not "${session.personaVersion}"`,
+      })
+    }
+    try {
+      personaVariant(persona, locale)
+    } catch {
+      violations.push({
+        path,
+        code: 'SESSION_LOCALE_MISSING',
+        message: `persona "${persona.id}" has no variant for locale "${locale}"`,
+      })
+    }
+  }
+
+  const scenario = SCENARIOS_BY_ID.get(session.scenarioId)
+  if (scenario === undefined) {
+    violations.push({
+      path,
+      code: 'SESSION_REFERENCE_MISSING',
+      message: `scenarioId "${session.scenarioId}" does not resolve to a registered scenario`,
+    })
+    return
+  }
+
+  if (scenario.version !== session.scenarioVersion) {
+    violations.push({
+      path,
+      code: 'SESSION_VERSION_MISMATCH',
+      message: `scenario "${scenario.id}" is version "${scenario.version}", not "${session.scenarioVersion}"`,
+    })
+  }
+
+  let variant: ScenarioVariant
+  try {
+    variant = scenarioVariant(scenario, locale)
+  } catch {
+    violations.push({
+      path,
+      code: 'SESSION_LOCALE_MISSING',
+      message: `scenario "${scenario.id}" has no variant for locale "${locale}"`,
+    })
+    return
+  }
+
+  if (!variant.personaIds.includes(session.personaId)) {
+    violations.push({
+      path,
+      code: 'SESSION_PERSONA_MISMATCH',
+      message: `scenario "${scenario.id}" does not include persona "${session.personaId}"`,
     })
   }
 }

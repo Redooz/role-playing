@@ -1,0 +1,118 @@
+{
+  "schemaVersion": "3.0.0",
+  "run": {
+    "runId": "m2-persona-scenarios-lk",
+    "suite": "m2-persona-scenarios",
+    "purpose": "capability",
+    "description": "Default LiveKit Inference google/gemma-4-31b-it capability run using the Gemma prompt pack. Semantic gate provisional until human agreement."
+  },
+  "tasks": {
+    "dataset": "synthetic-workplace-session",
+    "version": "v1",
+    "languages": ["en", "fr"],
+    "splits": ["calibration"]
+  },
+  "seeds": {
+    "master": 20261108,
+    "algorithm": "mulberry32"
+  },
+  "grader": {
+    "id": "jev",
+    "kind": "system-one-model",
+    "version": "typesafe/jev-1.14",
+    "model": "typesafe/jev-1.14"
+  },
+  "rubric": {
+    "version": "m2-persona-rubric-v1",
+    "ids": ["m2-persona-rubric-v1"]
+  },
+  "limits": {
+    "rounds": 5,
+    "maxFailureRate": 0.1
+  },
+  "target": {
+    "metric": "persona.consistency",
+    "direction": "increase",
+    "minimumDetectableEffect": 0.1
+  },
+  "guardrails": [
+    {
+      "metric": "language.quality",
+      "direction": "increase",
+      "tolerance": 0.05
+    },
+    {
+      "metric": "register.fit",
+      "direction": "increase",
+      "tolerance": 0.05
+    },
+    {
+      "metric": "response.clarity",
+      "direction": "increase",
+      "tolerance": 0.05
+    },
+    {
+      "metric": "objective.completion",
+      "direction": "increase",
+      "tolerance": 0.05
+    },
+    {
+      "metric": "response.plain_text_rate",
+      "direction": "increase",
+      "tolerance": 0
+    },
+    {
+      "metric": "response.emoji_count",
+      "direction": "decrease",
+      "tolerance": 0
+    },
+    {
+      "metric": "response.markdown_count",
+      "direction": "decrease",
+      "tolerance": 0
+    },
+    {
+      "metric": "run.failure_rate",
+      "direction": "decrease",
+      "tolerance": 0.05
+    }
+  ],
+  "invariants": [
+    "transcript.schema_valid",
+    "transcript.guard_clean",
+    "transcript.seq_monotonic",
+    "transcript.content_class",
+    "response.plain_text"
+  ],
+  "provider": {
+    "mode": "live",
+    "label": "livekit/google/gemma-4-31b-it",
+    "allowLive": true,
+    "paceMs": 1000
+  },
+  "prompt": {
+    "version": "m2-prompt-gemma-v1",
+    "mode": "persona",
+    "currentDate": "2026-11-08",
+    "parameters": {
+      "temperature": 0.6,
+      "topP": 0.95,
+      "maxCompletionTokens": 1024
+    },
+    "style": "gemma"
+  },
+  "baseline": {
+    "runId": "m2-persona-baseline-lk",
+    "metrics": {
+      "persona.consistency": 0.295667,
+      "language.quality": 0.840333,
+      "register.fit": 0.707,
+      "response.clarity": 0.887333,
+      "objective.completion": 0.748,
+      "response.plain_text_rate": 1,
+      "response.emoji_count": 0,
+      "response.markdown_count": 0,
+      "run.failure_rate": 0
+    }
+  }
+}

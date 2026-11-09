@@ -102,6 +102,19 @@ describe('run manifest (gate G2)', () => {
     },
   )
 
+  it('accepts a prompt style and rejects an unknown one', () => {
+    const raw = loadExample()
+    raw['prompt'] = { style: 'gemma', currentDate: '2026-11-08' }
+    expect(validateManifest(raw).ok).toBe(true)
+
+    const unknown = loadExample()
+    unknown['prompt'] = { style: 'gemini', currentDate: '2026-11-08' }
+    const result = validateManifest(unknown)
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.issues.map((issue) => issue.path)).toContain('prompt.style')
+  })
+
   it('names a missing nested minimum detectable effect', () => {
     const raw = loadExample()
     const target = raw['target'] as Record<string, unknown>

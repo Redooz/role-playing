@@ -2,7 +2,14 @@ import { randomUUID } from 'node:crypto'
 import { isAbsolute, relative, resolve } from 'node:path'
 import { createInterface } from 'node:readline/promises'
 import { parseArgs } from 'node:util'
-import { createGroqTextModel } from '@rp/pipeline'
+import {
+  LIVEKIT_GEMMA_MODEL,
+  LIVEKIT_INFERENCE_DEFAULT_BASE_URL,
+  createLiveKitInferenceTextModel,
+  createPersonaTextModel,
+} from '@rp/pipeline'
+import { buildPersonaPrompt, personaById, personaVariant } from '@rp/persona-kit'
+import { scenarioById } from '@rp/scenario-kit'
 import {
   TRANSCRIPT_SCHEMA_VERSION,
   createTextSessionDriver,
@@ -10,7 +17,14 @@ import {
   type SessionLogHeader,
   type TextModelPort,
 } from '@rp/session-core'
-import { FakeClock, SystemClock, type Clock } from '@rp/shared'
+import {
+  FakeClock,
+  LocaleTagError,
+  SystemClock,
+  canonicalizeLocale,
+  localeMatchesLanguage,
+  type Clock,
+} from '@rp/shared'
 import { createCannedDemoModel } from './canned-demo.adapter.js'
 import { runCli, type CliIo, type CliProvider } from './cli-main.js'
 import { createFileSessionLog, type SessionLog } from './session-log.adapter.js'
@@ -18,26 +32,31 @@ import { createFileSessionLog, type SessionLog } from './session-log.adapter.js'
 /**
  * Composition root for the text session CLI (M1 D4/D6).
  *
- * This is the only place that reads `GROQ_API_KEY`, chooses a provider and
- * opens files. The driver, the REPL and the log codec stay provider- and
+ * This is the only place that reads the LiveKit credentials, chooses a provider
+ * and opens files. The driver, the REPL and the log codec stay provider- and
  * transport-agnostic.
  */
 
-const USAGE = `role-play - single-agent text session (M1)
+const USAGE = `role-play - single-agent text session (M2)
 
 Usage:
   npm run chat -- [options]
 
 Options:
-  --provider <canned|live>  canned is offline demo output; live calls Groq (default: canned)
-  --lang <en|fr>            session language (default: en)
+  --provider <canned|live>  canned is offline demo output; live calls LiveKit Gemma (default: canned)
+  --lang <en|fr>            base session language (default: en)
+  --locale <bcp47>          locale variant such as en-GB or fr-CA (default: the base lang)
+  --persona <id>            manager, peer or client (canned default: manager)
+  --scenario <id>           scenario id (canned default: request-deadline-extension)
   --log-dir <dir>           where session logs are written (default: sessions)
   --session-id <id>         override the per-process session id (tests only)
   --task <id>               record a task id in the log header
+  --prompt-date <date>      pinned YYYY-MM-DD for the prompt (default: today)
   --help                    show this help
 
-Live mode requires GROQ_API_KEY in the environment (npm loads .env). The key is
-never printed. The model is fixed to openai/gpt-oss-20b.`
+Live mode requires LIVEKIT_API_KEY and LIVEKIT_API_SECRET in the environment
+(npm loads .env), and an explicit --persona and --scenario. The credentials are
+never printed. The model is fixed to google/gemma-4-31b-it.`
 
 /**
  * A session id becomes a file name, so only path-safe characters are allowed.
@@ -90,9 +109,13 @@ export async function main(argv: readonly string[]): Promise<number> {
   let values: {
     provider?: string
     lang?: string
+    locale?: string
+    persona?: string
+    scenario?: string
     'log-dir'?: string
     'session-id'?: string
     task?: string
+    'prompt-date'?: string
     help?: boolean
   }
 
@@ -102,9 +125,13 @@ export async function main(argv: readonly string[]): Promise<number> {
       options: {
         provider: { type: 'string', default: 'canned' },
         lang: { type: 'string', default: 'en' },
+        locale: { type: 'string' },
+        persona: { type: 'string' },
+        scenario: { type: 'string' },
         'log-dir': { type: 'string', default: 'sessions' },
         'session-id': { type: 'string' },
         task: { type: 'string' },
+        'prompt-date': { type: 'string' },
         help: { type: 'boolean', short: 'h', default: false },
       },
       allowPositionals: false,
@@ -130,6 +157,62 @@ export async function main(argv: readonly string[]): Promise<number> {
   const lang = values.lang ?? 'en'
   if (lang !== 'en' && lang !== 'fr') {
     io.err(`error: --lang must be "en" or "fr", got "${lang}"`)
+    return 2
+  }
+
+  let locale: string
+  try {
+    locale = canonicalizeLocale(values.locale ?? lang)
+  } catch (error) {
+    io.err(
+      `error: ${error instanceof LocaleTagError ? error.message : error instanceof Error ? error.message : String(error)}`,
+    )
+    return 2
+  }
+  if (!localeMatchesLanguage(locale, lang)) {
+    io.err(`error: --locale "${locale}" does not match --lang "${lang}"`)
+    return 2
+  }
+
+  const personaId = values.persona ?? (providerMode === 'canned' ? 'manager' : undefined)
+  if (personaId === undefined) {
+    io.err('error: live mode requires --persona <manager|peer|client>')
+    return 2
+  }
+  const scenarioId =
+    values.scenario ?? (providerMode === 'canned' ? 'request-deadline-extension' : undefined)
+  if (scenarioId === undefined) {
+    io.err('error: live mode requires --scenario <id>')
+    return 2
+  }
+
+  let persona: ReturnType<typeof personaById>
+  let scenario: ReturnType<typeof scenarioById>
+  try {
+    persona = personaById(personaId)
+    scenario = scenarioById(scenarioId)
+  } catch (error) {
+    io.err(`error: ${error instanceof Error ? error.message : String(error)}`)
+    return 2
+  }
+
+  const promptDate = values['prompt-date'] ?? new Date().toISOString().slice(0, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(promptDate)) {
+    io.err(`error: --prompt-date must be YYYY-MM-DD, got "${promptDate}"`)
+    return 2
+  }
+
+  let prompt: ReturnType<typeof buildPersonaPrompt>
+  try {
+    prompt = buildPersonaPrompt({
+      persona,
+      scenario,
+      locale,
+      currentDate: promptDate,
+      style: 'gemma',
+    })
+  } catch (error) {
+    io.err(`error: ${error instanceof Error ? error.message : String(error)}`)
     return 2
   }
 
@@ -164,17 +247,32 @@ export async function main(argv: readonly string[]): Promise<number> {
   let model: TextModelPort
 
   if (providerMode === 'live') {
-    const apiKey = process.env['GROQ_API_KEY']
-    if (apiKey === undefined || apiKey.trim() === '') {
-      io.err('error: live mode requires GROQ_API_KEY; add it to .env or use --provider canned')
+    const apiKey = process.env['LIVEKIT_API_KEY']
+    const apiSecret = process.env['LIVEKIT_API_SECRET']
+    if (
+      apiKey === undefined ||
+      apiKey.trim() === '' ||
+      apiSecret === undefined ||
+      apiSecret.trim() === ''
+    ) {
+      io.err(
+        'error: live mode requires LIVEKIT_API_KEY and LIVEKIT_API_SECRET; add them to .env or use --provider canned',
+      )
       return 2
     }
-    model = createGroqTextModel({ apiKey })
+    model = createPersonaTextModel(
+      createLiveKitInferenceTextModel({
+        apiKey,
+        apiSecret,
+        model: LIVEKIT_GEMMA_MODEL,
+        baseUrl: nonEmptyEnv('LIVEKIT_INFERENCE_URL') ?? LIVEKIT_INFERENCE_DEFAULT_BASE_URL,
+      }),
+    )
     provider = { kind: 'live', label: model.label }
     clock = new SystemClock()
     clockMode = 'wall'
   } else {
-    model = createCannedDemoModel()
+    model = createPersonaTextModel(createCannedDemoModel())
     provider = { kind: 'canned', label: model.label }
     clock = new FakeClock(0)
     clockMode = 'simulated'
@@ -183,9 +281,13 @@ export async function main(argv: readonly string[]): Promise<number> {
   const driver = createTextSessionDriver({
     sessionId,
     lang: lang as SessionLanguage,
+    locale,
     clockMode,
     clock,
     model,
+    instructions: prompt.systemMessages.session,
+    greetingInstructions: prompt.systemMessages.greeting,
+    personaId: persona.id,
     ...(values.task === undefined ? {} : { taskId: values.task }),
   })
 
@@ -197,6 +299,12 @@ export async function main(argv: readonly string[]): Promise<number> {
     clockMode,
     lang: lang as SessionLanguage,
     provider: model.label,
+    personaId: persona.id,
+    personaVersion: persona.version,
+    scenarioId: scenario.id,
+    scenarioVersion: scenario.version,
+    locale,
+    promptVersion: prompt.promptVersion,
     ...(values.task === undefined ? {} : { taskId: values.task }),
   }
 
@@ -223,6 +331,7 @@ export async function main(argv: readonly string[]): Promise<number> {
   })
 
   try {
+    await driver.start()
     await runCli({
       input: rl,
       io,
@@ -230,6 +339,12 @@ export async function main(argv: readonly string[]): Promise<number> {
       provider,
       log,
       logPath,
+      selection: {
+        personaId: persona.id,
+        personaName: personaVariant(persona, locale).displayName,
+        scenarioId: scenario.id,
+        locale,
+      },
     })
     return 0
   } catch (error) {
@@ -239,6 +354,11 @@ export async function main(argv: readonly string[]): Promise<number> {
     rl.close()
     await disposeModel(model, io)
   }
+}
+
+function nonEmptyEnv(name: string): string | undefined {
+  const value = process.env[name]?.trim()
+  return value === undefined || value === '' ? undefined : value
 }
 
 /**
