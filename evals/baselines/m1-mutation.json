@@ -1,112 +1,233 @@
 {
   "schemaVersion": 1,
   "suite": "m1-mutation",
-  "generatedAt": "2026-11-08T17:29:56.463Z",
-  "commit": "1ae344555744e090557cb96ed8f2acce308ecaf3",
+  "generatedAt": "2026-11-09T16:32:10.397Z",
+  "commit": "af95ba75edc0f71723bc4b9ed98166db1df525af",
   "tool": "@stryker-mutator/core 10.1.1 + @stryker-mutator/vitest-runner 10.1.1",
   "command": "npm run mutation",
   "note": "Measured floor. Timed-out mutants count as killed; runtime/compile errors are excluded. Not a PR gate.",
   "global": {
-    "mutants": 1412,
-    "killed": 1086,
-    "timeout": 19,
-    "survived": 236,
-    "noCoverage": 54,
+    "mutants": 2546,
+    "killed": 1704,
+    "timeout": 17,
+    "survived": 645,
+    "noCoverage": 157,
     "ignored": 0,
-    "errors": 17,
-    "total": 79.21146953405018,
-    "covered": 82.40119313944817
+    "errors": 23,
+    "total": 68.21244550138724,
+    "covered": 72.73879966187658
   },
   "packages": {
     "apps/cli": {
-      "mutants": 222,
-      "killed": 147,
+      "mutants": 494,
+      "killed": 284,
       "timeout": 0,
-      "survived": 47,
-      "noCoverage": 28,
+      "survived": 114,
+      "noCoverage": 96,
       "ignored": 0,
       "errors": 0,
-      "total": 66.21621621621621,
-      "covered": 75.77319587628865
+      "total": 57.48987854251012,
+      "covered": 71.35678391959799
+    },
+    "packages/persona-kit": {
+      "mutants": 335,
+      "killed": 107,
+      "timeout": 0,
+      "survived": 206,
+      "noCoverage": 22,
+      "ignored": 0,
+      "errors": 0,
+      "total": 31.94029850746269,
+      "covered": 34.185303514377
     },
     "packages/pipeline": {
-      "mutants": 253,
-      "killed": 173,
+      "mutants": 404,
+      "killed": 293,
       "timeout": 6,
-      "survived": 60,
-      "noCoverage": 14,
+      "survived": 86,
+      "noCoverage": 19,
       "ignored": 0,
       "errors": 0,
-      "total": 70.7509881422925,
-      "covered": 74.89539748953975
+      "total": 74.00990099009901,
+      "covered": 77.66233766233766
     },
     "packages/session-core": {
-      "mutants": 937,
-      "killed": 766,
-      "timeout": 13,
-      "survived": 129,
+      "mutants": 987,
+      "killed": 821,
+      "timeout": 11,
+      "survived": 126,
       "noCoverage": 12,
       "ignored": 0,
       "errors": 17,
-      "total": 84.67391304347827,
-      "covered": 85.79295154185021
+      "total": 85.77319587628865,
+      "covered": 86.84759916492693
+    },
+    "packages/shared": {
+      "mutants": 312,
+      "killed": 193,
+      "timeout": 0,
+      "survived": 111,
+      "noCoverage": 8,
+      "ignored": 0,
+      "errors": 0,
+      "total": 61.858974358974365,
+      "covered": 63.48684210526315
+    },
+    "packages/scenario-kit": {
+      "mutants": 14,
+      "killed": 6,
+      "timeout": 0,
+      "survived": 2,
+      "noCoverage": 0,
+      "ignored": 0,
+      "errors": 6,
+      "total": 75,
+      "covered": 75
     }
   },
   "files": {
     "apps/cli/src/cli-main.ts": {
-      "mutants": 195,
-      "killed": 122,
+      "mutants": 200,
+      "killed": 127,
       "timeout": 0,
       "survived": 45,
       "noCoverage": 28,
       "ignored": 0,
       "errors": 0,
-      "total": 62.56410256410256,
-      "covered": 73.05389221556887
+      "total": 63.5,
+      "covered": 73.83720930232558
+    },
+    "apps/cli/src/main.ts": {
+      "mutants": 267,
+      "killed": 132,
+      "timeout": 0,
+      "survived": 67,
+      "noCoverage": 68,
+      "ignored": 0,
+      "errors": 0,
+      "total": 49.43820224719101,
+      "covered": 66.33165829145729
+    },
+    "packages/persona-kit/src/prompt/build.ts": {
+      "mutants": 64,
+      "killed": 37,
+      "timeout": 0,
+      "survived": 24,
+      "noCoverage": 3,
+      "ignored": 0,
+      "errors": 0,
+      "total": 57.8125,
+      "covered": 60.65573770491803
+    },
+    "packages/persona-kit/src/prompt/template-gemma.ts": {
+      "mutants": 121,
+      "killed": 24,
+      "timeout": 0,
+      "survived": 86,
+      "noCoverage": 11,
+      "ignored": 0,
+      "errors": 0,
+      "total": 19.834710743801654,
+      "covered": 21.818181818181817
+    },
+    "packages/persona-kit/src/prompt/template.ts": {
+      "mutants": 109,
+      "killed": 27,
+      "timeout": 0,
+      "survived": 74,
+      "noCoverage": 8,
+      "ignored": 0,
+      "errors": 0,
+      "total": 24.770642201834864,
+      "covered": 26.732673267326735
+    },
+    "packages/pipeline/src/livekit-inference.adapter.ts": {
+      "mutants": 81,
+      "killed": 66,
+      "timeout": 0,
+      "survived": 12,
+      "noCoverage": 3,
+      "ignored": 0,
+      "errors": 0,
+      "total": 81.48148148148148,
+      "covered": 84.61538461538461
     },
     "packages/pipeline/src/openai-compatible.ts": {
-      "mutants": 188,
-      "killed": 128,
+      "mutants": 213,
+      "killed": 150,
       "timeout": 6,
-      "survived": 41,
+      "survived": 44,
       "noCoverage": 13,
       "ignored": 0,
       "errors": 0,
-      "total": 71.27659574468085,
-      "covered": 76.57142857142857
+      "total": 73.23943661971832,
+      "covered": 78
     },
     "packages/pipeline/src/openrouter-text.adapter.ts": {
-      "mutants": 38,
-      "killed": 27,
+      "mutants": 40,
+      "killed": 29,
       "timeout": 0,
       "survived": 10,
       "noCoverage": 1,
       "ignored": 0,
       "errors": 0,
-      "total": 71.05263157894737,
-      "covered": 72.97297297297297
+      "total": 72.5,
+      "covered": 74.35897435897436
+    },
+    "packages/pipeline/src/plain-text.adapter.ts": {
+      "mutants": 39,
+      "killed": 26,
+      "timeout": 0,
+      "survived": 11,
+      "noCoverage": 2,
+      "ignored": 0,
+      "errors": 0,
+      "total": 66.66666666666666,
+      "covered": 70.27027027027027
     },
     "packages/session-core/src/driver.ts": {
-      "mutants": 367,
-      "killed": 308,
-      "timeout": 10,
-      "survived": 40,
+      "mutants": 411,
+      "killed": 349,
+      "timeout": 8,
+      "survived": 45,
       "noCoverage": 9,
       "ignored": 0,
       "errors": 0,
-      "total": 86.64850136239782,
-      "covered": 88.8268156424581
+      "total": 86.86131386861314,
+      "covered": 88.80597014925374
     },
     "packages/session-core/src/session-log.ts": {
-      "mutants": 118,
+      "mutants": 124,
       "killed": 104,
       "timeout": 0,
-      "survived": 11,
+      "survived": 17,
       "noCoverage": 3,
       "ignored": 0,
       "errors": 0,
-      "total": 88.13559322033898,
-      "covered": 90.43478260869566
+      "total": 83.87096774193549,
+      "covered": 85.9504132231405
+    },
+    "packages/shared/src/locale.ts": {
+      "mutants": 42,
+      "killed": 25,
+      "timeout": 0,
+      "survived": 11,
+      "noCoverage": 6,
+      "ignored": 0,
+      "errors": 0,
+      "total": 59.523809523809526,
+      "covered": 69.44444444444444
+    },
+    "packages/shared/src/plain-text.ts": {
+      "mutants": 270,
+      "killed": 168,
+      "timeout": 0,
+      "survived": 100,
+      "noCoverage": 2,
+      "ignored": 0,
+      "errors": 0,
+      "total": 62.22222222222222,
+      "covered": 62.68656716417911
     },
     "apps/cli/src/session-log.adapter.ts": {
       "mutants": 27,
@@ -119,27 +240,60 @@
       "total": 92.5925925925926,
       "covered": 92.5925925925926
     },
+    "packages/persona-kit/src/lookup.ts": {
+      "mutants": 8,
+      "killed": 6,
+      "timeout": 0,
+      "survived": 2,
+      "noCoverage": 0,
+      "ignored": 0,
+      "errors": 0,
+      "total": 75,
+      "covered": 75
+    },
+    "packages/persona-kit/src/prompt/version.ts": {
+      "mutants": 33,
+      "killed": 13,
+      "timeout": 0,
+      "survived": 20,
+      "noCoverage": 0,
+      "ignored": 0,
+      "errors": 0,
+      "total": 39.39393939393939,
+      "covered": 39.39393939393939
+    },
     "packages/pipeline/src/groq-text.adapter.ts": {
-      "mutants": 27,
-      "killed": 18,
+      "mutants": 31,
+      "killed": 22,
       "timeout": 0,
       "survived": 9,
       "noCoverage": 0,
       "ignored": 0,
       "errors": 0,
-      "total": 66.66666666666666,
-      "covered": 66.66666666666666
+      "total": 70.96774193548387,
+      "covered": 70.96774193548387
+    },
+    "packages/scenario-kit/src/lookup.ts": {
+      "mutants": 8,
+      "killed": 6,
+      "timeout": 0,
+      "survived": 2,
+      "noCoverage": 0,
+      "ignored": 0,
+      "errors": 0,
+      "total": 75,
+      "covered": 75
     },
     "packages/session-core/src/events.ts": {
       "mutants": 109,
-      "killed": 61,
+      "killed": 75,
       "timeout": 0,
-      "survived": 31,
+      "survived": 17,
       "noCoverage": 0,
       "ignored": 0,
       "errors": 17,
-      "total": 66.30434782608695,
-      "covered": 66.30434782608695
+      "total": 81.52173913043478,
+      "covered": 81.52173913043478
     },
     "packages/session-core/src/guards.ts": {
       "mutants": 193,
@@ -173,6 +327,17 @@
       "errors": 0,
       "total": 93.47826086956522,
       "covered": 93.47826086956522
+    },
+    "packages/scenario-kit/src/scenarios/helpers.ts": {
+      "mutants": 6,
+      "killed": 0,
+      "timeout": 0,
+      "survived": 0,
+      "noCoverage": 0,
+      "ignored": 0,
+      "errors": 6,
+      "total": null,
+      "covered": null
     }
   }
 }

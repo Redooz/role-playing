@@ -85,10 +85,14 @@ Are the persona replies clear and concise rather than rambling?
 
 Do the persona replies help the learner complete the scenario objective?
 
+Judge the persona’s contribution, not the learner’s success. The persona must
+create a realistic opportunity for the learner to act, and must not take over the
+learner’s part (for example, by declining the meeting itself).
+
 - 5: A realistic opening and responsive turns that let the objective be met.
 - 3: Partly helps, but a turn blocks or delays the objective.
-- 1: Blocks the objective, ignores the learner, or invents facts that make it
-  impossible.
+- 1: Blocks the objective, ignores the learner, invents facts that make it
+  impossible, or completes the learner’s task for them.
 
 ### `locale.fit` (locale probe only)
 

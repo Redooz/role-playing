@@ -36,6 +36,16 @@ describe('scenario data', () => {
     expect(() => scenarioVariant(narrowed, 'fr-CA')).toThrow(ScenarioVariantMissingError)
   })
 
+  it('makes the learner decline in the decline-meeting scenario', () => {
+    const scenario = scenarioById('decline-meeting-invitation')
+    for (const locale of ['en', 'en-GB', 'fr', 'fr-CA'] as const) {
+      const variant = scenarioVariant(scenario, locale)
+      expect(variant.scriptedUser.turns[0]?.text).toMatch(
+        /doesn't work|doesn't suit|ne me convient pas/u,
+      )
+    }
+  })
+
   it('keeps the scripted user in the variant language and locale', () => {
     for (const scenario of SCENARIOS) {
       for (const variant of Object.values(scenario.variants)) {
