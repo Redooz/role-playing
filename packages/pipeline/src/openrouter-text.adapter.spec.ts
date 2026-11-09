@@ -34,6 +34,37 @@ async function collect(
 }
 
 describe('OpenRouter text adapter', () => {
+  it('pins the base URL, probe model and label format', () => {
+    expect(OPENROUTER_BASE_URL).toBe('https://openrouter.ai/api/v1')
+    expect(OPENROUTER_PROBE_MODEL).toBe('google/gemma-4-31b-it')
+    expect(openRouterModelLabel('google/gemma-4-31b-it')).toBe('openrouter/google/gemma-4-31b-it')
+  })
+
+  it('keeps a cause and status on its typed error', () => {
+    const cause = new Error('underlying')
+    const withCause = new OpenRouterTextModelError('wrapped', { cause, status: 402 })
+    expect(withCause.name).toBe('OpenRouterTextModelError')
+    expect(withCause.status).toBe(402)
+    expect(withCause.cause).toBe(cause)
+    const withoutCause = new OpenRouterTextModelError('plain')
+    expect(withoutCause.cause).toBeUndefined()
+    expect('cause' in withoutCause).toBe(false)
+  })
+
+  it('uses the default attribution title', async () => {
+    let headers: Record<string, string> = {}
+    const model = createOpenRouterTextModel({
+      apiKey: API_KEY,
+      model: MODEL,
+      fetchImpl: async (_url, init) => {
+        headers = init?.headers as Record<string, string>
+        return sseResponse(['[DONE]'])
+      },
+    })
+    await collect(model)
+    expect(headers['X-Title']).toBe('role-playing')
+  })
+
   it('streams plain text and carries usage from the final OpenAI-compatible chunk', async () => {
     const model = createOpenRouterTextModel({
       apiKey: API_KEY,
@@ -122,6 +153,7 @@ describe('OpenRouter text adapter', () => {
       name: 'OpenRouterTextModelError',
       status: 402,
     })
+    await expect(collect(model)).rejects.toThrow('OpenRouter request failed with HTTP 402')
     try {
       await collect(model)
     } catch (error) {
@@ -170,8 +202,35 @@ describe('OpenRouter text adapter', () => {
     expect(() => createOpenRouterTextModel({ apiKey: '  ', model: MODEL })).toThrow(
       OpenRouterTextModelError,
     )
+    expect(() => createOpenRouterTextModel({ apiKey: '  ', model: MODEL })).toThrow(
+      'OPENROUTER_API_KEY is empty; the adapter cannot start',
+    )
     expect(() => createOpenRouterTextModel({ apiKey: API_KEY, model: ' ' })).toThrow(
       OpenRouterTextModelError,
     )
+    expect(() => createOpenRouterTextModel({ apiKey: API_KEY, model: ' ' })).toThrow(
+      'an OpenRouter model id is required',
+    )
+  })
+
+  it('wraps a pre-response fetch failure with a cause', async () => {
+    const cause = new Error('network down')
+    const model = createOpenRouterTextModel({
+      apiKey: API_KEY,
+      model: MODEL,
+      fetchImpl: async () => {
+        throw cause
+      },
+    })
+    try {
+      await collect(model)
+      expect.unreachable()
+    } catch (error) {
+      expect(error).toBeInstanceOf(OpenRouterTextModelError)
+      expect((error as Error).message).toBe(
+        'OpenRouter request failed before a response was received',
+      )
+      expect((error as Error & { cause?: unknown }).cause).toBe(cause)
+    }
   })
 })

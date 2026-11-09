@@ -37,6 +37,25 @@ async function collect(
 }
 
 describe('Groq text adapter', () => {
+  it('pins the base URL, model and label', () => {
+    expect(GROQ_BASE_URL).toBe('https://api.groq.com/openai/v1')
+    expect(GROQ_PERSONA_MODEL).toBe('openai/gpt-oss-20b')
+    expect(GROQ_TEXT_MODEL_LABEL).toBe('groq/openai/gpt-oss-20b')
+  })
+
+  it('keeps a cause and status on its typed error', () => {
+    const cause = new Error('underlying')
+    const withCause = new GroqTextModelError('wrapped', { cause, status: 500 })
+    expect(withCause.name).toBe('GroqTextModelError')
+    expect(withCause.status).toBe(500)
+    expect(withCause.cause).toBe(cause)
+
+    const withoutCause = new GroqTextModelError('plain')
+    expect(withoutCause.status).toBeUndefined()
+    expect(withoutCause.cause).toBeUndefined()
+    expect('cause' in withoutCause).toBe(false)
+  })
+
   it('streams plain text chunks and a final chunk with usage', async () => {
     const model = createGroqTextModel({
       apiKey: API_KEY,
@@ -112,6 +131,7 @@ describe('Groq text adapter', () => {
       name: 'GroqTextModelError',
       status: 429,
     })
+    await expect(collect(model)).rejects.toThrow('Groq request failed with HTTP 429')
     try {
       await collect(model)
     } catch (error) {
@@ -242,5 +262,8 @@ describe('Groq text adapter', () => {
 
   it('refuses to start without an API key', () => {
     expect(() => createGroqTextModel({ apiKey: '  ' })).toThrow(GroqTextModelError)
+    expect(() => createGroqTextModel({ apiKey: '  ' })).toThrow(
+      'GROQ_API_KEY is empty; the live provider cannot start',
+    )
   })
 })

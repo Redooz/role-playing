@@ -36,6 +36,26 @@ describe('scenario data', () => {
     expect(() => scenarioVariant(narrowed, 'fr-CA')).toThrow(ScenarioVariantMissingError)
   })
 
+  it('reports the missing scenario, locale and a hard-error message', () => {
+    const scenario = scenarioById('request-deadline-extension')
+    const narrowed: ScenarioSpec = {
+      ...scenario,
+      variants: { en: scenario.variants['en']! },
+    }
+    try {
+      scenarioVariant(narrowed, ' FR-ca ')
+      expect.unreachable()
+    } catch (error) {
+      expect(error).toBeInstanceOf(ScenarioVariantMissingError)
+      expect((error as ScenarioVariantMissingError).name).toBe('ScenarioVariantMissingError')
+      expect((error as ScenarioVariantMissingError).scenarioId).toBe('request-deadline-extension')
+      expect((error as ScenarioVariantMissingError).locale).toBe('fr-CA')
+      expect((error as Error).message).toBe(
+        'scenario "request-deadline-extension" has no variant for locale "fr-CA"; a missing locale is a hard error, not a fallback',
+      )
+    }
+  })
+
   it('makes the learner decline in the decline-meeting scenario', () => {
     const scenario = scenarioById('decline-meeting-invitation')
     for (const locale of ['en', 'en-GB', 'fr', 'fr-CA'] as const) {

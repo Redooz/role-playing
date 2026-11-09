@@ -53,6 +53,26 @@ describe('persona data', () => {
     expect(() => personaVariant(narrowed, 'fr')).toThrow(PersonaVariantMissingError)
   })
 
+  it('reports the missing persona, locale and a hard-error message', () => {
+    const persona = personaById('manager')
+    const narrowed: PersonaSpec = {
+      ...persona,
+      variants: { en: persona.variants['en']! },
+    }
+    try {
+      personaVariant(narrowed, ' FR-ca ')
+      expect.unreachable()
+    } catch (error) {
+      expect(error).toBeInstanceOf(PersonaVariantMissingError)
+      expect((error as PersonaVariantMissingError).name).toBe('PersonaVariantMissingError')
+      expect((error as PersonaVariantMissingError).personaId).toBe('manager')
+      expect((error as PersonaVariantMissingError).locale).toBe('fr-CA')
+      expect((error as Error).message).toBe(
+        'persona "manager" has no variant for locale "fr-CA"; a missing locale is a hard error, not a fallback',
+      )
+    }
+  })
+
   it('rejects a variant whose locale does not match its base language', () => {
     const persona = personaById('manager')
     const broken = {

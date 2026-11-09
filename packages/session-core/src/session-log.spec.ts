@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { SessionEvent } from './events.js'
 import {
   buildSessionLogRecord,
+  normalizedSessionLog,
   parseSessionLog,
   replaySessionLog,
   sessionLogHeaderLine,
@@ -156,6 +157,18 @@ describe('session log', () => {
     expect(parseSessionLog(textFor(records, older)).records).toHaveLength(records.length)
   })
 
+  it('normalizes stored records through the shared transcript codec', () => {
+    const records = recordsFor()
+    expect(normalizedSessionLog(records)).toBe(normalizedTranscriptJsonl(records))
+  })
+
+  it('names the log line of an invalid transcript record', () => {
+    const records = recordsFor().map((record, index) =>
+      index === 2 ? { ...record, contentClass: 'public' as const } : record,
+    )
+    expect(() => parseSessionLog(textFor(records))).toThrow(/line 4 is not a valid transcript/)
+  })
+
   it('replays 1.0.0 records classified under the old, looser rule', () => {
     const legacyHeader: SessionLogHeader = { ...header, schemaVersion: '1.0.0' }
     const legacyRecords = recordsFor().map((record) => ({
@@ -174,6 +187,46 @@ describe('session log', () => {
     const text = `${records.map(sessionLogRecordLine).join('\n')}\n`
 
     expect(() => parseSessionLog(text)).toThrow(SessionLogFormatError)
+  })
+
+  it('rejects a header that is not valid JSON with the exact message', () => {
+    try {
+      parseSessionLog('{"broken"')
+      expect.unreachable()
+    } catch (error) {
+      expect(error).toBeInstanceOf(SessionLogFormatError)
+      expect((error as Error).name).toBe('SessionLogFormatError')
+      expect((error as Error).message).toBe('session log does not start with a valid header')
+    }
+  })
+
+  it('reports the root path and joins multiple header issues', () => {
+    const invalidHeader = { ...header, taskId: '', extra: true }
+    expect(() => parseSessionLog(textFor(recordsFor(), invalidHeader))).toThrow(/<root>:/)
+    expect(() => parseSessionLog(textFor(recordsFor(), invalidHeader))).toThrow(/; /)
+  })
+
+  it('marks a header-only log as unterminated', () => {
+    const parsed = parseSessionLog(`${sessionLogHeaderLine(header)}\n`)
+    expect(parsed.records).toEqual([])
+    expect(parsed.unterminated).toBe(true)
+    expect(parsed.truncated).toBe(false)
+  })
+
+  it('exposes the version error fields and exact message', () => {
+    const outdated = { ...header, schemaVersion: '2.0.0' }
+    try {
+      parseSessionLog(textFor(recordsFor(), outdated))
+      expect.unreachable()
+    } catch (error) {
+      expect(error).toBeInstanceOf(SessionLogVersionError)
+      expect((error as SessionLogVersionError).name).toBe('SessionLogVersionError')
+      expect((error as SessionLogVersionError).version).toBe('2.0.0')
+      expect((error as SessionLogVersionError).currentVersion).toBe(TRANSCRIPT_SCHEMA_VERSION)
+      expect((error as Error).message).toBe(
+        `session log schema 2.0.0 is not readable by this build (current ${TRANSCRIPT_SCHEMA_VERSION}); migrate it first`,
+      )
+    }
   })
 
   it('rejects a blank interior line', () => {
@@ -219,6 +272,7 @@ describe('session log', () => {
       expect(error).toBeInstanceOf(SessionLogFormatError)
       expect(error).not.toBeInstanceOf(SessionLogVersionError)
       expect((error as Error).message).toMatch(/not a valid transcript record/)
+      expect((error as Error).message).toMatch(/contentClass/)
     }
   })
 

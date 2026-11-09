@@ -1,6 +1,7 @@
 import { FakeClock, createSeededRandom } from '@rp/shared'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
+  AsyncEventQueue,
   createTextSessionDriver,
   guardTurnEvents,
   type SessionEvent,
@@ -683,6 +684,19 @@ describe('text session driver', () => {
     expect(model.requests.at(-1)?.messages[0]?.role).toBe('user')
   })
 
+  it('clears the grant deadline timer after a normal turn', async () => {
+    const clear = vi.spyOn(globalThis, 'clearTimeout')
+    try {
+      const harness = openSession(scriptedModel({ chunks: ['ok'] }))
+      await harness.driver.send('go')
+      await runToEnd(harness)
+      // One clear for the grant deadline and one for the bounded close timer.
+      expect(clear.mock.calls.length).toBeGreaterThanOrEqual(2)
+    } finally {
+      clear.mockRestore()
+    }
+  })
+
   it('clears its timers after a normal turn', async () => {
     const before = process
       .getActiveResourcesInfo()
@@ -697,6 +711,38 @@ describe('text session driver', () => {
       .getActiveResourcesInfo()
       .filter((resource) => resource === 'Timeout').length
     expect(after).toBeLessThanOrEqual(before)
+  })
+
+  it('waits for the bounded close window when the provider return never resolves', async () => {
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'never-returns',
+      complete() {
+        let sent = false
+        return {
+          [Symbol.asyncIterator]() {
+            return {
+              next(): Promise<IteratorResult<TextModelChunk>> {
+                if (sent) return Promise.resolve({ done: true, value: undefined })
+                sent = true
+                return Promise.resolve({ done: false, value: { text: 'ok', done: true } })
+              },
+              return(): Promise<IteratorResult<TextModelChunk>> {
+                return new Promise(() => undefined)
+              },
+            }
+          },
+        }
+      },
+    }
+    const harness = openSession(model)
+    const startedAt = Date.now()
+
+    await harness.driver.send('go')
+    await runToEnd(harness)
+
+    expect(Date.now() - startedAt).toBeGreaterThanOrEqual(900)
+    expect(harness.events.some((event) => event.type === 'persona.response.committed')).toBe(true)
   })
 
   it('does not hang when the provider never finishes closing its stream', async () => {
@@ -1534,5 +1580,285 @@ describe('text session driver', () => {
     const events = await runToEnd(harness)
 
     expect(events.some((event) => event.type === 'user.utterance.committed')).toBe(false)
+  })
+
+  it('defaults the clock mode to simulated', async () => {
+    const driver = createTextSessionDriver({
+      sessionId: 'default-mode',
+      lang: 'en',
+      clock: new FakeClock(0),
+      model: scriptedModel({ chunks: ['ok'] }),
+    })
+    const events: SessionEvent[] = []
+    const consumer = (async () => {
+      for await (const event of driver.events) events.push(event)
+    })()
+    await driver.close()
+    await consumer
+
+    expect(events[0]).toMatchObject({
+      type: 'session.started',
+      payload: { clockMode: 'simulated', lang: 'en' },
+    })
+    expect(events[0]?.payload).not.toHaveProperty('taskId')
+  })
+
+  it('defaults the persona, grant TTL and history bound', async () => {
+    const model = scriptedModel({ chunks: ['ok'] })
+    const driver = createTextSessionDriver({
+      sessionId: 'defaults',
+      lang: 'en',
+      clock: new FakeClock(0),
+      model,
+    })
+    const events: SessionEvent[] = []
+    const consumer = (async () => {
+      for await (const event of driver.events) events.push(event)
+    })()
+    await driver.send('hello')
+    await driver.close()
+    await consumer
+
+    const granted = events.find((event) => event.type === 'turn.granted')
+    expect(granted?.payload.grant.personaId).toBe('persona-1')
+    expect(granted?.payload.grant.expiresAt).toBe(new Date(60_000).toISOString())
+  })
+
+  it('treats an interrupt raised while the abort promise is being created', async () => {
+    const model = scriptedModel({ chunks: ['one', 'two'] })
+    const harness = openSession(model)
+    let interrupted = false
+
+    harness.onEvent((event) => {
+      if (event.type === 'persona.response.started' && !interrupted) {
+        interrupted = true
+        void harness.driver.interrupt()
+      }
+    })
+
+    await harness.driver.send('go')
+    const events = await runToEnd(harness)
+    expect(
+      events.find((event) => event.type === 'persona.response.cancelled')?.payload,
+    ).toMatchObject({ reason: 'interrupted' })
+  })
+
+  it('collapses whitespace and bounds a short provider failure', async () => {
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'whitespace-error',
+      complete() {
+        throw new Error('  alpha\n\t beta   gamma  ')
+      },
+    }
+    const harness = openSession(model)
+    await harness.driver.send('go')
+    const events = await runToEnd(harness)
+    const detail = (
+      events.find((event) => event.type === 'persona.response.cancelled')?.payload as {
+        detail?: string
+      }
+    ).detail
+    expect(detail).toBe('Error: alpha beta gamma')
+  })
+
+  it('interrupts an in-flight reply when a second send starts directly', async () => {
+    const gate = Promise.withResolvers<void>()
+    let started: () => void = () => undefined
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'gated',
+      async *complete(_request, options) {
+        started()
+        await gate.promise
+        if (options?.signal?.aborted === true) return
+        yield { text: 'late', done: true }
+      },
+    }
+    const harness = openSession(model)
+    const firstStarted = new Promise<void>((resolve) => {
+      started = resolve
+    })
+
+    const first = harness.driver.send('first')
+    await firstStarted
+    const second = harness.driver.send('second')
+    gate.resolve()
+    await Promise.all([first, second])
+    const events = await runToEnd(harness)
+
+    expect(events.filter((event) => event.type === 'persona.response.cancelled')).toHaveLength(1)
+    expect(
+      events.find((event) => event.type === 'persona.response.committed')?.payload,
+    ).toMatchObject({ text: 'late' })
+  })
+
+  it('interrupts immediately when the provider aborts during complete()', async () => {
+    const harnessRef: { driver?: SessionDriver } = {}
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'abort-during-complete',
+      complete() {
+        void harnessRef.driver?.interrupt()
+        return (async function* () {
+          yield { text: 'never', done: true }
+        })()
+      },
+    }
+    const harness = openSession(model)
+    harnessRef.driver = harness.driver
+
+    await harness.driver.send('go')
+    const events = await runToEnd(harness)
+
+    expect(
+      events.find((event) => event.type === 'persona.response.cancelled')?.payload,
+    ).toMatchObject({ reason: 'interrupted' })
+    expect(events.some((event) => event.type === 'persona.response.committed')).toBe(false)
+  })
+
+  it('omits locale metadata unless a locale is configured', async () => {
+    const without = scriptedModel({ chunks: ['ok'] })
+    const plain = openSession(without)
+    await plain.driver.send('one')
+    await runToEnd(plain)
+    expect(without.requests[0]?.metadata).toStrictEqual({ lang: 'en' })
+    expect(without.requests[0]?.metadata).not.toHaveProperty('locale')
+
+    const withLocale = scriptedModel({ chunks: ['ok'] })
+    const localised = openSession(withLocale, { locale: 'en-GB' })
+    await localised.driver.send('one')
+    await runToEnd(localised)
+    expect(withLocale.requests[0]?.metadata).toStrictEqual({ lang: 'en', locale: 'en-GB' })
+  })
+
+  it('uses the exact start() misuse message', async () => {
+    const harness = openSession(scriptedModel({ chunks: ['ok'] }))
+    await harness.driver.start()
+    await expect(harness.driver.start()).rejects.toMatchObject({
+      name: 'SessionDriverError',
+      message: 'start() only opens an empty session',
+    })
+    await runToEnd(harness)
+  })
+
+  it('omits partialText when a cancelled turn produced no text', async () => {
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'immediate-failure',
+      complete() {
+        throw new Error('boom')
+      },
+    }
+    const harness = openSession(model)
+    await harness.driver.send('go')
+    const events = await runToEnd(harness)
+    const cancelled = events.find((event) => event.type === 'persona.response.cancelled')
+    expect(cancelled?.payload).not.toHaveProperty('partialText')
+  })
+
+  it('omits detail on a timeout that has no failure detail', async () => {
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'silent',
+      complete() {
+        return {
+          [Symbol.asyncIterator]() {
+            return {
+              next(): Promise<IteratorResult<TextModelChunk>> {
+                return new Promise(() => undefined)
+              },
+            }
+          },
+        }
+      },
+    }
+    const harness = openSession(model, { grantTtlMs: 1 })
+    await harness.driver.send('go')
+    const events = await runToEnd(harness)
+    const cancelled = events.find((event) => event.type === 'persona.response.cancelled')
+    expect(cancelled?.payload).toMatchObject({ reason: 'timeout' })
+    expect(cancelled?.payload).not.toHaveProperty('detail')
+    expect(cancelled?.payload).not.toHaveProperty('partialText')
+  })
+
+  it('rejects a send that was closed while its interrupt was in flight', async () => {
+    let releaseReturn: () => void = () => undefined
+    const returnGate = new Promise<void>((resolve) => {
+      releaseReturn = resolve
+    })
+    let chunkSeen: () => void = () => undefined
+    const sawChunk = new Promise<void>((resolve) => {
+      chunkSeen = resolve
+    })
+    const model: TextModelPort = {
+      kind: 'canned',
+      label: 'blocking-close',
+      async *complete() {
+        yield { text: 'one', done: false }
+        await new Promise(() => undefined)
+      },
+      // Only used when the driver closes the iterator after an interrupt.
+      // It is attached below because ports are plain objects.
+    }
+    const iteratorPort: TextModelPort = {
+      ...model,
+      complete(request) {
+        const inner = model.complete(request)
+        return {
+          [Symbol.asyncIterator]() {
+            const iterator = inner[Symbol.asyncIterator]()
+            return {
+              next: () => iterator.next(),
+              async return() {
+                await returnGate
+                return { done: true, value: undefined }
+              },
+            }
+          },
+        }
+      },
+    }
+    const harness = openSession(iteratorPort)
+    harness.onEvent((event) => {
+      if (event.type === 'persona.response.chunk') chunkSeen()
+    })
+
+    const first = harness.driver.send('first')
+    await sawChunk
+    const second = harness.driver.send('second')
+    const closing = harness.driver.close()
+    releaseReturn()
+    await expect(second).rejects.toMatchObject({ name: 'SessionClosedError' })
+    await first
+    await closing
+    await harness.finished()
+  })
+})
+
+describe('AsyncEventQueue terminal idempotency', () => {
+  it('closes and fails idempotently', async () => {
+    const closed = new AsyncEventQueue<number>()
+    closed.close()
+    closed.close()
+    closed.fail(new Error('too late'))
+    await expect(closed.next()).resolves.toEqual({ value: undefined, done: true })
+
+    const failed = new AsyncEventQueue<number>()
+    const error = new Error('first failure')
+    failed.fail(error)
+    failed.fail(new Error('second failure'))
+    failed.close()
+    await expect(failed.next()).rejects.toBe(error)
+  })
+
+  it('names the queue bound in its failure message', async () => {
+    const queue = new AsyncEventQueue<number>(1)
+    queue.push(1)
+    queue.push(2)
+    await expect(queue.next()).resolves.toEqual({ value: 1, done: false })
+    await expect(queue.next()).rejects.toThrow(
+      'event queue exceeded 1 undelivered events; the consumer is not keeping up',
+    )
   })
 })
