@@ -64,6 +64,12 @@ export interface Grader {
   readonly id: string
   readonly kind: GraderKind
   readonly version: string
+  /**
+   * The rubric the grader can actually ask. A semantic grader must declare it,
+   * and `assertGraderMatchesManifest` rejects a manifest that names another
+   * rubric. Code graders have no question set and leave it undefined.
+   */
+  readonly rubricVersion?: string
   /** Pinned model, for a system-one-model grader. */
   readonly model?: string
   score(context: GraderContext): Promise<Readonly<Record<string, number>>>

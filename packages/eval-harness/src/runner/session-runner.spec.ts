@@ -6,6 +6,7 @@ import {
   PlainTextPolicyError,
   buildSessionCannedEntries,
   runSessionTask,
+  type SessionPromptMode,
 } from './session-runner.js'
 import type { TaskEntry } from '../tasks/schema.js'
 
@@ -53,7 +54,7 @@ function textProvider(text: string): CompletionProvider {
   }
 }
 
-function run(task: TaskEntry, provider: CompletionProvider) {
+function run(task: TaskEntry, provider: CompletionProvider, promptMode?: SessionPromptMode) {
   return runSessionTask({
     runId: 'm2-session',
     executionId: 'exec-1',
@@ -62,6 +63,7 @@ function run(task: TaskEntry, provider: CompletionProvider) {
     provider,
     wallNow: () => 0,
     currentDate: DATE,
+    promptMode,
   })
 }
 
@@ -135,6 +137,26 @@ describe('session runner', () => {
     expect(committed).toEqual(task.session?.recordedPersonaTurns)
   })
 
+  it('replays a canned generic session by the full request hash', async () => {
+    const task = sessionTask()
+    const entries = buildSessionCannedEntries(task, DATE, 'harmony', 'generic')
+    const provider = createCannedProvider(entries, 'canned-session')
+    const result = await run(task, provider, 'generic')
+
+    const committed = result.records
+      .filter((record) => record.kind === 'persona.response.committed')
+      .map((record) => (record.payload as { text: string }).text)
+    expect(committed).toEqual(task.session?.recordedPersonaTurns)
+  })
+
+  it('rejects a persona recording when the run asks for generic', async () => {
+    const task = sessionTask()
+    const entries = buildSessionCannedEntries(task, DATE)
+    const provider = createCannedProvider(entries, 'canned-session')
+
+    await expect(run(task, provider, 'generic')).rejects.toBeInstanceOf(Error)
+  })
+
   it('invalidates a canned recording when the locale changes', async () => {
     const entries = buildSessionCannedEntries(sessionTask(), DATE)
     const localised = sessionTask({ locale: 'en-GB', id: 'en-gb-session-deadline-001' })
@@ -168,6 +190,6 @@ describe('session runner', () => {
 
     expect(requests[0]).toContain('HOW TO REPLY')
     expect(requests[0]).not.toContain('You are ChatGPT')
-    expect(result.promptVersion).toBe('m2-prompt-gemma-v1')
+    expect(result.promptVersion).toBe('m2-prompt-gemma-v2')
   })
 })

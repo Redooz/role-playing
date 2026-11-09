@@ -1,3 +1,5 @@
+import type { PersonaVoice } from '../persona.js'
+
 /**
  * Prompt template version (M2 D3/D3a).
  *
@@ -5,7 +7,7 @@
  * required whenever a section, its ordering or its wording changes, because it
  * participates in `promptHash` and in the canned request hash.
  */
-export const PROMPT_TEMPLATE_VERSION = 'm2-prompt-v1'
+export const PROMPT_TEMPLATE_VERSION = 'm2-prompt-v2'
 
 /**
  * Gemma prompt template version.
@@ -14,7 +16,7 @@ export const PROMPT_TEMPLATE_VERSION = 'm2-prompt-v1'
  * contract, not another wording of the Harmony pack. A run declares its style
  * and the manifest must name the matching version.
  */
-export const GEMMA_PROMPT_TEMPLATE_VERSION = 'm2-prompt-gemma-v1'
+export const GEMMA_PROMPT_TEMPLATE_VERSION = 'm2-prompt-gemma-v2'
 
 /** Prompt families. `harmony` is the pinned Groq persona style. */
 export const PROMPT_STYLES = ['harmony', 'gemma'] as const
@@ -60,14 +62,35 @@ export const LOCALE_CONVENTIONS: Readonly<Record<string, readonly string[]>> = {
   ],
   fr: [
     'Utilisez un français standard.',
-    'Vouvoyez la personne dans un contexte professionnel.',
     'Utilisez la ponctuation française, avec une espace avant les deux-points et le point d’interrogation.',
   ],
   'fr-CA': [
     'Utilisez le français québécois courant : courriel, échéancier, fin de semaine, rencontre.',
     'Évitez les anglicismes inutiles et les tournures proprement européennes.',
-    'Vouvoyez la personne dans un contexte professionnel.',
   ],
+}
+
+/**
+ * French second-person register, derived from the persona's formality.
+ *
+ * The register must follow the persona, not the locale. A peer is informal and
+ * keeps `tu`; manager and client are formal and keep `vous`. A neutral French
+ * persona uses `vous` in a professional context. The English prompt has no
+ * pronoun register line.
+ */
+export const FRENCH_REGISTER_CONVENTIONS: Readonly<Record<PersonaVoice['formality'], string>> = {
+  informal: 'Employez « tu » avec la personne et gardez ce registre pendant toute la conversation.',
+  neutral:
+    'Employez « vous » avec la personne et gardez ce registre pendant toute la conversation.',
+  formal: 'Employez « vous » avec la personne et gardez ce registre pendant toute la conversation.',
+}
+
+/** Register lines for a persona variant. English gets none. */
+export function registerConventions(
+  lang: 'en' | 'fr',
+  formality: PersonaVoice['formality'],
+): readonly string[] {
+  return lang === 'fr' ? [FRENCH_REGISTER_CONVENTIONS[formality]] : []
 }
 
 /** Base-language guidance used when only the base language is known. */

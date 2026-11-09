@@ -148,6 +148,11 @@ describe('Jev axis grader', () => {
     expect(jev.calls.every((call) => call.metadata.locale === 'en-GB')).toBe(true)
   })
 
+  it('declares the rubric it can ask', () => {
+    const grader = createJevAxisGrader({ client: fakeJev() })
+    expect(grader.rubricVersion).toBe(M2_JEV_RUBRIC_VERSION)
+  })
+
   it('writes French questions for a French trial', async () => {
     const jev = fakeJev()
     const grader = createJevAxisGrader({ client: jev })

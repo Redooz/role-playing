@@ -62,7 +62,7 @@ describe('buildObservationPlan', () => {
 
   it('maps a session transcript without replay turns', async () => {
     const sessionManifest = JSON.parse(
-      readFileSync(join(repoRoot, 'evals/manifests/m2-persona-replay.json'), 'utf8'),
+      readFileSync(join(repoRoot, 'evals/manifests/m2-persona-replay-v2.json'), 'utf8'),
     ) as Record<string, unknown>
     const sessionExecution = await executeRun({
       repoRoot,

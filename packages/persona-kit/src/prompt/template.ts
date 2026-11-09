@@ -2,6 +2,7 @@ import {
   BASE_LANGUAGE_CONVENTIONS,
   LOCALE_CONVENTIONS,
   PROMPT_KNOWLEDGE_CUTOFF,
+  registerConventions,
   type ReasoningEffort,
 } from './version.js'
 import type { PersonaVariant } from '../persona.js'
@@ -52,6 +53,7 @@ export function renderLanguageAndLocale(
 ): string {
   const conventions = [
     ...BASE_LANGUAGE_CONVENTIONS[variant.lang],
+    ...registerConventions(variant.lang, variant.voice.formality),
     ...(LOCALE_CONVENTIONS[variant.locale] ?? []),
   ]
   return [

@@ -59,9 +59,9 @@ npm run chat -- --provider canned --locale en-GB   # locale variant probe
 npm run validate:tasks   # task/golden validator (gate G3)
 npm run label:export -- --lang en --run evals/results/m2-persona-scenarios-lk --run evals/results/m2-persona-baseline-lk
 npm run eval -- run --manifest evals/manifests/m0-canned-replay.json
-npm run eval -- run --manifest evals/manifests/m2-persona-replay.json
-npm run eval -- run --manifest evals/manifests/m2-persona-baseline-lk.json   # Gemma default baseline
-npm run eval -- run --manifest evals/manifests/m2-persona-scenarios-lk.json  # Gemma default capability
+npm run eval -- run --manifest evals/manifests/m2-persona-replay-v2.json
+npm run eval -- run --manifest evals/manifests/m2-persona-baseline-lk-v4.json   # Gemma default baseline
+npm run eval -- run --manifest evals/manifests/m2-persona-scenarios-lk-v5.json  # Gemma default capability
 npm run eval -- run --manifest evals/manifests/m2-persona-baseline.json      # historical Groq baseline
 npm run eval -- run --manifest evals/manifests/m2-persona-scenarios.json     # historical Groq capability
 npm run eval -- run --manifest evals/manifests/m2-locale-variants.json       # historical Groq locale probe

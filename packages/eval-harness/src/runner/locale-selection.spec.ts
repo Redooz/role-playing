@@ -25,7 +25,7 @@ const baseManifest = {
   guardrails: [{ metric: 'run.failure_rate', direction: 'decrease', tolerance: 0 }],
   invariants: ['transcript.schema_valid'],
   provider: { mode: 'canned', label: 'canned', allowLive: false },
-  prompt: { version: 'm2-prompt-v1', mode: 'persona', currentDate: '2026-11-08' },
+  prompt: { version: 'm2-prompt-v2', mode: 'persona', currentDate: '2026-11-08' },
 }
 
 describe('locale task selection', () => {

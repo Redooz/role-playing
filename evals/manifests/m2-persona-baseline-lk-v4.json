@@ -1,0 +1,117 @@
+{
+  "schemaVersion": "3.0.0",
+  "run": {
+    "runId": "m2-persona-baseline-lk-v4",
+    "suite": "m2-persona-scenarios",
+    "purpose": "regression",
+    "description": "Default LiveKit Inference google/gemma-4-31b-it generic baseline on the M2 session tasks, with the corrected generic prompt version. Pre-registered after the prompt v2 change; not run yet. The accepted baseline metrics remain m2-persona-baseline-lk-v3 because the generic prompt did not change."
+  },
+  "tasks": {
+    "dataset": "synthetic-workplace-session",
+    "version": "v1",
+    "languages": ["en", "fr"],
+    "splits": ["calibration"]
+  },
+  "seeds": {
+    "master": 20261108,
+    "algorithm": "mulberry32"
+  },
+  "grader": {
+    "id": "jev",
+    "kind": "system-one-model",
+    "version": "typesafe/jev-1.14",
+    "model": "typesafe/jev-1.14"
+  },
+  "rubric": {
+    "version": "m2-persona-rubric-v2",
+    "ids": ["m2-persona-rubric-v2"]
+  },
+  "limits": {
+    "rounds": 5,
+    "maxFailureRate": 0.1
+  },
+  "target": {
+    "metric": "persona.consistency",
+    "direction": "increase",
+    "minimumDetectableEffect": 0
+  },
+  "guardrails": [
+    {
+      "metric": "language.quality",
+      "direction": "increase",
+      "tolerance": 1
+    },
+    {
+      "metric": "register.fit",
+      "direction": "increase",
+      "tolerance": 1
+    },
+    {
+      "metric": "response.clarity",
+      "direction": "increase",
+      "tolerance": 1
+    },
+    {
+      "metric": "objective.completion",
+      "direction": "increase",
+      "tolerance": 1
+    },
+    {
+      "metric": "response.plain_text_rate",
+      "direction": "increase",
+      "tolerance": 0
+    },
+    {
+      "metric": "response.emoji_count",
+      "direction": "decrease",
+      "tolerance": 0
+    },
+    {
+      "metric": "response.markdown_count",
+      "direction": "decrease",
+      "tolerance": 0
+    },
+    {
+      "metric": "run.failure_rate",
+      "direction": "decrease",
+      "tolerance": 0.1
+    }
+  ],
+  "invariants": [
+    "transcript.schema_valid",
+    "transcript.guard_clean",
+    "transcript.seq_monotonic",
+    "transcript.content_class",
+    "response.plain_text"
+  ],
+  "provider": {
+    "mode": "live",
+    "label": "livekit/google/gemma-4-31b-it",
+    "allowLive": true,
+    "paceMs": 1000
+  },
+  "prompt": {
+    "version": "m2-generic-baseline-v1",
+    "mode": "generic",
+    "currentDate": "2026-11-08",
+    "parameters": {
+      "temperature": 0.6,
+      "topP": 0.95,
+      "maxCompletionTokens": 1024
+    }
+  },
+  "baseline": {
+    "runId": "m2-persona-baseline-lk",
+    "metrics": {
+      "persona.consistency": 0,
+      "language.quality": 0,
+      "register.fit": 0,
+      "response.clarity": 0,
+      "objective.completion": 0,
+      "response.plain_text_rate": 1,
+      "response.emoji_count": 0,
+      "response.markdown_count": 0,
+      "run.failure_rate": 0
+    }
+  }
+}
