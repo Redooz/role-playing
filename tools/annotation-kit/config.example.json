@@ -1,0 +1,16 @@
+{
+  "envFile": "/absolute/path/to/repo/.env",
+  "defaultPass": "p1",
+  "kit": "annotation-kit-v1",
+  "queues": {
+    "en": { "id": "<langfuse-queue-id>", "name": "Annotation queue — en" },
+    "fr": { "id": "<langfuse-queue-id>", "name": "Annotation queue — fr" }
+  },
+  "axes": [
+    { "name": "persona.consistency", "configId": "<score-config-id>" },
+    { "name": "language.quality", "configId": "<score-config-id>" },
+    { "name": "register.fit", "configId": "<score-config-id>" },
+    { "name": "response.clarity", "configId": "<score-config-id>" },
+    { "name": "objective.completion", "configId": "<score-config-id>" }
+  ]
+}
