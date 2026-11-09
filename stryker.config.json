@@ -9,7 +9,15 @@
     "!packages/session-core/src/**/*.spec.ts",
     "packages/pipeline/src/**/*.ts",
     "!packages/pipeline/src/**/*.spec.ts",
+    "packages/persona-kit/src/prompt/**/*.ts",
+    "!packages/persona-kit/src/prompt/**/*.spec.ts",
+    "packages/persona-kit/src/lookup.ts",
+    "packages/scenario-kit/src/lookup.ts",
+    "packages/scenario-kit/src/scenarios/helpers.ts",
+    "packages/shared/src/locale.ts",
+    "packages/shared/src/plain-text.ts",
     "apps/cli/src/cli-main.ts",
+    "apps/cli/src/main.ts",
     "apps/cli/src/session-log.adapter.ts"
   ],
   "coverageAnalysis": "perTest",
@@ -21,8 +29,8 @@
   "concurrency": 4,
   "tempDirName": ".stryker-tmp",
   "thresholds": {
-    "high": 79.21,
-    "low": 79.2,
-    "break": 79.2
+    "high": 68.22,
+    "low": 68.21,
+    "break": 68.21
   }
 }

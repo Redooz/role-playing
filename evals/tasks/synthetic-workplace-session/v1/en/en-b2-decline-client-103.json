@@ -26,17 +26,17 @@
     "scenarioId": "decline-meeting-invitation",
     "scenarioVersion": "1.0.0",
     "scriptedUserTurns": [
+      "I'm afraid tomorrow at 9 doesn't work for me. Could we look at Thursday instead?",
+      "Thursday at 10 is available. I can confirm that in writing today.",
+      "I understand the urgency. I'll send the invitation for Thursday at 10.",
+      "I'll send it now. Please accept it this afternoon."
+    ],
+    "recordedPersonaTurns": [
+      "Good morning. I am afraid the meeting needs to move. Do you have a moment?",
       "I need to move our meeting to tomorrow at 9. Can you make that work?",
       "That's not ideal. I have a board call on Thursday morning. Is there anything earlier?",
       "I understand, but I need an answer today. Can you confirm something in writing?",
       "Thursday at 10 works. Please send the invitation and I'll accept it this afternoon."
-    ],
-    "recordedPersonaTurns": [
-      "Good morning. I am afraid the meeting needs to move. Do you have a moment?",
-      "I understand. Tomorrow at 9 is difficult. Could we look at Thursday instead?",
-      "Thursday at 10 is available. I can confirm that in writing today.",
-      "I appreciate the urgency. I will send the invitation for Thursday at 10.",
-      "Thank you. I will look out for the invitation and accept it this afternoon."
     ]
   }
 }

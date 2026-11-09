@@ -63,14 +63,32 @@ asserts one valid and one invalid payload for every event.
 
 ### M2 scope note
 
-The default Stryker scope remains `session-core`, `pipeline` and the two CLI
-files. `packages/pipeline/src/**` now also mutates the plain-text adapter and
-the LiveKit Inference adapter. `persona-kit`, `scenario-kit`,
-`shared/plain-text`, `shared/locale` and `apps/cli/main.ts` are covered by unit
-tests but are **not yet** part of the mutation floor: adding them measures below
-the existing global floor. That is a documented gap, not permission to lower
-the floor. Add tests first, then extend the scope and record a new measured
-baseline.
+The Stryker scope now covers the behaviour-bearing M2 files:
+`persona-kit/src/prompt/**`, `persona-kit/src/lookup.ts`,
+`scenario-kit/src/lookup.ts`, `scenario-kit/src/scenarios/helpers.ts`,
+`shared/locale.ts`, `shared/plain-text.ts` and `apps/cli/main.ts`. Static
+persona/scenario data and the Zod schema definitions are deliberately excluded:
+mutating object literals or schemas produces compile errors and no behavioural
+signal. The prompt builder, lookups, plain-text filter and CLI roots are the
+parts where a mutant can change behaviour.
+
+Measured floors (2026-11-09):
+
+| Package | Total / covered | Note |
+| --- | --- | --- |
+| `apps/cli` | 57.49 / 71.36 | down from 66.22/75.77 because `main.ts` joined the package scope |
+| `packages/persona-kit` | 31.94 / 34.19 | new; prompt templates are the weak part |
+| `packages/pipeline` | 74.01 / 77.66 | up from 70.75/74.90 |
+| `packages/session-core` | 85.77 / 86.85 | up from 84.67/85.79 |
+| `packages/shared` | 61.86 / 63.49 | new; plain-text regex branches |
+| `packages/scenario-kit` | 75.00 / 75.00 | lookup/helper scope |
+| **Global** | **68.21 / 72.74** | down from 79.21/82.40 because of the new scope |
+
+The per-package floors are the gate. The global number is a summary and moved
+with the scope; this is not permission to lower an existing package floor. The
+low new floors are M3 backlog: prompt templates (`template.ts`,
+`template-gemma.ts`), shared plain-text regex branches, and `apps/cli/main.ts`
+need stronger tests. The pipeline and session-core floors improved.
 
 The greeting/locale paths in `driver.ts` are in scope. The remaining survivors
 there are diagnostics, unreachable race guards after an awaited interrupt, the

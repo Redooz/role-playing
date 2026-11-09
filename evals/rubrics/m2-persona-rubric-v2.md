@@ -16,12 +16,17 @@ v2 adds explicit French criteria to `language.quality` (accents and hyphens) and
 | `language.quality`     | Are the replies in correct target-language English/French?           | Fluent grammar and vocabulary; French includes correct accents and hyphens; no serious error.                               |
 | `register.fit`         | Is the register appropriate for the workplace relationship?          | Manager direct, peer informal, client formal and diplomatic; French keeps a consistent `tu`/`vous` choice with the learner. |
 | `response.clarity`     | Are the replies clear and concise rather than rambling?              | Understandable and reasonably short.                                                                                        |
-| `objective.completion` | Do the replies help the learner complete the scenario objective?     | A realistic opening and responsive turns.                                                                                   |
+| `objective.completion` | Do the replies help the learner complete the scenario objective?     | A realistic opening and responsive turns that create the opportunity; the persona does not complete the learner’s task.     |
 | `locale.fit`           | Do the replies match the stated `en-GB`/`fr-CA` locale?              | Locale-specific spelling, vocabulary and workplace norms.                                                                   |
 
 Locale fit is judged only in the `m2-locale-variants` probe. English and French
 questions are written separately in the target language. A failed Jev call makes
 the run incomplete; it is never a "no" or a zero.
+
+For `objective.completion`, judge the persona’s contribution, not the learner’s
+success. The persona must create a realistic opportunity for the learner to act,
+and must not take over the learner’s part (for example, by declining the meeting
+itself).
 
 Human labels follow `m2-annotation-guideline-v2`. A `4` or `5` maps to `yes`;
 `1`–`3` maps to `no`. Entries stay `draft` until at least two annotators

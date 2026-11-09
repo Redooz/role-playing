@@ -26,6 +26,7 @@ export const declineMeetingScenario = defineScenario({
         'The learner has a conflicting deadline for another client.',
         'Thursday at 10 is available.',
         'The client needs an answer today.',
+        'The client will not accept a vague answer; the learner must name a specific alternative.',
       ],
       objectives: [
         {
@@ -50,10 +51,10 @@ export const declineMeetingScenario = defineScenario({
           'You have called to move tomorrow morning’s meeting and you need an answer today.',
       },
       scriptedUser: scriptedUser('decline-en', 'en', 'en', [
-        'I need to move our meeting to tomorrow at 9. Can you make that work?',
-        "That's not ideal. I have a board call on Thursday morning. Is there anything earlier?",
-        'I understand, but I need an answer today. Can you confirm something in writing?',
-        "Thursday at 10 works. Please send the invitation and I'll accept it this afternoon.",
+        "I'm afraid tomorrow at 9 doesn't work for me. Could we look at Thursday instead?",
+        'Thursday at 10 is available. I can confirm that in writing today.',
+        "I understand the urgency. I'll send the invitation for Thursday at 10.",
+        "I'll send it now. Please accept it this afternoon.",
       ]),
       successCriteria: [
         'The learner declines tomorrow at 9 without pretending to be available.',
@@ -72,6 +73,7 @@ export const declineMeetingScenario = defineScenario({
         'The learner has a conflicting deadline for another client.',
         'Thursday at 10 is available.',
         'The client needs an answer today.',
+        'The client will not accept a vague answer; the learner must name a specific alternative.',
       ],
       objectives: [
         {
@@ -96,10 +98,10 @@ export const declineMeetingScenario = defineScenario({
           'You have called to move tomorrow morning’s meeting and you need an answer today.',
       },
       scriptedUser: scriptedUser('decline-en-gb', 'en', 'en-GB', [
-        'I need to move our meeting to tomorrow at 9. Would that suit you?',
-        "That's rather difficult. I have a board call on Thursday morning. Is there anything earlier?",
-        'I appreciate that, but I need an answer today. Could you confirm something in writing?',
-        "Thursday at 10 works. Please send the invitation and I'll accept it this afternoon.",
+        "I'm afraid tomorrow at 9 doesn't suit me. Could we look at Thursday instead?",
+        'Thursday at 10 is available. I can confirm that in writing today.',
+        "I appreciate the urgency. I'll send the invitation for Thursday at 10.",
+        "I'll send it now. Please accept it this afternoon.",
       ]),
       successCriteria: [
         'The learner uses natural British phrasing (for example suit you, rather difficult, in writing).',
@@ -118,6 +120,7 @@ export const declineMeetingScenario = defineScenario({
         'L’apprenant a une échéance conflictuelle pour un autre client.',
         'Jeudi à 10 h est disponible.',
         'Le client a besoin d’une réponse aujourd’hui.',
+        'Le client n’accepte pas une réponse vague ; l’apprenant doit proposer une solution précise.',
       ],
       objectives: [
         {
@@ -145,10 +148,10 @@ export const declineMeetingScenario = defineScenario({
           'Vous appelez pour déplacer la réunion de demain matin et vous avez besoin d’une réponse aujourd’hui.',
       },
       scriptedUser: scriptedUser('decline-fr', 'fr', 'fr', [
-        'Je dois déplacer notre réunion à demain 9 h. Est-ce que cela vous convient ?',
-        'Ce n’est pas idéal. J’ai un conseil jeudi matin. Avez-vous quelque chose de plus tôt ?',
-        'Je comprends, mais j’ai besoin d’une réponse aujourd’hui. Pouvez-vous me confirmer cela par écrit ?',
-        'Jeudi à 10 h me convient. Envoyez-moi l’invitation et je l’accepterai cet après-midi.',
+        'Demain 9 h ne me convient pas, malheureusement. Pouvons-nous regarder jeudi à la place ?',
+        'Jeudi à 10 h est disponible. Je peux vous le confirmer par écrit aujourd’hui.',
+        'Je comprends votre urgence. Je vous envoie l’invitation pour jeudi à 10 h.',
+        'Je vous l’envoie tout de suite. Merci de l’accepter cet après-midi.',
       ]),
       successCriteria: [
         'L’apprenant refuse demain 9 h sans laisser entendre qu’il est disponible.',
@@ -168,6 +171,7 @@ export const declineMeetingScenario = defineScenario({
         'L’apprenant a une échéance conflictuelle pour un autre client.',
         'Jeudi à 10 h est disponible.',
         'Le client a besoin d’une réponse aujourd’hui.',
+        'Le client n’accepte pas une réponse vague ; l’apprenant doit proposer une solution précise.',
       ],
       objectives: [
         {
@@ -195,10 +199,10 @@ export const declineMeetingScenario = defineScenario({
           'Vous appelez pour déplacer la rencontre de demain matin et vous avez besoin d’une réponse aujourd’hui.',
       },
       scriptedUser: scriptedUser('decline-fr-ca', 'fr', 'fr-CA', [
-        'Je dois déplacer notre rencontre à demain 9 h. Est-ce que cela vous convient ?',
-        'Ce n’est pas idéal. J’ai un conseil jeudi matin. Avez-vous quelque chose de plus tôt ?',
-        'Je comprends, mais j’ai besoin d’une réponse aujourd’hui. Pouvez-vous me confirmer cela par courriel ?',
-        'Jeudi à 10 h me convient. Envoyez-moi l’invitation et je l’accepterai cet après-midi.',
+        'Demain 9 h ne me convient pas, malheureusement. Peut-on regarder jeudi à la place ?',
+        'Jeudi à 10 h est libre. Je peux vous le confirmer par courriel aujourd’hui.',
+        'Je comprends l’urgence. Je vous envoie l’invitation pour jeudi à 10 h.',
+        'Je vous l’envoie tout de suite. Merci de l’accepter cet après-midi.',
       ]),
       successCriteria: [
         'L’apprenant utilise un vocabulaire québécois naturel (par exemple rencontre, courriel, conseil).',

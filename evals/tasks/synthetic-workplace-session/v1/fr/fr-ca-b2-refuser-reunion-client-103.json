@@ -26,17 +26,17 @@
     "scenarioId": "decline-meeting-invitation",
     "scenarioVersion": "1.0.0",
     "scriptedUserTurns": [
-      "Je dois déplacer notre rencontre à demain 9 h. Est-ce que cela vous convient ?",
-      "Ce n’est pas idéal. J’ai un conseil jeudi matin. Avez-vous quelque chose de plus tôt ?",
-      "Je comprends, mais j’ai besoin d’une réponse aujourd’hui. Pouvez-vous me confirmer cela par courriel ?",
-      "Jeudi à 10 h me convient. Envoyez-moi l’invitation et je l’accepterai cet après-midi."
+      "Demain 9 h ne me convient pas, malheureusement. Peut-on regarder jeudi à la place ?",
+      "Jeudi à 10 h est libre. Je peux vous le confirmer par courriel aujourd'hui.",
+      "Je comprends l'urgence. Je vous envoie l'invitation pour jeudi à 10 h.",
+      "Je vous l'envoie tout de suite. Merci de l'accepter cet après-midi."
     ],
     "recordedPersonaTurns": [
       "Bonjour. Je vous appelle au sujet de notre rencontre. Avez-vous un instant ?",
-      "Je comprends. Demain 9 h est difficile. Pouvons-nous regarder jeudi à la place ?",
-      "Jeudi à 10 h est disponible. Je peux vous le confirmer par courriel aujourd’hui.",
-      "Je comprends votre urgence. Je vous envoie l’invitation pour jeudi à 10 h.",
-      "Merci. J’attends l’invitation et je l’accepterai cet après-midi."
+      "Je dois déplacer notre rencontre à demain 9 h. Est-ce que cela vous convient ?",
+      "Ce n'est pas idéal. J'ai un conseil jeudi matin. Avez-vous quelque chose de plus tôt ?",
+      "Je comprends, mais j'ai besoin d'une réponse aujourd'hui. Pouvez-vous me confirmer cela par courriel ?",
+      "Jeudi à 10 h me convient. Envoyez-moi l'invitation et je l'accepterai cet après-midi."
     ]
   }
 }

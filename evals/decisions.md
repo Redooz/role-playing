@@ -175,14 +175,53 @@ French criteria: accents and hyphens for `language.quality`; a consistent
 | ---------- | ------------------------------- | --------------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-11-09 | M2 annotation review            | `annotation-kit-m2`               | accepted (agent labels, provisional) | 60/60 traces, two passes; threshold evidence recorded in `evals/analysis/m2-annotation-review-2026-11-09.md`; human pass still required. |
 | 2026-11-09 | M2-G4 base capability (rubric v2) | `m2-persona-scenarios-lk-v2` vs `m2-persona-baseline-lk-v2` | accepted (provisional semantic gate) | 30/30 trials, 0 failures each. Candidate vs baseline: persona 0.875 vs 0.280, language 0.944 vs 0.742, register 0.839 vs 0.679, clarity 0.895 vs 0.881, objective 0.860 vs 0.752; `pass^1` 0.700 / `pass^3` 0.533 vs 0/0. All guardrails and invariants pass. Gate provisional: labels are agent, not human. |
+| 2026-11-09 | M2-G4 post-M2 fixes | `m2-persona-scenarios-lk-v4` vs `m2-persona-baseline-lk-v3` | accepted (provisional semantic gate) | 30/30 trials, 0 failures. Candidate persona 0.888 vs baseline 0.347; language 0.941 vs 0.817; register 0.917 vs 0.736; clarity 0.925 vs 0.902; objective 0.903 vs 0.848; `pass^1` **1.000** / `pass^3` **1.000** vs 0/0. All six tasks 5/5. |
+
+### Post-M2 quality fixes (2026-11-09)
+
+Four targeted fixes were applied after the v2 acceptance:
+
+- the French peer greeting and boundary now require `tu` for `fr`/`fr-CA`;
+- the decline scenario had the learner and client turns inverted in all four
+  locale tasks; the learner now declines and offers the alternative, and the
+  client raises the request and resists;
+- the client persona now has an explicit boundary that it is the client, not the
+  account manager;
+- `objective.completion` now says to judge the persona’s contribution, not the
+  learner’s success, and not to let the persona do the learner’s task.
+
+The v3 baseline (generic prompt on the fixed tasks) still failed every trial
+(`pass^1` 0). The v4 candidate passed all six tasks, 5/5 each:
+
+| Axis                     | v4 candidate | v3 baseline |
+| ------------------------ | ------------ | ----------- |
+| `persona.consistency`    | 0.888        | 0.347       |
+| `language.quality`       | 0.941        | 0.817       |
+| `register.fit`           | 0.917        | 0.736       |
+| `response.clarity`       | 0.925        | 0.902       |
+| `objective.completion`   | 0.903        | 0.848       |
+| `pass^1`                 | **1.000**    | 0           |
+| `pass^3`                 | **1.000**    | 0           |
+
+All guardrails and invariants pass. `m2-persona-scenarios-lk-v4` is the final M2
+capability run; v2 and v3 are superseded. The v4 candidate uses the
+`m2-persona-baseline-lk-v3` baseline.
+
+Mutation floor: the scope now includes the behaviour-bearing `persona-kit` prompt
+and lookup, `scenario-kit` lookup/helper, `shared/locale`, `shared/plain-text`
+and `apps/cli/main.ts`; static data/schema files are excluded because mutating
+them produces compile errors. The measured global is 68.21% total / 72.74%
+covered, with per-package floors in `evals/baselines/m1-mutation.json`.
+`pipeline` (74.01/77.66) and `session-core` (85.77/86.85) improved; `apps/cli`
+(57.49/71.36) is lower because `main.ts` joined the package scope; `persona-kit`
+(31.94/34.19) and `shared` (61.86/63.49) are new low floors. Those are M3 test
+backlog, not permission to lower an existing floor. See `stryker.triage.md`.
 
 M2 is closed with the semantic gate **provisional by project choice**. The project
 uses agent annotation for now; no human pass is planned. “Provisional” means the
 gate is accepted on agent labels and is not based on human labels. It is a status,
 not a blocked task. It can become `stable` only if a human pass is added later.
-The remaining quality targets are `fr-b2-point-matin-peer-102` (0/5 in the v2 run)
-and the two decline/reschedule tasks (3/5 each), not the persona/scenario
-infrastructure.
+The v4 run removed the earlier weak tasks: all six tasks are 5/5.
 
 ### French grader decision
 

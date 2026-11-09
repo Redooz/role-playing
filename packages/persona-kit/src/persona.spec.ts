@@ -23,6 +23,26 @@ describe('persona data', () => {
     expect(personaVariant(personaById('client'), 'en-GB').displayName).toBe('Julian Moore')
   })
 
+  it('tells the French peer to keep the informal tu form', () => {
+    for (const locale of ['fr', 'fr-CA'] as const) {
+      const variant = personaVariant(personaById('peer'), locale)
+      expect(variant.boundaries.some((boundary) => /Tutoyer/u.test(boundary))).toBe(true)
+      expect(variant.boundaries.some((boundary) => /« tu »/u.test(boundary))).toBe(true)
+      expect(variant.greeting.opensWith).toMatch(/tutoyant|« tu »/u)
+    }
+  })
+
+  it('keeps the client out of the account manager role', () => {
+    for (const locale of ['en', 'en-GB', 'fr', 'fr-CA'] as const) {
+      const variant = personaVariant(personaById('client'), locale)
+      expect(
+        variant.boundaries.some((boundary) =>
+          /not the account manager|pas le chargé de compte/iu.test(boundary),
+        ),
+      ).toBe(true)
+    }
+  })
+
   it('selects exactly one variant and never falls back', () => {
     const persona = personaById('manager')
     expect(personaVariant(persona, 'en-GB').locale).toBe('en-GB')
