@@ -248,6 +248,58 @@ No grader switch in M2. See
 wanted later, test Mistral Large 4 with a proper reasoning budget and a human
 audit, or a strong multilingual model with a calibrated verbalised probability.
 
+## Post-review harness and French register fixes (2026-11-09)
+
+Three review findings on PR #6 were accepted and fixed:
+
+- **Rubric honesty.** A semantic grader now declares the rubric it can ask
+  (`Grader.rubricVersion`), and `assertGraderMatchesManifest` rejects a manifest
+  whose `rubric.version` the grader does not implement. The Jev grader asks
+  `m2-persona-rubric-v2` only. Manifest v1 runs are historical and now fail fast;
+  they are not edited. The documented default commands point at the accepted v2
+  manifests.
+- **French register.** The shared `fr`/`fr-CA` conventions no longer contain the
+  unconditional “Vouvoyez” line. The register now follows
+  `persona.voice.formality`: `tu` for the informal peer, `vous` for the formal
+  manager and client. Both prompt packs render exactly one register rule. The
+  prompt templates move to `m2-prompt-v2` and `m2-prompt-gemma-v2`.
+- **Canned prompt mode.** `buildSessionCannedEntries` now receives the manifest's
+  prompt mode, so a canned `generic` manifest matches its recordings instead of
+  silently using the persona prompt.
+- **Generic prompt version.** `assertSessionPrompt` compares a `generic`
+  manifest with `m2-generic-baseline-v1` instead of the Harmony template version.
+
+New pre-registered manifests: `m2-persona-replay-v2` (canned, prompt gemma v2),
+`m2-persona-fr-register-v1` (French-only probe, 3 tasks × 5 rounds),
+`m2-persona-scenarios-lk-v5` (full capability) and
+`m2-persona-baseline-lk-v4` (generic, corrected version). The accepted v4/v3
+records stay unchanged.
+
+Results:
+
+- `m2-persona-replay-v2` accepted: 12 trials, byte-identical transcripts, all
+  invariants and guardrails pass at prompt gemma v2.
+- `m2-persona-scenarios-lk-v5` accepted: 30/30 trials, 0 failures, against the
+  `m2-persona-baseline-lk-v3` baseline. Candidate vs baseline:
+  `persona.consistency` 0.877 vs 0.347, `language.quality` 0.938 vs 0.817,
+  `register.fit` 0.922 vs 0.736, `response.clarity` 0.923 vs 0.902,
+  `objective.completion` 0.917 vs 0.848; `pass^1` 0.933 / `pass^3` 0.850. All
+  guardrails and invariants pass. Five of six tasks are 5/5; the French client
+  task is 3/5, down from 5/5 in v4, but its mean consistency axis stays inside
+  the guardrail.
+- `m2-persona-fr-register-v1` **rejected**: 15/15 trials completed with 0
+  failures, and French `register.fit` held at 0.932 vs the v4 French subset
+  0.931. The run failed its own `persona.consistency` target: 0.844 vs 0.861.
+  The drop is concentrated on the French client task, where near-identical
+  client text scored 0.78 in v4 and 0.61 in this run. This is Jev variance on a
+  borderline task, not a prompt effect. The probe is kept as a rejected record
+  and is not a gate; the full v5 run is the accepted gate.
+
+The French change is still **regression**, not a capability claim: the accepted
+v4 peer already used `tu` in all five rounds, and Jev's French `register.fit`
+ranking is weak. The deterministic prompt tests are the proof that the
+contradiction is gone.
+
 ## Accepted and rejected changes
 
 | Date | Change | Run ID | Verdict | Notes                               |

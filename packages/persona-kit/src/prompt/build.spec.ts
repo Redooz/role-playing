@@ -5,6 +5,7 @@ import { buildPersonaPrompt, PromptVariantError } from './build.js'
 import {
   BASE_LANGUAGE_CONVENTIONS,
   DEFAULT_PROMPT_STYLE,
+  FRENCH_REGISTER_CONVENTIONS,
   GEMMA_PROMPT_TEMPLATE_VERSION,
   LOCALE_CONVENTIONS,
   PROMPT_KNOWLEDGE_CUTOFF,
@@ -12,6 +13,7 @@ import {
   PROMPT_TEMPLATE_VERSION,
   PERSONA_GENERATION_PARAMETERS,
   promptVersionForStyle,
+  registerConventions,
 } from './version.js'
 
 const DATE = '2026-11-08'
@@ -61,7 +63,7 @@ describe('persona prompt builder', () => {
   it('changes the hash for a pinned date or template change', () => {
     const base = build()
     expect(build('en', { currentDate: '2026-11-09' }).promptHash).not.toBe(base.promptHash)
-    expect(build('en', { promptVersion: 'm2-prompt-v2' }).promptHash).not.toBe(base.promptHash)
+    expect(build('en', { promptVersion: 'm2-prompt-v3' }).promptHash).not.toBe(base.promptHash)
   })
 
   it('includes the Harmony header and the plain-text rule', () => {
@@ -145,13 +147,13 @@ describe('persona prompt builder', () => {
   })
 
   it('pins the prompt version constants and style switch', () => {
-    expect(PROMPT_TEMPLATE_VERSION).toBe('m2-prompt-v1')
-    expect(GEMMA_PROMPT_TEMPLATE_VERSION).toBe('m2-prompt-gemma-v1')
+    expect(PROMPT_TEMPLATE_VERSION).toBe('m2-prompt-v2')
+    expect(GEMMA_PROMPT_TEMPLATE_VERSION).toBe('m2-prompt-gemma-v2')
     expect(PROMPT_KNOWLEDGE_CUTOFF).toBe('2024-06')
     expect(PROMPT_STYLES).toEqual(['harmony', 'gemma'])
     expect(DEFAULT_PROMPT_STYLE).toBe('harmony')
-    expect(promptVersionForStyle('harmony')).toBe('m2-prompt-v1')
-    expect(promptVersionForStyle('gemma')).toBe('m2-prompt-gemma-v1')
+    expect(promptVersionForStyle('harmony')).toBe('m2-prompt-v2')
+    expect(promptVersionForStyle('gemma')).toBe('m2-prompt-gemma-v2')
     expect(PERSONA_GENERATION_PARAMETERS).toEqual({
       temperature: 0.6,
       topP: 0.95,
@@ -177,13 +179,11 @@ describe('persona prompt builder', () => {
     ])
     expect(LOCALE_CONVENTIONS['fr']).toEqual([
       'Utilisez un français standard.',
-      'Vouvoyez la personne dans un contexte professionnel.',
       'Utilisez la ponctuation française, avec une espace avant les deux-points et le point d’interrogation.',
     ])
     expect(LOCALE_CONVENTIONS['fr-CA']).toEqual([
       'Utilisez le français québécois courant : courriel, échéancier, fin de semaine, rencontre.',
       'Évitez les anglicismes inutiles et les tournures proprement européennes.',
-      'Vouvoyez la personne dans un contexte professionnel.',
     ])
   })
 
@@ -198,6 +198,64 @@ describe('persona prompt builder', () => {
       (['harmony', 'gemma'] as const).map((style) => ({ personaId, locale, style })),
     ),
   )
+
+  it('pins the French register lines', () => {
+    expect(FRENCH_REGISTER_CONVENTIONS).toEqual({
+      informal:
+        'Employez « tu » avec la personne et gardez ce registre pendant toute la conversation.',
+      neutral:
+        'Employez « vous » avec la personne et gardez ce registre pendant toute la conversation.',
+      formal:
+        'Employez « vous » avec la personne et gardez ce registre pendant toute la conversation.',
+    })
+  })
+
+  it('derives the French register line from the persona formality', () => {
+    expect(registerConventions('fr', 'informal')).toEqual([FRENCH_REGISTER_CONVENTIONS.informal])
+    expect(registerConventions('fr', 'neutral')).toEqual([FRENCH_REGISTER_CONVENTIONS.neutral])
+    expect(registerConventions('fr', 'formal')).toEqual([FRENCH_REGISTER_CONVENTIONS.formal])
+    expect(registerConventions('en', 'informal')).toEqual([])
+    expect(registerConventions('en', 'formal')).toEqual([])
+  })
+
+  it.each([
+    { personaId: 'manager', locale: 'fr' },
+    { personaId: 'peer', locale: 'fr' },
+    { personaId: 'client', locale: 'fr' },
+    { personaId: 'manager', locale: 'fr-CA' },
+    { personaId: 'peer', locale: 'fr-CA' },
+    { personaId: 'client', locale: 'fr-CA' },
+  ] as const)(
+    'gives $personaId/$locale exactly one register rule in both styles',
+    ({ personaId, locale }) => {
+      const informal = FRENCH_REGISTER_CONVENTIONS.informal
+      const formal = FRENCH_REGISTER_CONVENTIONS.formal
+      const expected = personaId === 'peer' ? informal : formal
+      const forbidden = personaId === 'peer' ? formal : informal
+
+      for (const style of ['harmony', 'gemma'] as const) {
+        const prompt = buildPersonaPrompt({
+          persona: personaById(personaId),
+          scenario: scenarioById(SCENARIO_FOR[personaId] as string),
+          locale,
+          currentDate: DATE,
+          style,
+        })
+        expect(prompt.sessionSystemPrompt).toContain(expected)
+        expect(prompt.sessionSystemPrompt).not.toContain(forbidden)
+        expect(prompt.sessionSystemPrompt).not.toContain('Vouvoyez')
+      }
+    },
+  )
+
+  it('keeps French register rules out of English prompts', () => {
+    for (const locale of ['en', 'en-GB'] as const) {
+      for (const style of ['harmony', 'gemma'] as const) {
+        const prompt = build(locale, { style })
+        expect(prompt.sessionSystemPrompt).not.toContain('Employez «')
+      }
+    }
+  })
 
   it.each(COMBINATIONS)(
     'matches the golden prompt for $personaId/$locale/$style',

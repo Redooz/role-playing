@@ -46,7 +46,6 @@ export type M2Axis = (typeof M2_AXES)[number]
 
 export interface JevAxisGraderOptions {
   readonly client: JevGrader
-  readonly rubricVersion?: string
 }
 
 interface AxisSpec {
@@ -169,6 +168,7 @@ export function createJevAxisGrader(options: JevAxisGraderOptions): Grader {
     id: M2_JEV_GRADER_ID,
     kind: 'system-one-model',
     version: JEV_MODEL,
+    rubricVersion: M2_JEV_RUBRIC_VERSION,
     model: JEV_MODEL,
 
     async score(context: GraderContext): Promise<Readonly<Record<string, number>>> {
@@ -206,7 +206,7 @@ async function evaluate(
     const text = readTrialText(trial)
     const specs = axisSpecsFor(trial)
     for (const spec of specs) {
-      const judgment = buildJudgment(trial, text, spec, options)
+      const judgment = buildJudgment(trial, text, spec)
       const result = await options.client.grade(judgment)
       if (!result.ok) {
         throw new Error(
@@ -326,12 +326,7 @@ function axisSpecsFor(trial: TrialRecord): readonly AxisSpec[] {
   return base ? AXES.filter((spec) => spec.axis !== 'locale.fit') : AXES
 }
 
-function buildJudgment(
-  trial: TrialRecord,
-  text: TrialText,
-  spec: AxisSpec,
-  options: JevAxisGraderOptions,
-): JevJudgment {
+function buildJudgment(trial: TrialRecord, text: TrialText, spec: AxisSpec): JevJudgment {
   const copy = text.lang === 'fr' ? spec.fr : spec.en
   const question: JevQuestion = {
     type: 'noul',
@@ -344,7 +339,7 @@ function buildJudgment(
       id: `m2-${text.trialId}-${spec.axis}`,
       lang: text.lang,
       locale: text.locale,
-      rubricVersion: options.rubricVersion ?? M2_JEV_RUBRIC_VERSION,
+      rubricVersion: M2_JEV_RUBRIC_VERSION,
       graderVersion: JEV_GRADER_VERSION,
     },
     state: text.state,

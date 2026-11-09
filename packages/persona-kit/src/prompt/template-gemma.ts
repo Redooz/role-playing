@@ -1,5 +1,5 @@
 import type { ScenarioVariant } from '@rp/scenario-kit'
-import { BASE_LANGUAGE_CONVENTIONS, LOCALE_CONVENTIONS } from './version.js'
+import { BASE_LANGUAGE_CONVENTIONS, LOCALE_CONVENTIONS, registerConventions } from './version.js'
 import type { PersonaVariant } from '../persona.js'
 
 /**
@@ -41,6 +41,7 @@ export function renderGemmaPacks(input: GemmaPromptInput): GemmaPromptPacks {
   const { persona, scenario } = input
   const conventions = [
     ...BASE_LANGUAGE_CONVENTIONS[persona.lang],
+    ...registerConventions(persona.lang, persona.voice.formality),
     ...(LOCALE_CONVENTIONS[persona.locale] ?? []),
   ]
 

@@ -111,6 +111,8 @@ export function resolveSessionPrompt(
  * or two-bucket split, so the capability run compares the candidate against the
  * behaviour M1 actually had.
  */
+export const GENERIC_PROMPT_TEMPLATE_VERSION = 'm2-generic-baseline-v1'
+
 function buildGenericPrompt(
   lang: 'en' | 'fr',
   locale: string,
@@ -124,7 +126,7 @@ function buildGenericPrompt(
     'Keep each reply short and ask at most one question.',
   ].join('\n')
 
-  const promptVersion = 'm2-generic-baseline-v1'
+  const promptVersion = GENERIC_PROMPT_TEMPLATE_VERSION
   const promptHash = hashValue({ mode: 'generic', lang, locale, currentDate, instruction })
   return {
     promptVersion,
@@ -273,6 +275,7 @@ export function buildSessionCannedEntries(
   task: TaskEntry,
   currentDate: string,
   style: PromptStyle = 'harmony',
+  mode: SessionPromptMode = 'persona',
 ): CannedEntry[] {
   const session = task.session
   if (task.mode !== 'session' || session === undefined) return []
@@ -290,7 +293,7 @@ export function buildSessionCannedEntries(
     )
   }
 
-  const { prompt, locale } = resolveSessionPrompt(task, currentDate, 'persona', style)
+  const { prompt, locale } = resolveSessionPrompt(task, currentDate, mode, style)
   const metadata = { lang: task.lang, locale, taskId: task.id }
   const entries: CannedEntry[] = []
 

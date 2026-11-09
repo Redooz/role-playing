@@ -6,7 +6,7 @@ import { TRANSCRIPT_SCHEMA_VERSION } from '@rp/session-core'
 import { describe, expect, it } from 'vitest'
 import { ManifestValidationError, manifestHash, parseManifest } from './manifest.js'
 import { executeRun, loadSelectedTasks } from './runner.js'
-import type { Grader } from './grader.js'
+import { createDeterministicInvariantGrader, type Grader } from './grader.js'
 import { buildCannedEntriesForTask } from './replay.js'
 import {
   createCannedProvider,
@@ -155,6 +155,92 @@ describe('executeRun (gate G1)', () => {
         wallClock: fixedWallClock,
       }),
     ).rejects.toThrow(/grader mismatch/)
+  })
+
+  it('refuses a manifest whose rubric the injected grader does not implement', async () => {
+    const raw = loadManifestRaw()
+    raw['grader'] = {
+      id: 'jev',
+      kind: 'system-one-model',
+      version: 'typesafe/jev-1.14',
+      model: 'typesafe/jev-1.14',
+    }
+    raw['rubric'] = { version: 'm2-persona-rubric-v1', ids: ['m2-persona-rubric-v1'] }
+    const grader: Grader = {
+      id: 'jev',
+      kind: 'system-one-model',
+      version: 'typesafe/jev-1.14',
+      rubricVersion: 'm2-persona-rubric-v2',
+      score() {
+        return Promise.resolve({ 'replay.deterministic_rate': 1 })
+      },
+    }
+
+    await expect(
+      executeRun({
+        repoRoot,
+        manifest: raw,
+        grader,
+        wallClock: fixedWallClock,
+      }),
+    ).rejects.toThrow(/rubric mismatch/)
+  })
+
+  it('refuses a semantic grader that declares no rubric', async () => {
+    const raw = loadManifestRaw()
+    raw['grader'] = {
+      id: 'jev',
+      kind: 'system-one-model',
+      version: 'typesafe/jev-1.14',
+      model: 'typesafe/jev-1.14',
+    }
+    raw['rubric'] = { version: 'm2-persona-rubric-v2', ids: ['m2-persona-rubric-v2'] }
+    const grader: Grader = {
+      id: 'jev',
+      kind: 'system-one-model',
+      version: 'typesafe/jev-1.14',
+      score() {
+        return Promise.resolve({ 'replay.deterministic_rate': 1 })
+      },
+    }
+
+    await expect(
+      executeRun({
+        repoRoot,
+        manifest: raw,
+        grader,
+        wallClock: fixedWallClock,
+      }),
+    ).rejects.toThrow(/declares no rubric/)
+  })
+
+  it('accepts a semantic manifest whose rubric the grader declares', async () => {
+    const raw = loadManifestRaw()
+    raw['grader'] = {
+      id: 'jev',
+      kind: 'system-one-model',
+      version: 'typesafe/jev-1.14',
+      model: 'typesafe/jev-1.14',
+    }
+    raw['rubric'] = { version: 'm2-persona-rubric-v2', ids: ['m2-persona-rubric-v2'] }
+    const invariants = createDeterministicInvariantGrader()
+    const grader: Grader = {
+      ...invariants,
+      id: 'jev',
+      kind: 'system-one-model',
+      version: 'typesafe/jev-1.14',
+      rubricVersion: 'm2-persona-rubric-v2',
+    }
+
+    const execution = await executeRun({
+      repoRoot,
+      manifest: raw,
+      grader,
+      wallClock: fixedWallClock,
+    })
+
+    expect(execution.result.verdict.status).toBe('accepted')
+    expect(execution.result.versions.rubricVersion).toBe('m2-persona-rubric-v2')
   })
 
   it('turns a live provider outage into infrastructure_inconclusive, never a pass', async () => {

@@ -1,0 +1,104 @@
+{
+  "schemaVersion": "3.0.0",
+  "run": {
+    "runId": "m2-persona-replay-v2",
+    "suite": "m2-persona-replay",
+    "purpose": "regression",
+    "description": "M2 regression after prompt v2: replay persona session fixtures through the real driver and canned provider with the Gemma prompt pack; transcripts must be byte-identical. Supersedes m2-persona-replay, which pins prompt gemma v1."
+  },
+  "tasks": {
+    "dataset": "synthetic-workplace-session",
+    "version": "v1",
+    "languages": ["en", "fr"],
+    "splits": ["calibration"]
+  },
+  "seeds": {
+    "master": 20261110,
+    "algorithm": "mulberry32"
+  },
+  "grader": {
+    "id": "deterministic-invariants",
+    "kind": "code",
+    "version": "1.0.0"
+  },
+  "rubric": {
+    "version": "m2-harness-v1"
+  },
+  "limits": {
+    "rounds": 2,
+    "maxFailureRate": 0
+  },
+  "target": {
+    "metric": "replay.deterministic_rate",
+    "direction": "increase",
+    "minimumDetectableEffect": 0
+  },
+  "guardrails": [
+    {
+      "metric": "transcript.schema_valid_rate",
+      "direction": "increase",
+      "tolerance": 0
+    },
+    {
+      "metric": "transcript.content_class_rate",
+      "direction": "increase",
+      "tolerance": 0
+    },
+    {
+      "metric": "transcript.guard_violations",
+      "direction": "decrease",
+      "tolerance": 0
+    },
+    {
+      "metric": "response.plain_text_rate",
+      "direction": "increase",
+      "tolerance": 0
+    },
+    {
+      "metric": "response.emoji_count",
+      "direction": "decrease",
+      "tolerance": 0
+    },
+    {
+      "metric": "response.markdown_count",
+      "direction": "decrease",
+      "tolerance": 0
+    },
+    {
+      "metric": "run.failure_rate",
+      "direction": "decrease",
+      "tolerance": 0
+    }
+  ],
+  "invariants": [
+    "transcript.schema_valid",
+    "transcript.guard_clean",
+    "transcript.seq_monotonic",
+    "transcript.content_class",
+    "response.plain_text"
+  ],
+  "provider": {
+    "mode": "canned",
+    "label": "m2-persona-canned-v1",
+    "allowLive": false
+  },
+  "prompt": {
+    "version": "m2-prompt-gemma-v2",
+    "mode": "persona",
+    "currentDate": "2026-11-08",
+    "style": "gemma"
+  },
+  "baseline": {
+    "runId": "m2-persona-replay-bootstrap",
+    "metrics": {
+      "replay.deterministic_rate": 1,
+      "transcript.schema_valid_rate": 1,
+      "transcript.content_class_rate": 1,
+      "transcript.guard_violations": 0,
+      "response.plain_text_rate": 1,
+      "response.emoji_count": 0,
+      "response.markdown_count": 0,
+      "run.failure_rate": 0
+    }
+  }
+}

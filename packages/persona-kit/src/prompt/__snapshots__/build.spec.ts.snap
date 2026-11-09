@@ -62,7 +62,7 @@ Greet the account manager and explain that the meeting needs to move.
 Situation: You have called to move tomorrow morning’s meeting and you need an answer today."
 `;
 
-exports[`persona prompt builder > matches the golden prompt for client/en/gemma > hash 1`] = `"decece14dd0cb587aa13fbfc9d9f8b7534d1361f729e3020882b5bc2b3bc1abb"`;
+exports[`persona prompt builder > matches the golden prompt for client/en/gemma > hash 1`] = `"1183346138858738ba7235723c40a7a4db754b9feda5e492f59c1a3338a4b527"`;
 
 exports[`persona prompt builder > matches the golden prompt for client/en/gemma > session 1`] = `
 "YOUR GOALS
@@ -230,7 +230,7 @@ Greet the account manager and explain that the meeting needs to move.
 Situation: You have called to move tomorrow morning’s meeting and you need an answer today."
 `;
 
-exports[`persona prompt builder > matches the golden prompt for client/en/harmony > hash 1`] = `"fad0a21637096d05289eb77af64c909a5f7f9db43867c1ae6054526114453774"`;
+exports[`persona prompt builder > matches the golden prompt for client/en/harmony > hash 1`] = `"11683e75d6104ad998e145df3f468808001694c24c15f9eeba1e1a136e8a5a36"`;
 
 exports[`persona prompt builder > matches the golden prompt for client/en/harmony > session 1`] = `
 "## Goals
@@ -410,7 +410,7 @@ Greet the account manager and explain that the meeting needs to move.
 Situation: You have called to move tomorrow morning’s meeting and you need an answer today."
 `;
 
-exports[`persona prompt builder > matches the golden prompt for client/en-GB/gemma > hash 1`] = `"185dd2d071f15f0634929e2ebb64abf6fa8de500b8bb96d03d178df6a203802d"`;
+exports[`persona prompt builder > matches the golden prompt for client/en-GB/gemma > hash 1`] = `"49b716abd5e1d21e79b9292deedf9f0ec79101bacc3eca3833b500942e83ea99"`;
 
 exports[`persona prompt builder > matches the golden prompt for client/en-GB/gemma > session 1`] = `
 "YOUR GOALS
@@ -581,7 +581,7 @@ Greet the account manager and explain that the meeting needs to move.
 Situation: You have called to move tomorrow morning’s meeting and you need an answer today."
 `;
 
-exports[`persona prompt builder > matches the golden prompt for client/en-GB/harmony > hash 1`] = `"70ff8ee29f26f6c571c60cacd1e544d6bc38f178a2cfe0ad44e557e2e55e4f21"`;
+exports[`persona prompt builder > matches the golden prompt for client/en-GB/harmony > hash 1`] = `"82f629b5b729355d3d8bfb05e177a05033941f4148643e24051c98c6865185e0"`;
 
 exports[`persona prompt builder > matches the golden prompt for client/en-GB/harmony > session 1`] = `
 "## Goals
@@ -714,8 +714,8 @@ Base language: fr. Locale: fr. CEFR band: B2.
 Register: formal.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « vous » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez un français standard.
-- Vouvoyez la personne dans un contexte professionnel.
 - Utilisez la ponctuation française, avec une espace avant les deux-points et le point d’interrogation.
 
 HOW TO REPLY
@@ -746,8 +746,8 @@ Base language: fr. Locale: fr. CEFR band: B2.
 Register: formal.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « vous » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez un français standard.
-- Vouvoyez la personne dans un contexte professionnel.
 - Utilisez la ponctuation française, avec une espace avant les deux-points et le point d’interrogation.
 
 HOW TO REPLY
@@ -762,7 +762,7 @@ Saluer le chargé de compte et expliquer que la réunion doit être déplacée.
 Situation: Vous appelez pour déplacer la réunion de demain matin et vous avez besoin d’une réponse aujourd’hui."
 `;
 
-exports[`persona prompt builder > matches the golden prompt for client/fr/gemma > hash 1`] = `"83072d483ca9ffd6fb11a9a9051cbf2a9de5f69ee8234b608ca355304a30f22a"`;
+exports[`persona prompt builder > matches the golden prompt for client/fr/gemma > hash 1`] = `"16176c57ba2bc874d7967058a8fbf8ffaf61c402edfd82190d97451c04eb779f"`;
 
 exports[`persona prompt builder > matches the golden prompt for client/fr/gemma > session 1`] = `
 "YOUR GOALS
@@ -823,8 +823,8 @@ Base language: fr. Locale: fr. CEFR band: B2.
 Register: formal.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « vous » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez un français standard.
-- Vouvoyez la personne dans un contexte professionnel.
 - Utilisez la ponctuation française, avec une espace avant les deux-points et le point d’interrogation.
 
 HOW TO REPLY
@@ -893,8 +893,8 @@ Base language: fr. Locale: fr. CEFR band: B2.
 Register: formal. Stay in the target language and locale.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « vous » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez un français standard.
-- Vouvoyez la personne dans un contexte professionnel.
 - Utilisez la ponctuation française, avec une espace avant les deux-points et le point d’interrogation.
 
 ## Opening
@@ -924,8 +924,8 @@ Base language: fr. Locale: fr. CEFR band: B2.
 Register: formal. Stay in the target language and locale.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « vous » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez un français standard.
-- Vouvoyez la personne dans un contexte professionnel.
 - Utilisez la ponctuation française, avec une espace avant les deux-points et le point d’interrogation.
 
 ## Opening
@@ -933,7 +933,7 @@ Saluer le chargé de compte et expliquer que la réunion doit être déplacée.
 Situation: Vous appelez pour déplacer la réunion de demain matin et vous avez besoin d’une réponse aujourd’hui."
 `;
 
-exports[`persona prompt builder > matches the golden prompt for client/fr/harmony > hash 1`] = `"c079986ae44848db444109965bb85b5e819903868789635cc0861b3f20bbf2ef"`;
+exports[`persona prompt builder > matches the golden prompt for client/fr/harmony > hash 1`] = `"e9f7b71e6d87289afe2f9a08e465d2cd377f69bff0a831f5b71c40ec2d782bde"`;
 
 exports[`persona prompt builder > matches the golden prompt for client/fr/harmony > session 1`] = `
 "## Goals
@@ -1000,8 +1000,8 @@ Base language: fr. Locale: fr. CEFR band: B2.
 Register: formal. Stay in the target language and locale.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « vous » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez un français standard.
-- Vouvoyez la personne dans un contexte professionnel.
 - Utilisez la ponctuation française, avec une espace avant les deux-points et le point d’interrogation.
 
 ## Opening
@@ -1066,9 +1066,9 @@ Base language: fr. Locale: fr-CA. CEFR band: B2.
 Register: formal.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « vous » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez le français québécois courant : courriel, échéancier, fin de semaine, rencontre.
 - Évitez les anglicismes inutiles et les tournures proprement européennes.
-- Vouvoyez la personne dans un contexte professionnel.
 
 HOW TO REPLY
 - Write plain text only. Do not use Markdown, emoji, JSON, URLs or stage directions.
@@ -1098,9 +1098,9 @@ Base language: fr. Locale: fr-CA. CEFR band: B2.
 Register: formal.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « vous » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez le français québécois courant : courriel, échéancier, fin de semaine, rencontre.
 - Évitez les anglicismes inutiles et les tournures proprement européennes.
-- Vouvoyez la personne dans un contexte professionnel.
 
 HOW TO REPLY
 - Write plain text only. Do not use Markdown, emoji, JSON, URLs or stage directions.
@@ -1114,7 +1114,7 @@ Saluer le chargé de compte et expliquer que la rencontre doit être déplacée.
 Situation: Vous appelez pour déplacer la rencontre de demain matin et vous avez besoin d’une réponse aujourd’hui."
 `;
 
-exports[`persona prompt builder > matches the golden prompt for client/fr-CA/gemma > hash 1`] = `"31faee79273428405fe6b2913f42a81436a2ed94fcaa11f2c85de5eb58004c32"`;
+exports[`persona prompt builder > matches the golden prompt for client/fr-CA/gemma > hash 1`] = `"b85a76bd01544136eae46121ace48ff1616d951eb23940f754cccd9bfb026aba"`;
 
 exports[`persona prompt builder > matches the golden prompt for client/fr-CA/gemma > session 1`] = `
 "YOUR GOALS
@@ -1175,9 +1175,9 @@ Base language: fr. Locale: fr-CA. CEFR band: B2.
 Register: formal.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « vous » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez le français québécois courant : courriel, échéancier, fin de semaine, rencontre.
 - Évitez les anglicismes inutiles et les tournures proprement européennes.
-- Vouvoyez la personne dans un contexte professionnel.
 
 HOW TO REPLY
 - Write plain text only. Do not use Markdown, emoji, JSON, URLs or stage directions.
@@ -1245,9 +1245,9 @@ Base language: fr. Locale: fr-CA. CEFR band: B2.
 Register: formal. Stay in the target language and locale.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « vous » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez le français québécois courant : courriel, échéancier, fin de semaine, rencontre.
 - Évitez les anglicismes inutiles et les tournures proprement européennes.
-- Vouvoyez la personne dans un contexte professionnel.
 
 ## Opening
 Saluer le chargé de compte et expliquer que la rencontre doit être déplacée.
@@ -1276,16 +1276,16 @@ Base language: fr. Locale: fr-CA. CEFR band: B2.
 Register: formal. Stay in the target language and locale.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « vous » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez le français québécois courant : courriel, échéancier, fin de semaine, rencontre.
 - Évitez les anglicismes inutiles et les tournures proprement européennes.
-- Vouvoyez la personne dans un contexte professionnel.
 
 ## Opening
 Saluer le chargé de compte et expliquer que la rencontre doit être déplacée.
 Situation: Vous appelez pour déplacer la rencontre de demain matin et vous avez besoin d’une réponse aujourd’hui."
 `;
 
-exports[`persona prompt builder > matches the golden prompt for client/fr-CA/harmony > hash 1`] = `"6842be843ae8faed5f572492b5057265536caeb98033bb9bc0d7a6232cffd8f8"`;
+exports[`persona prompt builder > matches the golden prompt for client/fr-CA/harmony > hash 1`] = `"c92453f148c15ad74ad68d321239700d199bf22cf6cd3ef29998cd5292de7f92"`;
 
 exports[`persona prompt builder > matches the golden prompt for client/fr-CA/harmony > session 1`] = `
 "## Goals
@@ -1352,9 +1352,9 @@ Base language: fr. Locale: fr-CA. CEFR band: B2.
 Register: formal. Stay in the target language and locale.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « vous » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez le français québécois courant : courriel, échéancier, fin de semaine, rencontre.
 - Évitez les anglicismes inutiles et les tournures proprement européennes.
-- Vouvoyez la personne dans un contexte professionnel.
 
 ## Opening
 Saluer le chargé de compte et expliquer que la rencontre doit être déplacée.
@@ -1464,7 +1464,7 @@ Greet the learner briefly, then ask how the quarterly report is going.
 Situation: You are checking in on the quarterly report before it is due."
 `;
 
-exports[`persona prompt builder > matches the golden prompt for manager/en/gemma > hash 1`] = `"57d583d13352694f75d5c34504b7be27e22aff97164610ce24b9bd4fe2aa9818"`;
+exports[`persona prompt builder > matches the golden prompt for manager/en/gemma > hash 1`] = `"86bf9a34259edf894d199e7991db3c309a253d44b52362a545574da89c7dfdbd"`;
 
 exports[`persona prompt builder > matches the golden prompt for manager/en/gemma > session 1`] = `
 "YOUR GOALS
@@ -1632,7 +1632,7 @@ Greet the learner briefly, then ask how the quarterly report is going.
 Situation: You are checking in on the quarterly report before it is due."
 `;
 
-exports[`persona prompt builder > matches the golden prompt for manager/en/harmony > hash 1`] = `"4ae2a984d1e4b6c92524d2e30e9fb5b1aca0a5422cc6e993693f066b9cfd2ca7"`;
+exports[`persona prompt builder > matches the golden prompt for manager/en/harmony > hash 1`] = `"b44c91c092bbfa638817393e7f00896fe75413e516561beeb8f384fefe9043f5"`;
 
 exports[`persona prompt builder > matches the golden prompt for manager/en/harmony > session 1`] = `
 "## Goals
@@ -1812,7 +1812,7 @@ Greet the learner briefly, then ask how the quarterly report is coming along.
 Situation: You are checking in on the quarterly report before it is due on Friday."
 `;
 
-exports[`persona prompt builder > matches the golden prompt for manager/en-GB/gemma > hash 1`] = `"7e78338fa5f5c64b74d4c4917cf98dfa0ac20ad70e2e73a978ce423125cd2525"`;
+exports[`persona prompt builder > matches the golden prompt for manager/en-GB/gemma > hash 1`] = `"d5263a1c969cbad37a171b2afe41a3672a98d51eed0ab46b2e9351fe83413f0b"`;
 
 exports[`persona prompt builder > matches the golden prompt for manager/en-GB/gemma > session 1`] = `
 "YOUR GOALS
@@ -1983,7 +1983,7 @@ Greet the learner briefly, then ask how the quarterly report is coming along.
 Situation: You are checking in on the quarterly report before it is due on Friday."
 `;
 
-exports[`persona prompt builder > matches the golden prompt for manager/en-GB/harmony > hash 1`] = `"3ca0a2eb3c1f986f67b5f6b34f6c4c8a400bdc6d19ec822dc6946b1a676e9321"`;
+exports[`persona prompt builder > matches the golden prompt for manager/en-GB/harmony > hash 1`] = `"bc448c404cb6464752a03289a6369bdf29231b1ec3adab816a498e4fe3c497b4"`;
 
 exports[`persona prompt builder > matches the golden prompt for manager/en-GB/harmony > session 1`] = `
 "## Goals
@@ -2116,8 +2116,8 @@ Base language: fr. Locale: fr. CEFR band: B1.
 Register: formal.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « vous » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez un français standard.
-- Vouvoyez la personne dans un contexte professionnel.
 - Utilisez la ponctuation française, avec une espace avant les deux-points et le point d’interrogation.
 
 HOW TO REPLY
@@ -2148,8 +2148,8 @@ Base language: fr. Locale: fr. CEFR band: B1.
 Register: formal.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « vous » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez un français standard.
-- Vouvoyez la personne dans un contexte professionnel.
 - Utilisez la ponctuation française, avec une espace avant les deux-points et le point d’interrogation.
 
 HOW TO REPLY
@@ -2164,7 +2164,7 @@ Saluer brièvement la personne, puis demander où en est le rapport trimestriel.
 Situation: Vous faites le point sur le rapport trimestriel avant l’échéance."
 `;
 
-exports[`persona prompt builder > matches the golden prompt for manager/fr/gemma > hash 1`] = `"0f7ff7179616f104146bf503e5c55c0fa4ec864d74629edb7fc8bb7cd2259f17"`;
+exports[`persona prompt builder > matches the golden prompt for manager/fr/gemma > hash 1`] = `"a9f419b50177fd6859ad51cbf4a3c63121f1559a19a259bac1aa256622dfe3fe"`;
 
 exports[`persona prompt builder > matches the golden prompt for manager/fr/gemma > session 1`] = `
 "YOUR GOALS
@@ -2225,8 +2225,8 @@ Base language: fr. Locale: fr. CEFR band: B1.
 Register: formal.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « vous » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez un français standard.
-- Vouvoyez la personne dans un contexte professionnel.
 - Utilisez la ponctuation française, avec une espace avant les deux-points et le point d’interrogation.
 
 HOW TO REPLY
@@ -2295,8 +2295,8 @@ Base language: fr. Locale: fr. CEFR band: B1.
 Register: formal. Stay in the target language and locale.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « vous » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez un français standard.
-- Vouvoyez la personne dans un contexte professionnel.
 - Utilisez la ponctuation française, avec une espace avant les deux-points et le point d’interrogation.
 
 ## Opening
@@ -2326,8 +2326,8 @@ Base language: fr. Locale: fr. CEFR band: B1.
 Register: formal. Stay in the target language and locale.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « vous » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez un français standard.
-- Vouvoyez la personne dans un contexte professionnel.
 - Utilisez la ponctuation française, avec une espace avant les deux-points et le point d’interrogation.
 
 ## Opening
@@ -2335,7 +2335,7 @@ Saluer brièvement la personne, puis demander où en est le rapport trimestriel.
 Situation: Vous faites le point sur le rapport trimestriel avant l’échéance."
 `;
 
-exports[`persona prompt builder > matches the golden prompt for manager/fr/harmony > hash 1`] = `"84fe5863402be2b670c1588199019c52c7104169737dcd33bdb1f7ec0235c393"`;
+exports[`persona prompt builder > matches the golden prompt for manager/fr/harmony > hash 1`] = `"1c4dbda5e1751eaa0e919b2422d6afce1c5af5bd09acce401185ce50ff5629ac"`;
 
 exports[`persona prompt builder > matches the golden prompt for manager/fr/harmony > session 1`] = `
 "## Goals
@@ -2402,8 +2402,8 @@ Base language: fr. Locale: fr. CEFR band: B1.
 Register: formal. Stay in the target language and locale.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « vous » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez un français standard.
-- Vouvoyez la personne dans un contexte professionnel.
 - Utilisez la ponctuation française, avec une espace avant les deux-points et le point d’interrogation.
 
 ## Opening
@@ -2468,9 +2468,9 @@ Base language: fr. Locale: fr-CA. CEFR band: B1.
 Register: formal.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « vous » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez le français québécois courant : courriel, échéancier, fin de semaine, rencontre.
 - Évitez les anglicismes inutiles et les tournures proprement européennes.
-- Vouvoyez la personne dans un contexte professionnel.
 
 HOW TO REPLY
 - Write plain text only. Do not use Markdown, emoji, JSON, URLs or stage directions.
@@ -2500,9 +2500,9 @@ Base language: fr. Locale: fr-CA. CEFR band: B1.
 Register: formal.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « vous » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez le français québécois courant : courriel, échéancier, fin de semaine, rencontre.
 - Évitez les anglicismes inutiles et les tournures proprement européennes.
-- Vouvoyez la personne dans un contexte professionnel.
 
 HOW TO REPLY
 - Write plain text only. Do not use Markdown, emoji, JSON, URLs or stage directions.
@@ -2516,7 +2516,7 @@ Saluer brièvement la personne, puis demander où en est le rapport trimestriel.
 Situation: Vous faites le suivi du rapport trimestriel avant l’échéance."
 `;
 
-exports[`persona prompt builder > matches the golden prompt for manager/fr-CA/gemma > hash 1`] = `"548fee26462ffab6467b3e4ccd595d88b471073d93306c09f6fd0cbf532e50ab"`;
+exports[`persona prompt builder > matches the golden prompt for manager/fr-CA/gemma > hash 1`] = `"5143c3206b2b1586cbae851bb31d0da6adabd41cd7c19b147790f55868327c32"`;
 
 exports[`persona prompt builder > matches the golden prompt for manager/fr-CA/gemma > session 1`] = `
 "YOUR GOALS
@@ -2577,9 +2577,9 @@ Base language: fr. Locale: fr-CA. CEFR band: B1.
 Register: formal.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « vous » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez le français québécois courant : courriel, échéancier, fin de semaine, rencontre.
 - Évitez les anglicismes inutiles et les tournures proprement européennes.
-- Vouvoyez la personne dans un contexte professionnel.
 
 HOW TO REPLY
 - Write plain text only. Do not use Markdown, emoji, JSON, URLs or stage directions.
@@ -2647,9 +2647,9 @@ Base language: fr. Locale: fr-CA. CEFR band: B1.
 Register: formal. Stay in the target language and locale.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « vous » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez le français québécois courant : courriel, échéancier, fin de semaine, rencontre.
 - Évitez les anglicismes inutiles et les tournures proprement européennes.
-- Vouvoyez la personne dans un contexte professionnel.
 
 ## Opening
 Saluer brièvement la personne, puis demander où en est le rapport trimestriel.
@@ -2678,16 +2678,16 @@ Base language: fr. Locale: fr-CA. CEFR band: B1.
 Register: formal. Stay in the target language and locale.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « vous » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez le français québécois courant : courriel, échéancier, fin de semaine, rencontre.
 - Évitez les anglicismes inutiles et les tournures proprement européennes.
-- Vouvoyez la personne dans un contexte professionnel.
 
 ## Opening
 Saluer brièvement la personne, puis demander où en est le rapport trimestriel.
 Situation: Vous faites le suivi du rapport trimestriel avant l’échéance."
 `;
 
-exports[`persona prompt builder > matches the golden prompt for manager/fr-CA/harmony > hash 1`] = `"0c7ef4c39a437be8577fede832b499b929363b2dc6ca28b4be721a61b9f3282b"`;
+exports[`persona prompt builder > matches the golden prompt for manager/fr-CA/harmony > hash 1`] = `"466760a0bb622330ea88b1e6bda5dcc39c729d67608a6eb50ec5038678a23de1"`;
 
 exports[`persona prompt builder > matches the golden prompt for manager/fr-CA/harmony > session 1`] = `
 "## Goals
@@ -2754,9 +2754,9 @@ Base language: fr. Locale: fr-CA. CEFR band: B1.
 Register: formal. Stay in the target language and locale.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « vous » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez le français québécois courant : courriel, échéancier, fin de semaine, rencontre.
 - Évitez les anglicismes inutiles et les tournures proprement européennes.
-- Vouvoyez la personne dans un contexte professionnel.
 
 ## Opening
 Saluer brièvement la personne, puis demander où en est le rapport trimestriel.
@@ -2866,7 +2866,7 @@ Greet the teammate casually and ask what is unclear about the ticket.
 Situation: You are packing up after stand-up when your teammate asks about the ticket."
 `;
 
-exports[`persona prompt builder > matches the golden prompt for peer/en/gemma > hash 1`] = `"c7143313d2f2c83d2cedcd517046d2552a7985912e182b9b5745426fa069466d"`;
+exports[`persona prompt builder > matches the golden prompt for peer/en/gemma > hash 1`] = `"4e7de7c11800e320763e73e459fd4e79e3470f2b29ef539d24e1ccfe523bbe05"`;
 
 exports[`persona prompt builder > matches the golden prompt for peer/en/gemma > session 1`] = `
 "YOUR GOALS
@@ -3020,7 +3020,7 @@ Greet the teammate casually and ask what is unclear about the ticket.
 Situation: You are packing up after stand-up when your teammate asks about the ticket."
 `;
 
-exports[`persona prompt builder > matches the golden prompt for peer/en/harmony > hash 1`] = `"2ae22841dcafa2eb89290a3898b98aa172d414eb6ab096e91e82b3497241b38c"`;
+exports[`persona prompt builder > matches the golden prompt for peer/en/harmony > hash 1`] = `"821c2535a62288dd3bbedd6f98de1e5c7959d387fbc91afc9324f92c08c9b7cb"`;
 
 exports[`persona prompt builder > matches the golden prompt for peer/en/harmony > session 1`] = `
 "## Goals
@@ -3188,7 +3188,7 @@ Greet the teammate casually and ask what is unclear about the ticket.
 Situation: You are packing up after stand-up when your teammate asks about the ticket."
 `;
 
-exports[`persona prompt builder > matches the golden prompt for peer/en-GB/gemma > hash 1`] = `"67c66678b0d14c136b6ef66cf7c64e0972a0b67289696a89bdf7e210c6b52db7"`;
+exports[`persona prompt builder > matches the golden prompt for peer/en-GB/gemma > hash 1`] = `"4f177bf9824e57498fd00322a302160e790bdc8007620ced4d3ac33292fbc4c3"`;
 
 exports[`persona prompt builder > matches the golden prompt for peer/en-GB/gemma > session 1`] = `
 "YOUR GOALS
@@ -3345,7 +3345,7 @@ Greet the teammate casually and ask what is unclear about the ticket.
 Situation: You are packing up after stand-up when your teammate asks about the ticket."
 `;
 
-exports[`persona prompt builder > matches the golden prompt for peer/en-GB/harmony > hash 1`] = `"77c4f3168dd77fe09b4f6a0bb3e9cc110d6fe1e47af1b95d5bb9b8fef9ee42fe"`;
+exports[`persona prompt builder > matches the golden prompt for peer/en-GB/harmony > hash 1`] = `"460d5771cc8d1588aa62439486427c550ec31a201ec59d1b55d3b72b07943e3c"`;
 
 exports[`persona prompt builder > matches the golden prompt for peer/en-GB/harmony > session 1`] = `
 "## Goals
@@ -3466,8 +3466,8 @@ Base language: fr. Locale: fr. CEFR band: B2.
 Register: informal.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « tu » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez un français standard.
-- Vouvoyez la personne dans un contexte professionnel.
 - Utilisez la ponctuation française, avec une espace avant les deux-points et le point d’interrogation.
 
 HOW TO REPLY
@@ -3498,8 +3498,8 @@ Base language: fr. Locale: fr. CEFR band: B2.
 Register: informal.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « tu » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez un français standard.
-- Vouvoyez la personne dans un contexte professionnel.
 - Utilisez la ponctuation française, avec une espace avant les deux-points et le point d’interrogation.
 
 HOW TO REPLY
@@ -3514,7 +3514,7 @@ Saluer le collègue de façon décontractée, en le tutoyant (« tu »), et dema
 Situation: Tu ranges tes affaires après le point du matin quand ton collègue t’interroge sur le ticket."
 `;
 
-exports[`persona prompt builder > matches the golden prompt for peer/fr/gemma > hash 1`] = `"c43a60a94ea9aa25a320c762ed2aade74e17309ea178c7a2646d31702d3f3fad"`;
+exports[`persona prompt builder > matches the golden prompt for peer/fr/gemma > hash 1`] = `"44d3b563d6808b34d6de9453a1c6af2ec1c7e3e5780b6f394411f6c7815bf029"`;
 
 exports[`persona prompt builder > matches the golden prompt for peer/fr/gemma > session 1`] = `
 "YOUR GOALS
@@ -3569,8 +3569,8 @@ Base language: fr. Locale: fr. CEFR band: B2.
 Register: informal.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « tu » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez un français standard.
-- Vouvoyez la personne dans un contexte professionnel.
 - Utilisez la ponctuation française, avec une espace avant les deux-points et le point d’interrogation.
 
 HOW TO REPLY
@@ -3633,8 +3633,8 @@ Base language: fr. Locale: fr. CEFR band: B2.
 Register: informal. Stay in the target language and locale.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « tu » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez un français standard.
-- Vouvoyez la personne dans un contexte professionnel.
 - Utilisez la ponctuation française, avec une espace avant les deux-points et le point d’interrogation.
 
 ## Opening
@@ -3664,8 +3664,8 @@ Base language: fr. Locale: fr. CEFR band: B2.
 Register: informal. Stay in the target language and locale.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « tu » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez un français standard.
-- Vouvoyez la personne dans un contexte professionnel.
 - Utilisez la ponctuation française, avec une espace avant les deux-points et le point d’interrogation.
 
 ## Opening
@@ -3673,7 +3673,7 @@ Saluer le collègue de façon décontractée, en le tutoyant (« tu »), et dema
 Situation: Tu ranges tes affaires après le point du matin quand ton collègue t’interroge sur le ticket."
 `;
 
-exports[`persona prompt builder > matches the golden prompt for peer/fr/harmony > hash 1`] = `"84ed0858897b67fe4446123572ba2ba513bbeb5437974394403199b4b4559025"`;
+exports[`persona prompt builder > matches the golden prompt for peer/fr/harmony > hash 1`] = `"21fcf77b38b2b69b97c4c265bd9da9beaa843ece91b7d32470d141abea67e5b4"`;
 
 exports[`persona prompt builder > matches the golden prompt for peer/fr/harmony > session 1`] = `
 "## Goals
@@ -3735,8 +3735,8 @@ Base language: fr. Locale: fr. CEFR band: B2.
 Register: informal. Stay in the target language and locale.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « tu » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez un français standard.
-- Vouvoyez la personne dans un contexte professionnel.
 - Utilisez la ponctuation française, avec une espace avant les deux-points et le point d’interrogation.
 
 ## Opening
@@ -3796,9 +3796,9 @@ Base language: fr. Locale: fr-CA. CEFR band: B2.
 Register: informal.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « tu » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez le français québécois courant : courriel, échéancier, fin de semaine, rencontre.
 - Évitez les anglicismes inutiles et les tournures proprement européennes.
-- Vouvoyez la personne dans un contexte professionnel.
 
 HOW TO REPLY
 - Write plain text only. Do not use Markdown, emoji, JSON, URLs or stage directions.
@@ -3828,9 +3828,9 @@ Base language: fr. Locale: fr-CA. CEFR band: B2.
 Register: informal.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « tu » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez le français québécois courant : courriel, échéancier, fin de semaine, rencontre.
 - Évitez les anglicismes inutiles et les tournures proprement européennes.
-- Vouvoyez la personne dans un contexte professionnel.
 
 HOW TO REPLY
 - Write plain text only. Do not use Markdown, emoji, JSON, URLs or stage directions.
@@ -3844,7 +3844,7 @@ Saluer le collègue de façon décontractée, en le tutoyant (« tu »), et dema
 Situation: Tu ranges tes affaires après la rencontre du matin quand ton collègue t’interroge sur le billet."
 `;
 
-exports[`persona prompt builder > matches the golden prompt for peer/fr-CA/gemma > hash 1`] = `"c5df03c6dc8a45f620e8d0fbaf41eb5d55dbffb15294ee068aeaad7ee7bac35a"`;
+exports[`persona prompt builder > matches the golden prompt for peer/fr-CA/gemma > hash 1`] = `"1e4759d63c30b2fab838948712632b21609c7f75f66e7d81866601441c3bb320"`;
 
 exports[`persona prompt builder > matches the golden prompt for peer/fr-CA/gemma > session 1`] = `
 "YOUR GOALS
@@ -3899,9 +3899,9 @@ Base language: fr. Locale: fr-CA. CEFR band: B2.
 Register: informal.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « tu » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez le français québécois courant : courriel, échéancier, fin de semaine, rencontre.
 - Évitez les anglicismes inutiles et les tournures proprement européennes.
-- Vouvoyez la personne dans un contexte professionnel.
 
 HOW TO REPLY
 - Write plain text only. Do not use Markdown, emoji, JSON, URLs or stage directions.
@@ -3963,9 +3963,9 @@ Base language: fr. Locale: fr-CA. CEFR band: B2.
 Register: informal. Stay in the target language and locale.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « tu » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez le français québécois courant : courriel, échéancier, fin de semaine, rencontre.
 - Évitez les anglicismes inutiles et les tournures proprement européennes.
-- Vouvoyez la personne dans un contexte professionnel.
 
 ## Opening
 Saluer le collègue de façon décontractée, en le tutoyant (« tu »), et demander ce qui n’est pas clair dans le billet.
@@ -3994,16 +3994,16 @@ Base language: fr. Locale: fr-CA. CEFR band: B2.
 Register: informal. Stay in the target language and locale.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « tu » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez le français québécois courant : courriel, échéancier, fin de semaine, rencontre.
 - Évitez les anglicismes inutiles et les tournures proprement européennes.
-- Vouvoyez la personne dans un contexte professionnel.
 
 ## Opening
 Saluer le collègue de façon décontractée, en le tutoyant (« tu »), et demander ce qui n’est pas clair dans le billet.
 Situation: Tu ranges tes affaires après la rencontre du matin quand ton collègue t’interroge sur le billet."
 `;
 
-exports[`persona prompt builder > matches the golden prompt for peer/fr-CA/harmony > hash 1`] = `"7ccd8deff13dd0080adc9376774b1ebff1f9e84148041e215ef7fd5c76b84d94"`;
+exports[`persona prompt builder > matches the golden prompt for peer/fr-CA/harmony > hash 1`] = `"8993f028e3dc152fdaa44b55ba3c9a5488724de190cd7a1fa39ea928fcbe820d"`;
 
 exports[`persona prompt builder > matches the golden prompt for peer/fr-CA/harmony > session 1`] = `
 "## Goals
@@ -4065,9 +4065,9 @@ Base language: fr. Locale: fr-CA. CEFR band: B2.
 Register: informal. Stay in the target language and locale.
 - Répondez uniquement en français.
 - Ne changez pas de langue si l’apprenant le fait.
+- Employez « tu » avec la personne et gardez ce registre pendant toute la conversation.
 - Utilisez le français québécois courant : courriel, échéancier, fin de semaine, rencontre.
 - Évitez les anglicismes inutiles et les tournures proprement européennes.
-- Vouvoyez la personne dans un contexte professionnel.
 
 ## Opening
 Saluer le collègue de façon décontractée, en le tutoyant (« tu »), et demander ce qui n’est pas clair dans le billet.

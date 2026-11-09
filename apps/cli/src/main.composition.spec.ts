@@ -181,7 +181,7 @@ describe('main composition root', () => {
         locale: 'en',
       })
       expect(header).not.toHaveProperty('taskId')
-      expect(header['promptVersion']).toBe('m2-prompt-gemma-v1')
+      expect(header['promptVersion']).toBe('m2-prompt-gemma-v2')
       const logOptions = state.lastLogOptions as {
         path: string
         wallClock: () => number
