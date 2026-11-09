@@ -158,7 +158,7 @@ const out = {}
 for (const [name, ids] of groups) out[name] = analyze(ids)
 
 console.log(`pass A: ${A}\npass B: ${B}\ncommon traces: ${common.length}\n`)
-for (const [name, r] of out) {
+for (const [name, r] of Object.entries(out)) {
   console.log(`== ${name} (n=${groups.get(name).length}) ==`)
   console.log('axis\t\t\t n  exact  QWK   kappa  meanA  meanB  yesA  yesB')
   for (const row of r.rows) {
