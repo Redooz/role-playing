@@ -1,8 +1,9 @@
 # M2 annotation review — 2026-11-09
 
-Status: **applied on 2026-11-09.** `M2_JEV_THRESHOLD` is 0.75 and rubric v2
-(`m2-persona-rubric-v2`, `m2-annotation-guideline-v2`) is in the M2 tree. The
-acceptance re-runs `m2-persona-*-lk-v2` are pending. The French grader is
+Status: **applied and accepted on 2026-11-09.** `M2_JEV_THRESHOLD` is 0.75 and
+rubric v2 (`m2-persona-rubric-v2`, `m2-annotation-guideline-v2`) is in the M2
+tree. The v2 acceptance runs completed; the semantic gate is accepted
+**provisionally** because the labels are agent labels. The French grader is
 unchanged for M2; see the note at the end.
 
 ## What was measured
@@ -94,6 +95,26 @@ persona unchanged (already 100%).
    token logprobs; **Gemini 3.1 Pro Preview** is the fallback if a verbalised
    probability can be calibrated. Jev's French `register.fit` ranking is weak
    (AUC about 0.48–0.62), so a future spike should test that axis first.
+
+## v2 acceptance
+
+Rubric v2 + 0.75 line, 5 rounds, 30 trials per run, 0 failures:
+
+| Axis                 | Candidate | Baseline | Delta  |
+| -------------------- | --------- | -------- | ------ |
+| persona.consistency  | 0.875     | 0.280    | +0.595 |
+| language.quality     | 0.944     | 0.742    | +0.202 |
+| register.fit         | 0.839     | 0.679    | +0.160 |
+| response.clarity     | 0.895     | 0.881    | +0.015 |
+| objective.completion | 0.860     | 0.752    | +0.108 |
+
+`pass^1` 0.700 / `pass^3` 0.533 for the candidate; 0/0 for the baseline. All
+guardrails and invariants pass. The two remaining weak tasks are
+`fr-b2-point-matin-peer-102` (0/5) and the decline/reschedule tasks (3/5 each).
+
+Verdict: **accepted (provisional semantic gate)**. The gate cannot become
+`stable` until a human agreement pass exists; the agent pass is sufficient to
+close M2 for learning purposes.
 
 ## Artefacts
 
