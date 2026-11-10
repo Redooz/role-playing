@@ -17,8 +17,13 @@ export type { JevErrorCode, JevUnavailableReason } from './errors.js'
 export { computeJevCacheKey, createFileJevCache, defaultJevCacheDir } from './cache.js'
 export type { JevCache, JevCacheKeyInput } from './cache.js'
 
-export { assertPinnedServedModel, parseJevAnswerForQuestion, parseJevResponse } from './response.js'
-export type { ParsedJevAnswer } from './response.js'
+export {
+  assertPinnedServedModel,
+  parseJevAnswerForQuestion,
+  parseJevAnswersForQuestions,
+  parseJevResponse,
+} from './response.js'
+export type { ParsedJevAnswer, ParsedJevAnswers } from './response.js'
 
 export { createJevClient } from './client.js'
 export type { JevClient, JevClientOptions } from './client.js'
@@ -36,6 +41,7 @@ export {
   buildEnglishSmokeJudgment,
   buildFrenchSmokeJudgment,
   buildUnsettledSmokeJudgment,
+  declareJevBatchJudgment,
   declareJevJudgment,
   declareJevQuestionMetadata,
   SMOKE_EN_QUESTION_ID,
@@ -43,7 +49,28 @@ export {
   SMOKE_JUDGMENT_BUILDERS,
   SMOKE_UNSETTLED_QUESTION_ID,
 } from './questions.js'
-export type { JevJudgmentInput, JevQuestionMetadataInput } from './questions.js'
+export type {
+  JevBatchJudgmentInput,
+  JevJudgmentInput,
+  JevQuestionMetadataInput,
+} from './questions.js'
+
+export {
+  buildCentralRoutingJudgment,
+  buildPersonaRoutingJudgment,
+  CENTRAL_CONTRIBUTION_QUESTION_ID,
+  CENTRAL_SPEAKER_QUESTION_ID,
+  createJevRoutingJudge,
+  M3A_ROUTING_RUBRIC_VERSION,
+  PERSONA_JUDGMENT_QUESTION_IDS,
+} from './routing.js'
+export type {
+  JevRoutingJudge,
+  RoutingCentralJudgment,
+  RoutingCentralObservation,
+  RoutingJevResult,
+  RoutingPersonaObservation,
+} from './routing.js'
 
 export { assertJevSmokeSuite, JEV_SMOKE_CASES, runJevSmokeSuite } from './smoke-suite.js'
 export type {
@@ -55,6 +82,10 @@ export type {
 
 export type {
   JevAnswer,
+  JevBatchFailure,
+  JevBatchJudgment,
+  JevBatchResult,
+  JevBatchSuccess,
   JevCacheStatus,
   JevChoiceAnswer,
   JevChoiceDistribution,
@@ -71,6 +102,7 @@ export type {
   JevNoulQuestion,
   JevQuestion,
   JevQuestionMetadata,
+  JevQuestionSet,
   JevRequestPayload,
   JevResponse,
   JevResult,

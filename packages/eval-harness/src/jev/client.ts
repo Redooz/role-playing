@@ -7,14 +7,18 @@ import {
 import { computeJevCacheKey, createFileJevCache, defaultJevCacheDir } from './cache.js'
 import type { JevCache } from './cache.js'
 import { JevConfigError, JevError, JevInvalidResponseError, JevUnavailableError } from './errors.js'
-import { parseJevAnswerForQuestion } from './response.js'
-import { formatZodIssues, jevJudgmentSchema } from './schemas.js'
+import { parseJevAnswersForQuestions } from './response.js'
+import { formatZodIssues, jevBatchJudgmentSchema, jevJudgmentSchema } from './schemas.js'
 import type {
+  JevBatchFailure,
+  JevBatchJudgment,
+  JevBatchResult,
+  JevBatchSuccess,
   JevCacheStatus,
   JevGrader,
   JevJudgment,
   JevJudgmentFailure,
-  JevJudgmentSuccess,
+  JevQuestionSet,
   JevRequestPayload,
   JevResult,
 } from './types.js'
@@ -41,6 +45,8 @@ export interface JevClient extends JevGrader {
   readonly providerSurface: string
   /** Content-addressed key for a valid judgment; useful for tests and audit logs. */
   cacheKeyFor(judgment: JevJudgment): string
+  /** Ask several independent questions against one shared state in one call. */
+  decideMany(judgment: JevBatchJudgment): Promise<JevBatchResult>
 }
 
 /**
@@ -80,17 +86,16 @@ export function createJevClient(options: JevClientOptions): JevClient {
       : (options.cache ??
         createFileJevCache({ directory: options.cacheDir ?? defaultJevCacheDir() }))
 
-  function buildRequest(judgment: JevJudgment): JevRequestPayload {
-    return {
-      model: JEV_MODEL,
-      state: judgment.state,
-      questions: { [judgment.metadata.id]: judgment.question },
-    }
+  function buildRequest(
+    state: JevBatchJudgment['state'],
+    questions: JevQuestionSet,
+  ): JevRequestPayload {
+    return { model: JEV_MODEL, state, questions }
   }
 
-  function cacheKeyFor(judgment: JevJudgment): string {
+  function cacheKeyForBatch(judgment: JevBatchJudgment): string {
     return computeJevCacheKey({
-      request: buildRequest(judgment),
+      request: buildRequest(judgment.state, judgment.questions),
       graderVersion: judgment.metadata.graderVersion,
       rubricVersion: judgment.metadata.rubricVersion,
       extractionVersion: judgment.metadata.extractionVersion,
@@ -99,15 +104,138 @@ export function createJevClient(options: JevClientOptions): JevClient {
     })
   }
 
-  function safeCacheKeyFor(judgment: JevJudgment): CacheKeyResult {
+  function cacheKeyFor(judgment: JevJudgment): string {
+    return cacheKeyForBatch({
+      metadata: judgment.metadata,
+      state: judgment.state,
+      questions: { [judgment.metadata.id]: judgment.question },
+    })
+  }
+
+  function safeCacheKeyFor(judgment: JevBatchJudgment): CacheKeyResult {
     try {
-      return { ok: true, key: cacheKeyFor(judgment) }
+      return { ok: true, key: cacheKeyForBatch(judgment) }
     } catch (error) {
       return {
         ok: false,
         error: new JevConfigError('Could not compute the Jev cache key.', { cause: error }),
       }
     }
+  }
+
+  async function execute(judgment: JevBatchJudgment): Promise<JevBatchResult> {
+    const questionIds = Object.keys(judgment.questions)
+    const request = buildRequest(judgment.state, judgment.questions)
+
+    const cacheKeyResult = safeCacheKeyFor(judgment)
+    if (!cacheKeyResult.ok) {
+      return batchFailure(questionIds, cacheKeyResult.error, null)
+    }
+    const cacheKey = cacheKeyResult.key
+
+    if (cache !== undefined) {
+      try {
+        const cachedRaw = await cache.read(cacheKey)
+        if (cachedRaw !== undefined) {
+          try {
+            const parsedAnswer = parseJevAnswersForQuestions(cachedRaw, judgment.questions)
+            return batchSuccess(judgment, request, parsedAnswer, cachedRaw, {
+              key: cacheKey,
+              hit: true,
+              stored: false,
+            })
+          } catch {
+            // A corrupt or stale entry is a miss, not a judgment and not a failure.
+          }
+        }
+      } catch {
+        // The cache is best-effort; a cache problem must not change the verdict.
+      }
+    }
+
+    const serializedRequest = serializeRequest(request)
+    if (!serializedRequest.ok) {
+      return batchFailure(questionIds, serializedRequest.error, cacheKey)
+    }
+    const body = serializedRequest.body
+
+    const fetchResult = await fetchDecision(fetchImpl, apiKey, body, timeoutMs)
+    if (!fetchResult.ok) {
+      return batchFailure(questionIds, fetchResult.error, cacheKey)
+    }
+    const httpResponse = fetchResult.response
+
+    if (!httpResponse.ok) {
+      const detail = await readResponseDetail(httpResponse)
+      return batchFailure(
+        questionIds,
+        new JevUnavailableError(
+          `Jev request failed with HTTP ${httpResponse.status}${detail === '' ? '' : `: ${detail}`}`,
+          { reason: 'http', status: httpResponse.status },
+        ),
+        cacheKey,
+      )
+    }
+
+    const responseBody = await readResponseBody(httpResponse)
+    if (!responseBody.ok) {
+      return batchFailure(questionIds, responseBody.error, cacheKey)
+    }
+
+    const jsonResult = parseResponseJson(responseBody.text)
+    if (!jsonResult.ok) {
+      return batchFailure(questionIds, jsonResult.error, cacheKey)
+    }
+    const raw = jsonResult.raw
+
+    const answerResult = parseBatchAnswer(raw, judgment)
+    if (!answerResult.ok) {
+      return batchFailure(questionIds, answerResult.error, cacheKey)
+    }
+    const parsedAnswer = answerResult.answer
+
+    let stored = false
+    if (cache !== undefined) {
+      try {
+        await cache.write(cacheKey, raw)
+        stored = true
+      } catch {
+        // A failed cache write does not invalidate a successful judgment.
+      }
+    }
+
+    return batchSuccess(judgment, request, parsedAnswer, raw, {
+      key: cacheKey,
+      hit: false,
+      stored,
+    })
+  }
+
+  async function decideMany(input: JevBatchJudgment): Promise<JevBatchResult> {
+    const questionIds = questionIdsOfBatch(input)
+
+    if (input !== null && typeof input === 'object' && Object.hasOwn(input, 'model')) {
+      return batchFailure(
+        questionIds,
+        new JevConfigError(
+          `Jev model is fixed at ${JEV_MODEL}; per-call model overrides are not accepted.`,
+        ),
+        null,
+      )
+    }
+
+    const parsedJudgment = jevBatchJudgmentSchema.safeParse(input)
+    if (!parsedJudgment.success) {
+      return batchFailure(
+        questionIds,
+        new JevConfigError('Invalid batched Jev judgment.', {
+          details: formatZodIssues(parsedJudgment.error),
+        }),
+        null,
+      )
+    }
+
+    return execute(parsedJudgment.data)
   }
 
   async function grade(input: JevJudgment): Promise<JevResult> {
@@ -135,121 +263,75 @@ export function createJevClient(options: JevClientOptions): JevClient {
     }
     const judgment: JevJudgment = parsedJudgment.data
 
-    const request = buildRequest(judgment)
+    const result = await execute({
+      metadata: judgment.metadata,
+      state: judgment.state,
+      questions: { [judgment.metadata.id]: judgment.question },
+    })
+    if (!result.ok) return failure(questionId, result.error, result.cache.key)
 
-    const cacheKeyResult = safeCacheKeyFor(judgment)
-    if (!cacheKeyResult.ok) {
-      return failure(questionId, cacheKeyResult.error, null)
-    }
-    const cacheKey = cacheKeyResult.key
-
-    if (cache !== undefined) {
-      try {
-        const cachedRaw = await cache.read(cacheKey)
-        if (cachedRaw !== undefined) {
-          try {
-            const parsedAnswer = parseJevAnswerForQuestion(
-              cachedRaw,
-              judgment.metadata.id,
-              judgment.question,
-            )
-            return success(judgment, request, parsedAnswer, cachedRaw, {
-              key: cacheKey,
-              hit: true,
-              stored: false,
-            })
-          } catch {
-            // A corrupt or stale entry is a miss, not a judgment and not a failure.
-          }
-        }
-      } catch {
-        // The cache is best-effort; a cache problem must not change the verdict.
-      }
-    }
-
-    const serializedRequest = serializeRequest(request)
-    if (!serializedRequest.ok) {
-      return failure(questionId, serializedRequest.error, cacheKey)
-    }
-    const body = serializedRequest.body
-
-    const fetchResult = await fetchDecision(fetchImpl, apiKey, body, timeoutMs)
-    if (!fetchResult.ok) {
-      return failure(questionId, fetchResult.error, cacheKey)
-    }
-    const httpResponse = fetchResult.response
-
-    if (!httpResponse.ok) {
-      const detail = await readResponseDetail(httpResponse)
+    const distribution = result.distributions[judgment.metadata.id]
+    if (distribution === undefined) {
       return failure(
         questionId,
-        new JevUnavailableError(
-          `Jev request failed with HTTP ${httpResponse.status}${detail === '' ? '' : `: ${detail}`}`,
-          { reason: 'http', status: httpResponse.status },
-        ),
-        cacheKey,
+        new JevInvalidResponseError('Jev returned no distribution for the question.'),
+        result.cache.key,
       )
     }
 
-    const responseBody = await readResponseBody(httpResponse)
-    if (!responseBody.ok) {
-      return failure(questionId, responseBody.error, cacheKey)
+    return {
+      ok: true,
+      questionId,
+      request: result.request,
+      response: result.response,
+      raw: result.raw,
+      distribution,
+      usage: result.usage,
+      servedModel: result.servedModel,
+      cache: result.cache,
     }
-
-    const jsonResult = parseResponseJson(responseBody.text)
-    if (!jsonResult.ok) {
-      return failure(questionId, jsonResult.error, cacheKey)
-    }
-    const raw = jsonResult.raw
-
-    const answerResult = parseAnswer(raw, judgment)
-    if (!answerResult.ok) {
-      return failure(questionId, answerResult.error, cacheKey)
-    }
-    const parsedAnswer = answerResult.answer
-
-    let stored = false
-    if (cache !== undefined) {
-      try {
-        await cache.write(cacheKey, raw)
-        stored = true
-      } catch {
-        // A failed cache write does not invalidate a successful judgment.
-      }
-    }
-
-    return success(judgment, request, parsedAnswer, raw, {
-      key: cacheKey,
-      hit: false,
-      stored,
-    })
   }
 
   return {
     model: JEV_MODEL,
     providerSurface,
     grade,
+    decideMany,
     cacheKeyFor,
   }
 }
 
-function success(
-  judgment: JevJudgment,
+function batchSuccess(
+  judgment: JevBatchJudgment,
   request: JevRequestPayload,
-  parsedAnswer: ReturnType<typeof parseJevAnswerForQuestion>,
+  parsedAnswer: ReturnType<typeof parseJevAnswersForQuestions>,
   raw: unknown,
   cache: JevCacheStatus,
-): JevJudgmentSuccess {
+): JevBatchSuccess {
   return {
     ok: true,
-    questionId: judgment.metadata.id,
+    questionIds: Object.keys(judgment.questions),
     request,
     response: parsedAnswer.response,
     raw,
-    distribution: parsedAnswer.distribution,
+    answers: parsedAnswer.answers,
+    distributions: parsedAnswer.distributions,
     usage: parsedAnswer.response.usage,
     servedModel: parsedAnswer.response.model,
     cache,
+  }
+}
+
+function batchFailure(
+  questionIds: readonly string[],
+  error: JevError,
+  cacheKey: string | null,
+): JevBatchFailure {
+  return {
+    ok: false,
+    questionIds,
+    error,
+    cache: { key: cacheKey, hit: false, stored: false },
   }
 }
 
@@ -269,6 +351,12 @@ function questionIdOf(judgment: JevJudgment): string {
     return typeof id === 'string' ? id : ''
   }
   return ''
+}
+
+function questionIdsOfBatch(judgment: JevBatchJudgment): readonly string[] {
+  const questions: unknown = judgment?.questions
+  if (typeof questions !== 'object' || questions === null) return []
+  return Object.keys(questions)
 }
 
 function unavailableFromException(error: unknown): JevUnavailableError {
@@ -374,14 +462,14 @@ function parseResponseJson(text: string): ParseResponseJsonResult {
 }
 
 type ParseAnswerResult =
-  | { readonly ok: true; readonly answer: ReturnType<typeof parseJevAnswerForQuestion> }
+  | { readonly ok: true; readonly answer: ReturnType<typeof parseJevAnswersForQuestions> }
   | { readonly ok: false; readonly error: JevError }
 
-function parseAnswer(raw: unknown, judgment: JevJudgment): ParseAnswerResult {
+function parseBatchAnswer(raw: unknown, judgment: JevBatchJudgment): ParseAnswerResult {
   try {
     return {
       ok: true,
-      answer: parseJevAnswerForQuestion(raw, judgment.metadata.id, judgment.question),
+      answer: parseJevAnswersForQuestions(raw, judgment.questions),
     }
   } catch (error) {
     return { ok: false, error: asTypedError(error) }

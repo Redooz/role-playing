@@ -75,6 +75,42 @@ export const jevJudgmentSchema = z
     }
   })
 
+export const jevBatchJudgmentSchema = z
+  .object({
+    metadata: jevQuestionMetadataSchema,
+    state: jevStateSchema,
+    questions: z.record(z.string().trim().min(1), jevQuestionSchema),
+  })
+  .superRefine((judgment, ctx) => {
+    const entries = Object.entries(judgment.questions)
+    if (entries.length < 2) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['questions'],
+        message: 'A batched judgment needs at least two questions.',
+      })
+    }
+
+    for (const [questionId, question] of entries) {
+      if (question.type !== 'choice') continue
+      const labels = Object.keys(question.criteria)
+      if (labels.length < 2) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['questions', questionId, 'criteria'],
+          message: 'A choice question needs at least two criteria.',
+        })
+      }
+      if (labels.some((label) => label.trim() === '')) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['questions', questionId, 'criteria'],
+          message: 'Choice criteria labels must be non-empty.',
+        })
+      }
+    }
+  })
+
 export const jevNoulAnswerSchema = z.object({
   type: z.literal('noul'),
   noul: probabilitySchema,

@@ -9,6 +9,12 @@ export interface ParsedJevAnswer {
   readonly distribution: JevDistribution
 }
 
+export interface ParsedJevAnswers {
+  readonly response: JevResponse
+  readonly answers: Readonly<Record<string, JevAnswer>>
+  readonly distributions: Readonly<Record<string, JevDistribution>>
+}
+
 /** Parse and shape-validate the raw Decisions response. */
 export function parseJevResponse(raw: unknown): JevResponse {
   const parsed = jevResponseSchema.safeParse(raw)
@@ -67,6 +73,41 @@ export function parseJevAnswerForQuestion(
     answer,
     distribution: toDistribution(answer),
   }
+}
+
+/**
+ * Validate a batched response against the exact question set that was sent.
+ *
+ * Every expected answer must be present, no extra answer may appear, and each
+ * distribution must match its question type. A partial batch is invalid.
+ */
+export function parseJevAnswersForQuestions(
+  raw: unknown,
+  questions: Readonly<Record<string, JevQuestion>>,
+): ParsedJevAnswers {
+  const response = parseJevResponse(raw)
+  assertPinnedServedModel(response.model)
+
+  const expected = Object.keys(questions)
+  const actual = Object.keys(response.answers)
+  assertSameKeySet(actual, expected, 'answer')
+
+  const answers: Record<string, JevAnswer> = {}
+  const distributions: Record<string, JevDistribution> = {}
+  for (const questionId of expected) {
+    const answer = response.answers[questionId]
+    const question = questions[questionId]
+    if (answer === undefined || question === undefined) {
+      throw new JevInvalidResponseError(
+        `Jev returned no answer for question ${JSON.stringify(questionId)}.`,
+      )
+    }
+    assertAnswerMatchesQuestion(answer, question)
+    answers[questionId] = answer
+    distributions[questionId] = toDistribution(answer)
+  }
+
+  return { response, answers, distributions }
 }
 
 function assertAnswerMatchesQuestion(answer: JevAnswer, question: JevQuestion): void {
