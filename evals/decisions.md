@@ -304,6 +304,12 @@ v4 peer already used `tu` in all five rounds, and Jev's French `register.fit`
 ranking is weak. The deterministic prompt tests are the proof that the
 contradiction is gone.
 
+## M3a implementation
+
+| Date       | Gate               | Run ID               | Verdict             | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ---------- | ------------------ | -------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-11-09 | M3a routing timing | `m3a-routing-timing` | accepted (recorded) | 12 calibration-only uncached decisions (3 EN + 3 FR × central + per-persona), 0 failures, spend $0.00085. Central p50 266–568 ms; per-persona p50 268–1027 ms; max observed across runs 2,315 ms. Zero timeouts at the frozen 2,500 ms complete-decision deadline. This is an explicit deadline relaxation from the architecture's 100–150 ms starter bound; Noul thresholds stay 0.7/0.3. All six per-persona samples used the deterministic fallback because a Noul was unsettled, not because of a timeout. |
+
 ## Accepted and rejected changes
 
 | Date | Change | Run ID | Verdict | Notes                               |

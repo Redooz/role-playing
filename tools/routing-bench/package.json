@@ -1,0 +1,17 @@
+{
+  "name": "@rp/routing-bench",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@rp/agent-harness-bench": "*",
+    "@rp/eval-harness": "*",
+    "@rp/routing-policy": "*"
+  }
+}

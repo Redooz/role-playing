@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts"],
+  "references": [
+    { "path": "../../packages/routing-policy" },
+    { "path": "../../packages/eval-harness" },
+    { "path": "../agent-harness-bench" }
+  ]
+}
