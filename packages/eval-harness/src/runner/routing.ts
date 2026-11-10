@@ -1,7 +1,7 @@
 import { hashValue } from '@rp/shared'
 import type { RoutingCentralObservation, RoutingPersonaObservation } from '../jev/routing.js'
 import type { JevRoutingJudge } from '../jev/routing.js'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import {
   assembleRoutingDecision,
@@ -10,6 +10,8 @@ import {
   deriveRequests,
   deriveTurnRequest,
   deterministicJudgmentsByPersona,
+  NOUL_NO,
+  NOUL_YES,
   rankTurnRequests,
   type RoutingContext,
   type RoutingDecision,
@@ -236,7 +238,7 @@ export async function runJevRoutingReplay(
     }
 
     const central = result.observation
-    if (central.judgment.anyoneWarranted > 0.3 && central.judgment.anyoneWarranted < 0.7) {
+    if (central.judgment.anyoneWarranted > NOUL_NO && central.judgment.anyoneWarranted < NOUL_YES) {
       return {
         ok: true,
         decision: fallbackDecision(context, topology, options.seed, 'unsettled'),
@@ -252,7 +254,7 @@ export async function runJevRoutingReplay(
     let requests = derived.requests
     let declines: typeof derived.declines
 
-    if (central.judgment.anyoneWarranted >= 0.7) {
+    if (central.judgment.anyoneWarranted >= NOUL_YES) {
       selectedPersonaId = central.judgment.selectedPersonaId
       const selected = context.personas.find((persona) => persona.id === selectedPersonaId)
       if (selected === undefined) {
@@ -405,16 +407,22 @@ export function routingArtifact(
     ...common,
     outcome: 'infrastructure_incomplete',
     observation: { kind: 'none' },
-    error: result.error,
+    error: result.error.trim() === '' ? 'routing policy failed without a message' : result.error,
   })
 }
 
-/** Persist exact records as restricted JSONL. Callers choose the run directory. */
+/**
+ * Append exact records as restricted JSONL.
+ *
+ * Append rather than overwrite: a runner may write one decision at a time. Run
+ * directories are per-run, so append never merges unrelated executions.
+ */
 export async function writeRoutingArtifacts(
   path: string,
   records: readonly RoutingDecisionArtifact[],
 ): Promise<void> {
+  if (records.length === 0) return
   await mkdir(dirname(path), { recursive: true })
   const lines = records.map((record) => JSON.stringify(routingDecisionArtifactSchema.parse(record)))
-  await writeFile(path, lines.length === 0 ? '' : `${lines.join('\n')}\n`, 'utf8')
+  await appendFile(path, `${lines.join('\n')}\n`, 'utf8')
 }

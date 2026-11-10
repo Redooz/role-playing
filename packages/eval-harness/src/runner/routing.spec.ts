@@ -217,6 +217,30 @@ describe('runJevRoutingReplay central', () => {
     }
   })
 
+  it('uses the shared Noul bounds at exactly 0.3 and 0.7', async () => {
+    for (const [value, expectedKind, expectedReason] of [
+      [0.3, 'user_yield', 'all_declined'],
+      [0.7, 'speak', undefined],
+    ] as const) {
+      const judge = {
+        async judgeCentral() {
+          return { ok: true as const, observation: central(value) }
+        },
+        async judgePersona() {
+          throw new Error('unexpected')
+        },
+      }
+      const result = await runJevRoutingReplay(context, 'central_selection', judge, {
+        seed: 1,
+        deadlineMs: 1000,
+      })
+      expect(result.ok && result.decision.outcome.kind).toBe(expectedKind)
+      if (expectedReason !== undefined) {
+        expect(result.ok && result.decision.outcome).toMatchObject({ reason: expectedReason })
+      }
+    }
+  })
+
   it('returns infrastructure-incomplete for a provider failure', async () => {
     const error = new JevUnavailableError('down', { reason: 'network' })
     const judge = {
@@ -406,7 +430,7 @@ describe('routing artifacts', () => {
     expect(artifact).not.toHaveProperty('decision')
   })
 
-  it('writes one restricted JSONL record per decision', async () => {
+  it('appends restricted JSONL records instead of overwriting earlier decisions', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'routing-artifacts-'))
     try {
       const artifact = routingArtifact(
@@ -420,8 +444,9 @@ describe('routing artifacts', () => {
       )
       const path = join(directory, 'routing', 'decisions.jsonl')
       await writeRoutingArtifacts(path, [artifact])
+      await writeRoutingArtifacts(path, [artifact])
       const lines = (await readFile(path, 'utf8')).trim().split('\n')
-      expect(lines).toHaveLength(1)
+      expect(lines).toHaveLength(2)
       expect(JSON.parse(lines[0]!)).toMatchObject({
         kind: 'routing.decision',
         contentClass: 'restricted',
@@ -429,5 +454,24 @@ describe('routing artifacts', () => {
     } finally {
       await rm(directory, { recursive: true, force: true })
     }
+  })
+
+  it('preserves an empty failure message with a non-empty artifact detail', () => {
+    const artifact = routingArtifact(
+      context,
+      {
+        ok: false,
+        kind: 'infrastructure_incomplete',
+        error: '   ',
+        questionIds: [],
+        policyLatencyMs: 1,
+      },
+      {
+        trialId: '0:en:decision-1',
+        taskId: 'decision-1',
+        arm: { topology: 'central_selection', judgmentSource: 'jev' },
+      },
+    )
+    expect(artifact.error).toBe('routing policy failed without a message')
   })
 })
