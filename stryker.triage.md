@@ -12,11 +12,11 @@ current measured floor after the M3a D1 routing-policy pass.
 
 | Scope                     | Before total / covered | After total / covered | Killed | Timeout | Survived | No coverage | Errors |
 | ------------------------- | ---------------------- | --------------------- | ------ | ------- | -------- | ----------- | ------ |
-| **Global**                | **68.21 / 72.74**      | **95.49 / 95.87**     | 2653   | 17      | 115      | 11          | 23     |
+| **Global**                | **68.21 / 72.74**      | **95.60 / 95.97**     | 2719   | 17      | 115      | 11          | 23     |
 | `apps/cli`                | 57.49 / 71.36          | **95.95 / 97.13**     | 474    | 0       | 14       | 6           | 0      |
 | `packages/persona-kit`    | 31.94 / 34.19          | **99.13 / 99.42**     | 341    | 0       | 2        | 1           | 0      |
 | `packages/pipeline`       | 74.01 / 77.66          | **99.01 / 99.01**     | 394    | 6       | 4        | 0           | 0      |
-| `packages/routing-policy` | n/a                    | **100.00 / 100.00**   | 264    | 0       | 0        | 0           | 0      |
+| `packages/routing-policy` | n/a                    | **100.00 / 100.00**   | 330    | 0       | 0        | 0           | 0      |
 | `packages/session-core`   | 85.77 / 86.85          | **91.96 / 92.24**     | 881    | 11      | 75       | 3           | 17     |
 | `packages/shared`         | 61.86 / 63.49          | **93.27 / 93.57**     | 291    | 0       | 20       | 1           | 0      |
 | `packages/scenario-kit`   | 75.00 / 75.00          | **100.00 / 100.00**   | 8      | 0       | 0        | 0           | 6      |
@@ -91,7 +91,7 @@ The pass is organised by survivor class, not by one large test:
 | `packages/session-core` | 91.96; needs +30 kills | 17 survivors are `events.ts` enum/literal schema definitions; 8 are `session-log.ts` Zod field schemas; 1 is the `version.ts` schema message; 2 are equivalent `readSchemaVersion` guards; 4 are equivalent guard/loop guards. The remaining 40 driver survivors are redundant race/defensive paths documented below. | If schema literals are allowed back into scope, event-vocabulary and header-bound contract tests would add 26 kills and clear 95. Under the stated “no static data / Zod schema” rule, the honest floor is 91.96. |
 | `packages/shared`       | 93.27; needs +6 kills  | 19 `plain-text.ts` survivors are equivalent under the normaliser or are shadowed by the following line (table rows with 2+ pipes are removed by the generic table-row rule); 1 `locale.ts` catch block falls through to the same `undefined` result.                                                                  | Add Unicode line-separator (U+2028/U+2029) table cases to distinguish the three `^…$` table-row mutants, and either refactor the redundant `groups[1] ?? ''` fallback or accept the 93.27 floor.                  |
 
-The global total is 95.49/95.87 because the other packages are far above 95
+The global total is 95.60/95.97 because the other packages are far above 95
 (`persona-kit` 99.13, `pipeline` 99.01, `routing-policy` 100.00,
 `scenario-kit` 100.00, `apps/cli` 95.95).
 
