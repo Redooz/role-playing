@@ -1,0 +1,22 @@
+{
+  "id": "golden-routing-fr-cal-002",
+  "lang": "fr",
+  "split": "calibration",
+  "taskId": "routing-fr-cal-002",
+  "routingOutcome": {
+    "intent": "Direct address to Samir Carter about Gérer passation.",
+    "acceptablePersonaIds": ["peer"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "note": "Provisional M3a consensus label from two independent context-free annotation passes."
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Samir, peux-tu t’occuper de la passation ?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent annotation only. Exact agreement between the two passes was 120/120; this is not human ground truth."
+}

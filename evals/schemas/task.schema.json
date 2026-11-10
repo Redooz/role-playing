@@ -17,7 +17,7 @@
     "mode": {
       "default": "replay",
       "type": "string",
-      "enum": ["replay", "session"]
+      "enum": ["replay", "session", "routing"]
     },
     "domain": {
       "type": "string",
@@ -146,6 +146,149 @@
         "scenarioVersion",
         "scriptedUserTurns"
       ],
+      "additionalProperties": false
+    },
+    "routing": {
+      "type": "object",
+      "properties": {
+        "context": {
+          "type": "object",
+          "properties": {
+            "decisionId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "turnId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "lang": {
+              "type": "string",
+              "enum": ["en", "fr"]
+            },
+            "transcript": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "speaker": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "user"
+                          }
+                        },
+                        "required": ["kind"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "persona"
+                          },
+                          "personaId": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": ["kind", "personaId"],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": ["speaker", "text"],
+                "additionalProperties": false
+              }
+            },
+            "personas": {
+              "minItems": 2,
+              "maxItems": 3,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "displayName": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "aliases": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "role": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "objectives": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "description": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "keywords": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      },
+                      "required": ["id", "description", "keywords"],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": ["id", "displayName", "aliases", "role", "objectives"],
+                "additionalProperties": false
+              }
+            },
+            "coveredObjectiveIds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "required": [
+            "decisionId",
+            "turnId",
+            "lang",
+            "transcript",
+            "personas",
+            "coveredObjectiveIds"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": ["context"],
       "additionalProperties": false
     }
   },

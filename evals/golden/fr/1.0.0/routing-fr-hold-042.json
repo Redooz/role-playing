@@ -1,0 +1,22 @@
+{
+  "id": "golden-routing-fr-hold-042",
+  "lang": "fr",
+  "split": "holdout",
+  "taskId": "routing-fr-hold-042",
+  "routingOutcome": {
+    "intent": "Dual direct address: Catherine Brooks (Prendre en charge validation de l’intégration.) and Samir Carter (Gérer liste d’intégration.).",
+    "acceptablePersonaIds": ["manager", "peer"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "note": "Provisional M3a consensus label from two independent context-free annotation passes."
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Catherine et Samir, pouvez-vous vérifier validation de l’intégration et la liste d’intégration ?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent annotation only. Exact agreement between the two passes was 120/120; this is not human ground truth."
+}

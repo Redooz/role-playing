@@ -1,0 +1,22 @@
+{
+  "id": "golden-routing-en-cal-027",
+  "lang": "en",
+  "split": "calibration",
+  "taskId": "routing-en-cal-027",
+  "routingOutcome": {
+    "intent": "Direct address to Julian Moore about Resolve delivery plan.",
+    "acceptablePersonaIds": ["client"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "note": "Provisional M3a consensus label from two independent context-free annotation passes."
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Julian, is the delivery plan ready?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent annotation only. Exact agreement between the two passes was 120/120; this is not human ground truth."
+}

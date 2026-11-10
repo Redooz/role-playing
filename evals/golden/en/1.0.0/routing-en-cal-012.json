@@ -1,0 +1,22 @@
+{
+  "id": "golden-routing-en-cal-012",
+  "lang": "en",
+  "split": "calibration",
+  "taskId": "routing-en-cal-012",
+  "routingOutcome": {
+    "intent": "Question about a topic whose objective is already covered; no other relevant persona. (What is the latest on the team staffing?)",
+    "acceptablePersonaIds": [],
+    "allowUserYield": true,
+    "labelSource": "agent",
+    "note": "Provisional M3a consensus label from two independent context-free annotation passes."
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "What is the latest on the team staffing?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent annotation only. Exact agreement between the two passes was 120/120; this is not human ground truth."
+}

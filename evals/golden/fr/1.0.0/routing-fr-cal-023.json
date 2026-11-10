@@ -1,0 +1,22 @@
+{
+  "id": "golden-routing-fr-cal-023",
+  "lang": "fr",
+  "split": "calibration",
+  "taskId": "routing-fr-cal-023",
+  "routingOutcome": {
+    "intent": "Learner acknowledgement; no persona has an uncovered relevant objective.",
+    "acceptablePersonaIds": [],
+    "allowUserYield": true,
+    "labelSource": "agent",
+    "note": "Provisional M3a consensus label from two independent context-free annotation passes."
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Merci, je prends note."
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent annotation only. Exact agreement between the two passes was 120/120; this is not human ground truth."
+}

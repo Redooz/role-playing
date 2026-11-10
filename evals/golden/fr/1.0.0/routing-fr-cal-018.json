@@ -1,0 +1,22 @@
+{
+  "id": "golden-routing-fr-cal-018",
+  "lang": "fr",
+  "split": "calibration",
+  "taskId": "routing-fr-cal-018",
+  "routingOutcome": {
+    "intent": "Dual direct address: Catherine Brooks (Prendre en charge validation du contrat.) and Samir Carter (Gérer dossiers du contrat.).",
+    "acceptablePersonaIds": ["manager", "peer"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "note": "Provisional M3a consensus label from two independent context-free annotation passes."
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Catherine et Samir, pouvez-vous vérifier validation du contrat et la dossiers du contrat ?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent annotation only. Exact agreement between the two passes was 120/120; this is not human ground truth."
+}

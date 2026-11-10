@@ -1,0 +1,22 @@
+{
+  "id": "golden-routing-fr-cal-030",
+  "lang": "fr",
+  "split": "calibration",
+  "taskId": "routing-fr-cal-030",
+  "routingOutcome": {
+    "intent": "Dual direct address: Catherine Brooks (Prendre en charge priorités de l’équipe.) and Samir Carter (Gérer charge de travail.).",
+    "acceptablePersonaIds": ["manager", "peer"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "note": "Provisional M3a consensus label from two independent context-free annotation passes."
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Catherine et Samir, pouvez-vous vérifier priorités de l’équipe et la charge de travail ?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent annotation only. Exact agreement between the two passes was 120/120; this is not human ground truth."
+}

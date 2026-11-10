@@ -1,0 +1,22 @@
+{
+  "id": "golden-routing-en-hold-050",
+  "lang": "en",
+  "split": "holdout",
+  "taskId": "routing-en-hold-050",
+  "routingOutcome": {
+    "intent": "Direct address to Sam Carter about Handle peer review.",
+    "acceptablePersonaIds": ["peer"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "note": "Provisional M3a consensus label from two independent context-free annotation passes."
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Sam, can you take care of the peer review?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent annotation only. Exact agreement between the two passes was 120/120; this is not human ground truth."
+}

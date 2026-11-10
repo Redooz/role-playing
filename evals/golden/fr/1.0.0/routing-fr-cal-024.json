@@ -1,0 +1,22 @@
+{
+  "id": "golden-routing-fr-cal-024",
+  "lang": "fr",
+  "split": "calibration",
+  "taskId": "routing-fr-cal-024",
+  "routingOutcome": {
+    "intent": "Question about a topic whose objective is already covered; no other relevant persona. (Où en est calendrier du projet ?)",
+    "acceptablePersonaIds": [],
+    "allowUserYield": true,
+    "labelSource": "agent",
+    "note": "Provisional M3a consensus label from two independent context-free annotation passes."
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Où en est calendrier du projet ?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent annotation only. Exact agreement between the two passes was 120/120; this is not human ground truth."
+}

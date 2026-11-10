@@ -1,3 +1,4 @@
+import type { RoutingContext } from '@rp/routing-policy'
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -35,6 +36,42 @@ function taskEntry(overrides: Partial<TaskEntry> = {}): TaskEntry {
     },
     ...overrides,
   }
+}
+
+const routingContext: RoutingContext = {
+  decisionId: 'en-task-001',
+  turnId: 'turn-1',
+  lang: 'en',
+  transcript: [
+    { speaker: { kind: 'persona', personaId: 'manager' }, text: 'We need a date.' },
+    { speaker: { kind: 'user' }, text: 'Sam, can you confirm the handoff?' },
+  ],
+  personas: [
+    {
+      id: 'manager',
+      displayName: 'Katherine Brooks',
+      aliases: ['Katherine'],
+      role: 'manager',
+      objectives: [{ id: 'deadline', description: 'Agree a deadline.', keywords: ['deadline'] }],
+    },
+    {
+      id: 'peer',
+      displayName: 'Sam Carter',
+      aliases: ['Sam'],
+      role: 'peer colleague',
+      objectives: [{ id: 'handoff', description: 'Confirm handoff.', keywords: ['handoff'] }],
+    },
+  ],
+  coveredObjectiveIds: [],
+}
+
+function routingTask(overrides: Partial<TaskEntry> = {}): TaskEntry {
+  return taskEntry({
+    mode: 'routing',
+    content: { scenarioBrief: 'A routing decision.', turns: [] },
+    routing: { context: routingContext },
+    ...overrides,
+  })
 }
 
 function goldenEntry(overrides: Partial<GoldenEntry> = {}): GoldenEntry {
@@ -101,6 +138,55 @@ describe('taskEntrySchema', () => {
     )
     expect(withDate.success).toBe(true)
   })
+
+  it('accepts a routing task with no recorded content turns', () => {
+    expect(taskEntrySchema.safeParse(routingTask()).success).toBe(true)
+  })
+
+  it('requires a routing block for mode routing', () => {
+    const result = taskEntrySchema.safeParse({ ...routingTask(), routing: undefined })
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0]?.path).toEqual(['routing'])
+  })
+
+  it('rejects a routing block on a replay task', () => {
+    const result = taskEntrySchema.safeParse({
+      ...taskEntry(),
+      routing: { context: routingContext },
+    })
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0]?.path).toEqual(['routing'])
+  })
+
+  it('rejects recorded content turns on a routing task', () => {
+    const result = taskEntrySchema.safeParse(
+      routingTask({
+        content: {
+          turns: [{ role: 'user', text: 'A recorded turn.' }],
+        },
+      }),
+    )
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0]?.path).toEqual(['content', 'turns'])
+  })
+
+  it('requires the routing decision id and language to match the task', () => {
+    const wrongId = taskEntrySchema.safeParse(
+      routingTask({
+        routing: { context: { ...routingContext, decisionId: 'other' } },
+      }),
+    )
+    expect(wrongId.success).toBe(false)
+    expect(wrongId.error?.issues[0]?.path).toEqual(['routing', 'context', 'decisionId'])
+
+    const wrongLang = taskEntrySchema.safeParse(
+      routingTask({
+        routing: { context: { ...routingContext, lang: 'fr' } },
+      }),
+    )
+    expect(wrongLang.success).toBe(false)
+    expect(wrongLang.error?.issues[0]?.path).toEqual(['routing', 'context', 'lang'])
+  })
 })
 
 describe('goldenEntrySchema', () => {
@@ -141,6 +227,131 @@ describe('goldenEntrySchema', () => {
       goldenEntry({ dimensionScores: { clarity: { score: 6 } } }),
     )
     expect(result.success).toBe(false)
+  })
+
+  it('accepts a routingOutcome without dimension scores', () => {
+    const result = goldenEntrySchema.safeParse(
+      goldenEntry({
+        taskId: 'en-task-001',
+        routingLabels: undefined,
+        dimensionScores: undefined,
+        routingOutcome: {
+          intent: 'confirm-handoff',
+          acceptablePersonaIds: ['peer'],
+          allowUserYield: false,
+          labelSource: 'agent',
+        },
+      }),
+    )
+    expect(result.success).toBe(true)
+  })
+
+  it('accepts learner yield as a routing outcome', () => {
+    expect(
+      goldenEntrySchema.safeParse(
+        goldenEntry({
+          routingLabels: undefined,
+          dimensionScores: undefined,
+          routingOutcome: {
+            intent: 'no-contribution',
+            acceptablePersonaIds: [],
+            allowUserYield: true,
+            labelSource: 'agent',
+          },
+        }),
+      ).success,
+    ).toBe(true)
+  })
+
+  it('rejects a routing outcome that accepts neither a persona nor yield', () => {
+    const result = goldenEntrySchema.safeParse(
+      goldenEntry({
+        routingLabels: undefined,
+        dimensionScores: undefined,
+        routingOutcome: {
+          intent: 'empty',
+          acceptablePersonaIds: [],
+          allowUserYield: false,
+          labelSource: 'agent',
+        },
+      }),
+    )
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects duplicate acceptable personas', () => {
+    const result = goldenEntrySchema.safeParse(
+      goldenEntry({
+        routingLabels: undefined,
+        dimensionScores: undefined,
+        routingOutcome: {
+          intent: 'duplicate',
+          acceptablePersonaIds: ['peer', 'peer'],
+          allowUserYield: false,
+          labelSource: 'agent',
+        },
+      }),
+    )
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects both routing label shapes at once', () => {
+    const result = goldenEntrySchema.safeParse(
+      goldenEntry({
+        routingOutcome: {
+          intent: 'both',
+          acceptablePersonaIds: ['peer'],
+          allowUserYield: false,
+          labelSource: 'agent',
+        },
+      }),
+    )
+    expect(result.success).toBe(false)
+  })
+
+  it('requires one routing label shape', () => {
+    const result = goldenEntrySchema.safeParse(
+      goldenEntry({ routingLabels: undefined, dimensionScores: undefined }),
+    )
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects stable status for agent routing labels', () => {
+    const result = goldenEntrySchema.safeParse(
+      goldenEntry({
+        routingLabels: undefined,
+        dimensionScores: undefined,
+        status: 'stable',
+        annotatorAgreement: measuredAgreement,
+        routingOutcome: {
+          intent: 'agent-only',
+          acceptablePersonaIds: ['peer'],
+          allowUserYield: false,
+          labelSource: 'agent',
+        },
+      }),
+    )
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0]?.path).toEqual(['routingOutcome', 'labelSource'])
+  })
+
+  it('allows stable status for human routing labels with agreement', () => {
+    expect(
+      goldenEntrySchema.safeParse(
+        goldenEntry({
+          routingLabels: undefined,
+          dimensionScores: undefined,
+          status: 'stable',
+          annotatorAgreement: measuredAgreement,
+          routingOutcome: {
+            intent: 'human-labelled',
+            acceptablePersonaIds: ['peer'],
+            allowUserYield: false,
+            labelSource: 'human',
+          },
+        }),
+      ).success,
+    ).toBe(true)
   })
 
   it('accepts a trial reference that matches the harness trial id', () => {
