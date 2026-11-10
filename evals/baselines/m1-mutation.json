@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
   "suite": "m1-mutation",
-  "generatedAt": "2026-11-10T00:57:05.434Z",
-  "commit": "5cd91d8db117e03479ada050bca1cb615a714ca5",
+  "generatedAt": "2026-11-10T01:39:04.706Z",
+  "commit": "fafed53ed36f246ad9a6472edcde7b5468a20736",
   "tool": "@stryker-mutator/core 10.1.1 + @stryker-mutator/vitest-runner 10.1.1",
   "command": "npm run mutation",
   "note": "Measured floor. Timed-out mutants count as killed; runtime/compile errors are excluded. Not a PR gate.",
   "global": {
-    "mutants": 2819,
-    "killed": 2653,
+    "mutants": 2885,
+    "killed": 2719,
     "timeout": 17,
     "survived": 115,
     "noCoverage": 11,
     "ignored": 0,
     "errors": 23,
-    "total": 95.49356223175965,
-    "covered": 95.87073608617594
+    "total": 95.59748427672956,
+    "covered": 95.96632760434936
   },
   "packages": {
     "apps/cli": {
@@ -74,8 +74,8 @@
       "covered": 99.00990099009901
     },
     "packages/routing-policy": {
-      "mutants": 264,
-      "killed": 264,
+      "mutants": 330,
+      "killed": 330,
       "timeout": 0,
       "survived": 0,
       "noCoverage": 0,
@@ -261,6 +261,17 @@
       "errors": 0,
       "total": 94.87179487179486,
       "covered": 94.87179487179486
+    },
+    "packages/routing-policy/src/assembly.ts": {
+      "mutants": 66,
+      "killed": 66,
+      "timeout": 0,
+      "survived": 0,
+      "noCoverage": 0,
+      "ignored": 0,
+      "errors": 0,
+      "total": 100,
+      "covered": 100
     },
     "packages/routing-policy/src/derive.ts": {
       "mutants": 91,
