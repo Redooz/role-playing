@@ -1,7 +1,20 @@
 import { JEV_GRADER_VERSION, JEV_SMOKE_RUBRIC_VERSION, NO_EXTRACTION_VERSION } from './constants.js'
 import { JevConfigError } from './errors.js'
-import { formatZodIssues, jevJudgmentSchema, jevQuestionMetadataSchema } from './schemas.js'
-import type { JevJudgment, JevLang, JevQuestion, JevQuestionMetadata, JevState } from './types.js'
+import {
+  formatZodIssues,
+  jevBatchJudgmentSchema,
+  jevJudgmentSchema,
+  jevQuestionMetadataSchema,
+} from './schemas.js'
+import type {
+  JevBatchJudgment,
+  JevJudgment,
+  JevLang,
+  JevQuestion,
+  JevQuestionMetadata,
+  JevQuestionSet,
+  JevState,
+} from './types.js'
 
 export interface JevQuestionMetadataInput {
   readonly id: string
@@ -58,6 +71,31 @@ export function declareJevJudgment(input: JevJudgmentInput): JevJudgment {
 
   if (!parsed.success) {
     throw new JevConfigError('Invalid Jev judgment.', {
+      details: formatZodIssues(parsed.error),
+    })
+  }
+
+  return parsed.data
+}
+
+export interface JevBatchJudgmentInput {
+  readonly metadata: JevQuestionMetadataInput
+  readonly state: JevState
+  readonly questions: JevQuestionSet
+}
+
+/** Build one multi-question judgment that shares a single state and API call. */
+export function declareJevBatchJudgment(input: JevBatchJudgmentInput): JevBatchJudgment {
+  const metadata = declareJevQuestionMetadata(input.metadata)
+
+  const parsed = jevBatchJudgmentSchema.safeParse({
+    metadata,
+    state: input.state,
+    questions: input.questions,
+  })
+
+  if (!parsed.success) {
+    throw new JevConfigError('Invalid batched Jev judgment.', {
       details: formatZodIssues(parsed.error),
     })
   }

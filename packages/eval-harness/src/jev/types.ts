@@ -57,6 +57,15 @@ export interface JevJudgment {
   readonly question: JevQuestion
 }
 
+/** Several independent questions that share one state and one API call. */
+export type JevQuestionSet = Readonly<Record<string, JevQuestion>>
+
+export interface JevBatchJudgment {
+  readonly metadata: JevQuestionMetadata
+  readonly state: JevState
+  readonly questions: JevQuestionSet
+}
+
 export interface JevRequestPayload {
   readonly model: string
   readonly state: JevState
@@ -163,6 +172,28 @@ export interface JevJudgmentFailure {
 }
 
 export type JevResult = JevJudgmentSuccess | JevJudgmentFailure
+
+export interface JevBatchSuccess {
+  readonly ok: true
+  readonly questionIds: readonly string[]
+  readonly request: JevRequestPayload
+  readonly response: JevResponse
+  readonly raw: unknown
+  readonly answers: Readonly<Record<string, JevAnswer>>
+  readonly distributions: Readonly<Record<string, JevDistribution>>
+  readonly usage: JevUsage
+  readonly servedModel: string
+  readonly cache: JevCacheStatus
+}
+
+export interface JevBatchFailure {
+  readonly ok: false
+  readonly questionIds: readonly string[]
+  readonly error: JevError
+  readonly cache: JevCacheStatus
+}
+
+export type JevBatchResult = JevBatchSuccess | JevBatchFailure
 
 /** The narrow port the smoke suite needs; a real client or a fake can satisfy it. */
 export interface JevGrader {

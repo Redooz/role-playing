@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
   "suite": "m1-mutation",
-  "generatedAt": "2026-11-10T00:21:03.095Z",
-  "commit": "6fe3c80abe57c3fccea41c1107f676e3ecfaea98",
+  "generatedAt": "2026-11-10T00:37:50.635Z",
+  "commit": "1b789c1e35a028e5cbebe3e47045fe96c0bb7805",
   "tool": "@stryker-mutator/core 10.1.1 + @stryker-mutator/vitest-runner 10.1.1",
   "command": "npm run mutation",
   "note": "Measured floor. Timed-out mutants count as killed; runtime/compile errors are excluded. Not a PR gate.",
   "global": {
-    "mutants": 2799,
-    "killed": 2632,
+    "mutants": 2841,
+    "killed": 2674,
     "timeout": 17,
     "survived": 116,
     "noCoverage": 11,
     "ignored": 0,
     "errors": 23,
-    "total": 95.4250720461095,
-    "covered": 95.80470162748644
+    "total": 95.49325762952449,
+    "covered": 95.86747417171357
   },
   "packages": {
     "apps/cli": {
@@ -74,15 +74,15 @@
       "covered": 99.00990099009901
     },
     "packages/routing-policy": {
-      "mutants": 244,
-      "killed": 243,
+      "mutants": 286,
+      "killed": 285,
       "timeout": 0,
       "survived": 1,
       "noCoverage": 0,
       "ignored": 0,
       "errors": 0,
-      "total": 99.59016393442623,
-      "covered": 99.59016393442623
+      "total": 99.65034965034964,
+      "covered": 99.65034965034964
     },
     "packages/scenario-kit": {
       "mutants": 14,
@@ -287,6 +287,17 @@
     "packages/routing-policy/src/features.ts": {
       "mutants": 76,
       "killed": 76,
+      "timeout": 0,
+      "survived": 0,
+      "noCoverage": 0,
+      "ignored": 0,
+      "errors": 0,
+      "total": 100,
+      "covered": 100
+    },
+    "packages/routing-policy/src/jev.ts": {
+      "mutants": 42,
+      "killed": 42,
       "timeout": 0,
       "survived": 0,
       "noCoverage": 0,
