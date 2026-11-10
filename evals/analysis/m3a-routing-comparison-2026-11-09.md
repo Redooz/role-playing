@@ -5,18 +5,22 @@ complete decisions. Deadline: 2,500 ms. MDE: **0.20** on
 `routing.acceptable_outcome_rate`, separately per language. Baseline:
 `det-central`. Cost: **$0.0085**, inside the $5 cap. Incomplete trials: **0**.
 
+The comparison was rerun after the D6 usage-accounting review fix. Quality,
+fallbacks and verdicts were identical; only wall-clock latency varied, as
+expected for live calls. The table and durable JSON below are from the rerun.
+
 ## Matrix
 
 | Arm         | Lang |   n | Accepted rate | False speak | False yield | Timeout | Unsettled fallback | p50 ms | p95 ms | p99 ms |
 | ----------- | ---- | --: | ------------: | ----------: | ----------: | ------: | -----------------: | -----: | -----: | -----: |
-| det-central | en   |  30 |         1.000 |       0.000 |       0.000 |   0.000 |              0.000 |    0.2 |    5.2 |   10.2 |
-| det-central | fr   |  30 |         1.000 |       0.000 |       0.000 |   0.000 |              0.000 |    0.2 |    3.8 |    8.4 |
-| det-persona | en   |  30 |         1.000 |       0.000 |       0.000 |   0.000 |              0.000 |    0.1 |    0.1 |    0.1 |
+| det-central | en   |  30 |         1.000 |       0.000 |       0.000 |   0.000 |              0.000 |    0.2 |    5.9 |   10.5 |
+| det-central | fr   |  30 |         1.000 |       0.000 |       0.000 |   0.000 |              0.000 |    0.1 |    3.6 |    8.8 |
+| det-persona | en   |  30 |         1.000 |       0.000 |       0.000 |   0.000 |              0.000 |    0.1 |    0.2 |    0.8 |
 | det-persona | fr   |  30 |         1.000 |       0.000 |       0.000 |   0.000 |              0.000 |    0.1 |    0.1 |    0.1 |
-| jev-central | en   |  30 |         0.733 |       0.267 |       0.000 |   0.000 |              0.000 |  225.0 |  326.8 |  474.7 |
-| jev-central | fr   |  30 |         0.733 |       0.267 |       0.000 |   0.000 |              0.000 |  238.6 |  319.8 |  356.2 |
-| jev-persona | en   |  30 |         1.000 |       0.000 |       0.000 |   0.000 |              0.933 |  275.6 | 1704.2 | 1870.8 |
-| jev-persona | fr   |  30 |         1.000 |       0.000 |       0.000 |   0.000 |              0.967 |  251.5 |  383.6 | 1100.8 |
+| jev-central | en   |  30 |         0.733 |       0.267 |       0.000 |   0.000 |              0.000 |  194.8 |  236.4 |  420.5 |
+| jev-central | fr   |  30 |         0.733 |       0.267 |       0.000 |   0.000 |              0.000 |  200.4 |  234.5 |  237.8 |
+| jev-persona | en   |  30 |         1.000 |       0.000 |       0.000 |   0.000 |              0.933 |  222.5 |  961.1 | 1307.8 |
+| jev-persona | fr   |  30 |         1.000 |       0.000 |       0.000 |   0.000 |              0.967 |  213.7 |  302.5 |  336.0 |
 
 ## Verdicts
 

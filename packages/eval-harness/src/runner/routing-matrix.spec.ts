@@ -216,6 +216,45 @@ describe('buildRoutingMatrix', () => {
     })
   })
 
+  it('sums persona-arm usage without requiring a central batch', () => {
+    const result: RoutingReplaySuccess = {
+      ...speak,
+      observation: {
+        kind: 'jev',
+        personas: {
+          manager: {
+            judgments: {
+              directlyAddressed: 0,
+              hasRelevantContribution: 0,
+              addsUncoveredInformation: 0,
+              hasUnmetRelevantObjective: 0,
+              pauseWouldBenefitUser: 1,
+            },
+            exact: successWithUsage({ input_tokens: 4, output_tokens: 1, cost: 0.0002 }),
+          },
+          peer: {
+            judgments: {
+              directlyAddressed: 1,
+              hasRelevantContribution: 1,
+              addsUncoveredInformation: 1,
+              hasUnmetRelevantObjective: 0,
+              pauseWouldBenefitUser: 0,
+            },
+            exact: successWithUsage({ input_tokens: 6, output_tokens: 2, cost: 0.0003 }),
+          },
+        },
+      },
+    }
+    const report = buildRoutingMatrix([
+      { armId: 'jev', lang: 'en', artifact: artifactFor(result, 'jev'), label: label('peer') },
+    ])
+    expect(report.arms[0]?.usage).toEqual({
+      inputTokens: 10,
+      outputTokens: 3,
+      costUsd: 0.0005,
+    })
+  })
+
   it('sums known Jev usage', () => {
     const result: RoutingReplaySuccess = {
       ...speak,

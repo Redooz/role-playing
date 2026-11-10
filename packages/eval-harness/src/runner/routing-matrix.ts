@@ -101,7 +101,7 @@ function usageOfObservation(artifact: RoutingDecisionArtifact): Usage | undefine
   }
 
   const batches = [
-    observation.central?.exact,
+    ...(observation.central?.exact === undefined ? [] : [observation.central.exact]),
     ...Object.values(observation.personas ?? {}).map((entry) => entry.exact),
   ]
   if (batches.length === 0) return undefined

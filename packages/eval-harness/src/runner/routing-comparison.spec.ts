@@ -175,6 +175,20 @@ describe('computeRoutingArmVerdicts', () => {
     ).toThrow(/missing language/i)
   })
 
+  it('rejects an arm that is missing a baseline language row', () => {
+    expect(() =>
+      computeRoutingArmVerdicts(
+        matrix([
+          armReport('det', 'en', 0.5),
+          armReport('det', 'fr', 0.5),
+          armReport('jev', 'en', 0.9),
+        ]),
+        'det',
+        0.2,
+      ),
+    ).toThrow(/arm "jev" is missing language fr/i)
+  })
+
   it('rejects a non-positive MDE', () => {
     expect(() => computeRoutingArmVerdicts(matrix([]), 'det', 0)).toThrow(/positive/i)
   })

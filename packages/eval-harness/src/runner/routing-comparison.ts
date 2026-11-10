@@ -104,6 +104,16 @@ export function computeRoutingArmVerdicts(
   if (baseline.size === 0)
     throw new Error(`baseline arm ${JSON.stringify(baselineArmId)} is missing`)
 
+  for (const arm of matrix.arms) {
+    for (const lang of baseline.keys()) {
+      if (
+        !matrix.arms.some((candidate) => candidate.armId === arm.armId && candidate.lang === lang)
+      ) {
+        throw new Error(`arm ${JSON.stringify(arm.armId)} is missing language ${lang}`)
+      }
+    }
+  }
+
   const verdicts: RoutingArmVerdict[] = []
   for (const arm of matrix.arms) {
     const reference = baseline.get(arm.lang)

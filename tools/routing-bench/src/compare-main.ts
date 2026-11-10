@@ -68,7 +68,7 @@ async function loadTasks(): Promise<RoutingComparisonTask[]> {
 
 function totalCost(
   artifactsByArm: Readonly<Record<string, readonly { observation: unknown }[]>>,
-): number {
+): number | null {
   let total = 0
   for (const artifacts of Object.values(artifactsByArm)) {
     for (const artifact of artifacts) {
@@ -81,7 +81,8 @@ function totalCost(
         ...Object.values(observation.personas ?? {}).map((entry) => entry.exact),
       ].filter((batch): batch is { usage?: { cost?: number } } => batch !== undefined)
       for (const batch of batches) {
-        if (batch.usage?.cost !== undefined) total += batch.usage.cost
+        if (batch.usage?.cost === undefined) return null
+        total += batch.usage.cost
       }
     }
   }
@@ -125,6 +126,9 @@ const run = await runRoutingComparison(tasks, [
 ])
 
 const costUsd = totalCost(run.artifactsByArm)
+if (costUsd === null) {
+  throw new Error('routing comparison cost is unknown; refusing to accept the $5 cap check')
+}
 if (costUsd > COST_CAP_USD) {
   throw new Error(
     `routing comparison cost $${costUsd.toFixed(6)} exceeded the $${COST_CAP_USD} cap`,
