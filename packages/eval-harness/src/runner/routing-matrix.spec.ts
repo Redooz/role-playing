@@ -6,6 +6,7 @@ import { buildRoutingMatrix } from './routing-matrix.js'
 import {
   routingArtifact,
   runDeterministicRoutingReplay,
+  runJevRoutingReplay,
   type RoutingReplaySuccess,
 } from './routing.js'
 
@@ -195,6 +196,26 @@ describe('buildRoutingMatrix', () => {
     })
   })
 
+  it('does not invent a cost when a usage field is missing', () => {
+    const missingTokens = successWithUsage({
+      input_tokens: undefined as never,
+      output_tokens: 2,
+      cost: 0.001,
+    })
+    const result: RoutingReplaySuccess = {
+      ...speak,
+      observation: { kind: 'jev', central: centralWithUsage(missingTokens) },
+    }
+    const report = buildRoutingMatrix([
+      { armId: 'jev', lang: 'en', artifact: artifactFor(result, 'jev'), label: label('peer') },
+    ])
+    expect(report.arms[0]?.usage).toEqual({
+      inputTokens: null,
+      outputTokens: null,
+      costUsd: null,
+    })
+  })
+
   it('sums known Jev usage', () => {
     const result: RoutingReplaySuccess = {
       ...speak,
@@ -216,33 +237,88 @@ describe('buildRoutingMatrix', () => {
     })
   })
 
-  it('counts timeout and unsettled fallbacks', async () => {
-    const timeout = await (async () => {
-      const { runJevRoutingReplay } = await import('./routing.js')
-      return runJevRoutingReplay(
-        context,
-        'persona_requests',
-        {
-          async judgeCentral() {
-            throw new Error('unexpected')
-          },
-          async judgePersona() {
-            await new Promise(() => {})
-            throw new Error('unreachable')
-          },
+  it('treats a timeout as incomplete, never as an acceptable yield', async () => {
+    const timeout = await runJevRoutingReplay(
+      context,
+      'persona_requests',
+      {
+        async judgeCentral() {
+          throw new Error('unexpected')
         },
-        { seed: 1, deadlineMs: 5 },
-      )
-    })()
+        async judgePersona() {
+          await new Promise(() => {})
+          throw new Error('unreachable')
+        },
+      },
+      { seed: 1, deadlineMs: 5 },
+    )
     if (!timeout.ok) throw new Error('expected timeout fallback')
     const report = buildRoutingMatrix([
-      { armId: 'jev', lang: 'en', artifact: artifactFor(timeout, 'jev'), label: label('peer') },
+      {
+        armId: 'jev',
+        lang: 'en',
+        artifact: artifactFor(timeout, 'jev'),
+        label: { ...label('peer'), allowUserYield: true },
+      },
     ])
     expect(report.arms[0]).toMatchObject({
+      n: 1,
+      completed: 0,
+      incomplete: 1,
+      acceptable: 0,
+      acceptableOutcomeRate: null,
+      falseYield: 0,
       timeoutFallbacks: 1,
       timeoutFallbackRate: 1,
+      unsettledFallbackRate: 0,
       fallbackRate: 1,
-      unsettledFallbacks: 0,
+    })
+  })
+
+  it('reports unsettled fallbacks separately', async () => {
+    const unsettled = await runJevRoutingReplay(
+      context,
+      'persona_requests',
+      {
+        async judgeCentral() {
+          throw new Error('unexpected')
+        },
+        async judgePersona(_context, persona) {
+          return {
+            ok: true as const,
+            observation: {
+              judgments:
+                persona.id === 'client'
+                  ? {
+                      directlyAddressed: 0,
+                      hasRelevantContribution: 0.5,
+                      addsUncoveredInformation: 0,
+                      hasUnmetRelevantObjective: 0,
+                      pauseWouldBenefitUser: 0,
+                    }
+                  : {
+                      directlyAddressed: 0,
+                      hasRelevantContribution: 0,
+                      addsUncoveredInformation: 0,
+                      hasUnmetRelevantObjective: 0,
+                      pauseWouldBenefitUser: 1,
+                    },
+              exact: successWithUsage({ input_tokens: 1, output_tokens: 1, cost: 0.0001 }),
+            },
+          }
+        },
+      },
+      { seed: 1, deadlineMs: 1000 },
+    )
+    if (!unsettled.ok) throw new Error('expected unsettled fallback')
+    const report = buildRoutingMatrix([
+      { armId: 'jev', lang: 'en', artifact: artifactFor(unsettled, 'jev'), label: label('peer') },
+    ])
+    expect(report.arms[0]).toMatchObject({
+      unsettledFallbacks: 1,
+      unsettledFallbackRate: 1,
+      timeoutFallbacks: 0,
+      fallbackRate: 1,
     })
   })
 

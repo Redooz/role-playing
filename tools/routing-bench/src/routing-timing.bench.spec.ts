@@ -15,7 +15,7 @@ import { ROUTING_TIMING_ENV } from './index.js'
 const REPO_ROOT = fileURLToPath(new URL('../../../', import.meta.url))
 const TASKS_ROOT = join(REPO_ROOT, 'evals/tasks/synthetic-routing/1.0.0')
 const REPORT_PATH = join(REPO_ROOT, 'evals/results/m3a-routing-timing/timing.json')
-const DEADLINE_MS = 15_000
+const DEADLINE_MS = 2_500
 
 interface Sample {
   readonly topology: 'central_selection' | 'persona_requests'

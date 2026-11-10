@@ -41,6 +41,7 @@ export interface RoutingArmLanguageReport {
   readonly timeoutFallbacks: number
   readonly unsettledFallbacks: number
   readonly timeoutFallbackRate: number | null
+  readonly unsettledFallbackRate: number | null
   readonly fallbackRate: number | null
   readonly latencyMs: LatencySummary | null
   readonly usage: {
@@ -112,22 +113,21 @@ function usageOfObservation(artifact: RoutingDecisionArtifact): Usage | undefine
   let outputTokens = 0
   let costUsd = 0
   for (const batch of batches) {
-    if (batch.usage.input_tokens === undefined || batch.usage.output_tokens === undefined) {
-      inputTokens = Number.NaN
-      outputTokens = Number.NaN
-      break
+    if (
+      batch.usage.input_tokens === undefined ||
+      batch.usage.output_tokens === undefined ||
+      batch.usage.cost === undefined
+    ) {
+      // If any contributing call is incomplete, no total is known. Returning
+      // partial tokens or zero cost would imply measured data we do not have.
+      return {}
     }
     inputTokens += batch.usage.input_tokens
     outputTokens += batch.usage.output_tokens
-    if (batch.usage.cost === undefined) costUsd = Number.NaN
-    else if (!Number.isNaN(costUsd)) costUsd += batch.usage.cost
+    costUsd += batch.usage.cost
   }
 
-  return {
-    inputTokens: Number.isNaN(inputTokens) ? undefined : inputTokens,
-    outputTokens: Number.isNaN(outputTokens) ? undefined : outputTokens,
-    costUsd: Number.isNaN(costUsd) ? undefined : costUsd,
-  }
+  return { inputTokens, outputTokens, costUsd }
 }
 
 function sumKnown(values: readonly (number | undefined)[]): number | null {
@@ -156,8 +156,10 @@ function summarizeGroup(
 
   for (const entry of entries) {
     latencies.push(entry.artifact.policyLatencyMs)
-    if (entry.artifact.outcome === 'infrastructure_incomplete') {
+    const timedOut = entry.artifact.observation.kind === 'timeout'
+    if (entry.artifact.outcome === 'infrastructure_incomplete' || timedOut) {
       incomplete += 1
+      if (timedOut) timeoutFallbacks += 1
       continue
     }
 
@@ -172,7 +174,6 @@ function summarizeGroup(
     if (accepted) acceptable += 1
     if (decision.outcome.kind === 'speak' && !accepted) falseSpeak += 1
     if (decision.outcome.kind === 'user_yield' && !accepted) falseYield += 1
-    if (entry.artifact.observation.kind === 'timeout') timeoutFallbacks += 1
     const usage = usageOfObservation(entry.artifact)
     if (usage !== undefined) usages.push(usage)
   }
@@ -184,8 +185,13 @@ function summarizeGroup(
     return decision.fallback.kind === 'deterministic' && decision.fallback.cause === 'unsettled'
   }).length
   const deterministicFallbacks = entries.filter((entry) => {
-    if (entry.artifact.outcome !== 'completed' || entry.artifact.decision === undefined)
+    if (
+      entry.artifact.outcome !== 'completed' ||
+      entry.artifact.decision === undefined ||
+      entry.artifact.observation.kind === 'timeout'
+    ) {
       return false
+    }
     const decision = routingDecisionSchema.parse(entry.artifact.decision)
     return decision.fallback.kind === 'deterministic'
   }).length
@@ -204,8 +210,9 @@ function summarizeGroup(
     falseYieldRate: rate(falseYield, completed),
     timeoutFallbacks,
     unsettledFallbacks,
-    timeoutFallbackRate: rate(timeoutFallbacks, completed),
-    fallbackRate: rate(deterministicFallbacks, completed),
+    timeoutFallbackRate: rate(timeoutFallbacks, entries.length),
+    unsettledFallbackRate: rate(unsettledFallbacks, entries.length),
+    fallbackRate: rate(timeoutFallbacks + deterministicFallbacks, entries.length),
     latencyMs: latencySummary(latencies),
     usage: {
       inputTokens: sumKnown(usages.map((usage) => usage.inputTokens)),
