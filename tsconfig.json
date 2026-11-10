@@ -10,6 +10,7 @@
     { "path": "./packages/eval-harness" },
     { "path": "./tools/eval-harness-cli" },
     { "path": "./tools/agent-harness-bench" },
+    { "path": "./tools/routing-bench" },
     { "path": "./apps/cli" }
   ]
 }
