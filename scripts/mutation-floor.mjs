@@ -73,6 +73,60 @@ function percent(value) {
 }
 
 /**
+ * Refuse to record a baseline that lowers any existing floor.
+ *
+ * A new package may be added, and an existing floor may rise. Lowering the
+ * global score or any existing package score is exactly what the mutation gate
+ * exists to prevent, so recording refuses it before writing.
+ */
+export function findBaselineRegressions(previous, next) {
+  const failures = []
+  if (previous === null || typeof previous !== 'object') return failures
+
+  if (
+    previous.global !== undefined &&
+    next.global !== undefined &&
+    typeof previous.global.total === 'number' &&
+    typeof previous.global.covered === 'number' &&
+    typeof next.global.total === 'number' &&
+    typeof next.global.covered === 'number'
+  ) {
+    if (next.global.total < previous.global.total) {
+      failures.push(
+        `global total ${percent(next.global.total)}% < existing floor ${percent(previous.global.total)}%`,
+      )
+    }
+    if (next.global.covered < previous.global.covered) {
+      failures.push(
+        `global covered ${percent(next.global.covered)}% < existing floor ${percent(previous.global.covered)}%`,
+      )
+    }
+  }
+
+  const previousPackages = previous.packages ?? {}
+  const nextPackages = next.packages ?? {}
+  for (const [packageName, floor] of Object.entries(previousPackages)) {
+    const actual = nextPackages[packageName]
+    if (actual === undefined) {
+      failures.push(`${packageName} is missing from the new baseline`)
+      continue
+    }
+    if (actual.total < floor.total) {
+      failures.push(
+        `${packageName} total ${percent(actual.total)}% < existing floor ${percent(floor.total)}%`,
+      )
+    }
+    if (actual.covered < floor.covered) {
+      failures.push(
+        `${packageName} covered ${percent(actual.covered)}% < existing floor ${percent(floor.covered)}%`,
+      )
+    }
+  }
+
+  return failures
+}
+
+/**
  * Compare a Stryker JSON report with the frozen baseline.
  *
  * Returns the global and per-package scores plus every reason the floor was

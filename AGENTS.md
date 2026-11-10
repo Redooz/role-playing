@@ -35,6 +35,8 @@ Do not invent commands, folders or build steps that do not exist.
   `ntn api /v1/search -d '{"query":"..."}'`.
 - There are no MCP servers configured. Do not add any. Never put a token in a
   file, log or shell history; `ntn` uses its login session.
+- The one pinned skill is `.agents/skills/typesafe-ai/SKILL.md` (hash in
+  `skills-lock.json`); use it for Jev question design.
 
 ## Commands
 
@@ -61,8 +63,8 @@ npm run validate:tasks   # task/golden validator (gate G3)
 npm run label:export -- --lang en --run evals/results/m2-persona-scenarios-lk --run evals/results/m2-persona-baseline-lk
 npm run eval -- run --manifest evals/manifests/m0-canned-replay.json
 npm run eval -- run --manifest evals/manifests/m2-persona-replay-v2.json
-npm run eval -- run --manifest evals/manifests/m2-persona-baseline-lk-v4.json   # Gemma default baseline
-npm run eval -- run --manifest evals/manifests/m2-persona-scenarios-lk-v5.json  # Gemma default capability
+npm run eval -- run --manifest evals/manifests/m2-persona-baseline-lk-v4.json   # pre-registered generic baseline; accepted baseline is -lk-v3
+npm run eval -- run --manifest evals/manifests/m2-persona-scenarios-lk-v5.json  # accepted Gemma capability
 npm run eval -- run --manifest evals/manifests/m2-persona-baseline.json      # historical Groq baseline
 npm run eval -- run --manifest evals/manifests/m2-persona-scenarios.json     # historical Groq capability
 npm run eval -- run --manifest evals/manifests/m2-locale-variants.json       # historical Groq locale probe
@@ -91,10 +93,10 @@ validator and Jev-canary jobs. The canary is skipped when
   `en`, `fr`, `en-GB` and `fr-CA` variants.
 - `packages/persona-kit` — versioned `PersonaSpec` data, three personas with
   localized variants, and the pure two-bucket prompt builder.
-- `packages/pipeline` — model adapters implementing `TextModelPort`: Groq
-  persona streaming, OpenRouter, LiveKit Inference (Gemma probe), and the
-  streaming plain-text decorator. Base URLs are constructor options; the
-  composition roots read `GROQ_BASE_URL`, `OPENROUTER_BASE_URL` and
+- `packages/pipeline` — model adapters implementing `TextModelPort`: LiveKit
+  Inference (Gemma default), Groq persona streaming (historical), OpenRouter,
+  and the streaming plain-text decorator. Base URLs are constructor options;
+  the composition roots read `GROQ_BASE_URL`, `OPENROUTER_BASE_URL` and
   `LIVEKIT_INFERENCE_URL` from the environment.
 - `packages/eval-harness` — task workflow, Jev axial grader, replay and live
   session runners, `pass^k`, verdicts, and the observation plan/grade sidecar.
@@ -102,6 +104,10 @@ validator and Jev-canary jobs. The canary is skipped when
   provider (Groq, OpenRouter or LiveKit Inference) and Jev grader from the
   environment. The only place that imports Langfuse or OpenTelemetry is
   `src/adapters/langfuse.adapter.ts`.
+- `tools/annotation-kit` — context-free double-annotation kit for Langfuse
+  queues (`build-bundle.mjs`, `annotate.mjs`, `analyze-agreement.mjs`). Keep
+  scores, model names and candidate/baseline labels out of annotator bundles;
+  the trace→run manifest stays operator-only.
 - `apps/cli` — composition root for the line CLI. `main.ts` reads env, selects
   persona/scenario/locale, builds the prompt and starts the driver; `cli-main.ts`
   is the REPL and holds no session state.
@@ -109,9 +115,9 @@ validator and Jev-canary jobs. The canary is skipped when
 - `infra/livekit-soak` — isolated LiveKit compatibility spike. It imports nothing
   from the session or eval code; keep it that way.
 
-`apps/api`, `apps/web`, `apps/orchestrator`, the remaining `packages/*` and
-`tools/routing-bench` are intentional placeholders. Do not fill them with
-speculative code.
+`apps/api`, `apps/web`, `apps/orchestrator`, `packages/feedback-worker`,
+`packages/routing-policy`, `packages/turn-arbiter` and `tools/routing-bench` are
+intentional `.gitkeep` placeholders. Do not fill them with speculative code.
 
 ## Non-obvious mechanics
 
@@ -119,7 +125,7 @@ speculative code.
   directly; no build is required. Relative imports still use `.js` specifiers
   under `module: nodenext` even though the files are `.ts`. New entrypoints must
   register the same `.js` → `.ts` resolve hook as `apps/cli/src/cli.ts`.
-- `packages/*` export `./src/index.ts`. `dist/` is tsc output, not what the
+- The built packages export `./src/index.ts`. `dist/` is tsc output, not what the
   scripts or workspace imports use.
 - Tests sit next to the file under test and end in `.spec.ts`; there is no
   `test/` folder. `*.bench.spec.ts` files run only in the `bench` project.
@@ -130,6 +136,9 @@ speculative code.
   after changing `packages/eval-harness/src/tasks/schema.ts`:
   `UPDATE_SCHEMAS=1 npx vitest run packages/eval-harness/src/tasks/schema.spec.ts`
   then `npx prettier --write evals/schemas`.
+- The eval CLI refuses to overwrite `evals/results/<runId>/`; pass
+  `--results-root <dir>` to keep a second run of the same manifest. `runId` is
+  the manifest's suite id, not a unique run id.
 - For new app actions, Architecture Plan §1.5 requires
   `domain/{ports,usecases}` plus `adapters/{inbound,outbound}`, an optional
   `mappers/` folder, and one composition root. Never add `services/`,
@@ -169,6 +178,10 @@ Use these words. Do not substitute fixture, repetition, scorer, or trace.
 - **Models grade, code decides.** Counting, maths, dates and hard limits stay in
   normal code. Ask Jev only yes/no or graded questions, and store the raw answer
   and probability, not just the label.
+- **An LLM annotation pass is not human ground truth.** The annotation-kit
+  passes were run with OpenCode, not a System One model. They prefill and triage
+  only. Only blind human double-labelling can make a semantic gate `stable`;
+  LLM labels keep it provisional.
 - **A failed model call is not a "no".** Mark the run incomplete; never turn an
   error into a pass or zero.
 - **One writer at a time.** Only the character holding the current turn may
@@ -192,8 +205,8 @@ Use these words. Do not substitute fixture, repetition, scorer, or trace.
   subscription cannot be used at runtime. The provisional async reviewer is
   `anthropic/claude-haiku-5.5`. The live STT choice is Azure
   `MAI-Transcribe-2-Streaming`. `openrouter/openai/gpt-oss-safeguard-20b` is a
-  retired probe. The `gemma` semantic gate stays provisional until human
-  agreement is measured.
+  retired probe. The `gemma` semantic gate is provisional on agent labels by
+  project choice; only blind human double-labelling could make it `stable`.
 - **Separate English and French data.** Passing in one language does not count
   for the other. Audio work does not start before M5.
 - **Locale is not a language.** Keep `lang: 'en' | 'fr'` for routing, task paths
@@ -231,12 +244,13 @@ covered by a test:
 
 ## Mutation and eval artifacts
 
-- `npm run mutation` scores `packages/session-core`, `packages/pipeline`, the
-  M2 `plain-text`/`persona-kit` behaviour and the mutated `apps/cli` files, then
-  checks each package against `evals/baselines/m1-mutation.json`. Timed-out
-  mutants count as killed; runtime/compile errors are excluded. Never lower the
-  floor or hand-edit the baseline. Record a new baseline only with
-  `npm run mutation:record` after a clean `npm run mutation`.
+- `npm run mutation` scores the behaviour-bearing files listed in
+  `stryker.config.json` (session-core, pipeline, persona-kit prompt/lookup,
+  scenario-kit lookup/helpers, shared locale/plain-text, apps/cli), then checks
+  each package against `evals/baselines/m1-mutation.json`. The global break
+  threshold is 95. Timed-out mutants count as killed; runtime/compile errors are
+  excluded. Never lower the floor or hand-edit the baseline. Record a new
+  baseline only with `npm run mutation:record` after a clean `npm run mutation`.
 - `evals/results/` is git-ignored except the curated `index.md`. Promote an
   accepted run by copying its `result.json` into `evals/baselines/<suite>.json`
   and running Prettier. Record the decision in `evals/decisions.md` and the run
@@ -253,5 +267,8 @@ covered by a test:
   run before merging. If a change lands on `main` by mistake, move it to a branch
   and reset `main`; do not build on it.
 - Keep changes small and tied to one milestone.
+- The `opencode review` workflow reviews a PR against `AGENTS.md` from the base
+  branch, so a PR cannot relax its own review rules; changes to this file take
+  effect after merge.
 - When the plan and the code disagree, trust the code, then update the plan in
   Notion.

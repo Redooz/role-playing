@@ -6,6 +6,7 @@
     { "path": "./packages/pipeline" },
     { "path": "./packages/scenario-kit" },
     { "path": "./packages/persona-kit" },
+    { "path": "./packages/routing-policy" },
     { "path": "./packages/eval-harness" },
     { "path": "./tools/eval-harness-cli" },
     { "path": "./tools/agent-harness-bench" },
