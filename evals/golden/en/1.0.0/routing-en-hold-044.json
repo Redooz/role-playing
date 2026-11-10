@@ -1,0 +1,22 @@
+{
+  "id": "golden-routing-en-hold-044",
+  "lang": "en",
+  "split": "holdout",
+  "taskId": "routing-en-hold-044",
+  "routingOutcome": {
+    "intent": "Learner asks Sam to take care of the incident report.",
+    "acceptablePersonaIds": ["peer"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "note": "Provisional M3a consensus label from two independent context-free annotation passes."
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Sam, can you take care of the incident report?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent annotation only. Exact agreement between the two passes was 120/120; this is not human ground truth."
+}

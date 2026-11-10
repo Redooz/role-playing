@@ -1,0 +1,94 @@
+{
+  "id": "routing-en-cal-005",
+  "lang": "en",
+  "mode": "routing",
+  "domain": "workplace",
+  "scenarioType": "deadline",
+  "cefrBand": "B1",
+  "speakerId": "speaker-routing-en-calibration",
+  "split": "calibration",
+  "provenance": {
+    "source": "synthetic",
+    "note": "M3a routing replay decision point"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "routingRubric": "m3a-routing-rubric-v1",
+    "annotationGuideline": "m3a-routing-label-v1"
+  },
+  "content": {
+    "scenarioBrief": "Synthetic routing decision about the delivery deadline.",
+    "turns": []
+  },
+  "routing": {
+    "context": {
+      "decisionId": "routing-en-cal-005",
+      "turnId": "routing-en-cal-005-turn",
+      "lang": "en",
+      "transcript": [
+        {
+          "speaker": {
+            "kind": "persona",
+            "personaId": "manager"
+          },
+          "text": "We need to keep the delivery deadline moving."
+        },
+        {
+          "speaker": {
+            "kind": "persona",
+            "personaId": "peer"
+          },
+          "text": "I picked up the notes from yesterday."
+        },
+        {
+          "speaker": {
+            "kind": "user"
+          },
+          "text": "Thanks, I’ll make a note of that."
+        }
+      ],
+      "personas": [
+        {
+          "id": "manager",
+          "displayName": "Katherine Brooks",
+          "aliases": ["Katherine", "Kate"],
+          "role": "manager",
+          "objectives": [
+            {
+              "id": "manager_goal",
+              "description": "Own delivery deadline.",
+              "keywords": ["delivery deadline"]
+            }
+          ]
+        },
+        {
+          "id": "peer",
+          "displayName": "Sam Carter",
+          "aliases": ["Sam"],
+          "role": "peer colleague",
+          "objectives": [
+            {
+              "id": "peer_goal",
+              "description": "Handle handoff.",
+              "keywords": ["handoff"]
+            }
+          ]
+        },
+        {
+          "id": "client",
+          "displayName": "Julian Moore",
+          "aliases": ["Julian", "Mr Moore"],
+          "role": "external client",
+          "objectives": [
+            {
+              "id": "client_goal",
+              "description": "Resolve contract renewal.",
+              "keywords": ["contract renewal"]
+            }
+          ]
+        }
+      ],
+      "coveredObjectiveIds": []
+    }
+  }
+}

@@ -1,3 +1,4 @@
+import type { RoutingContext } from '@rp/routing-policy'
 import { mkdtemp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -77,6 +78,58 @@ function goldenEntry(overrides: Partial<GoldenEntry> = {}): GoldenEntry {
   }
 }
 
+const routingContext: RoutingContext = {
+  decisionId: 'routing-001',
+  turnId: 'turn-001',
+  lang: 'en',
+  transcript: [
+    { speaker: { kind: 'persona', personaId: 'manager' }, text: 'We need a date.' },
+    { speaker: { kind: 'user' }, text: 'Sam, can you confirm the handoff?' },
+  ],
+  personas: [
+    {
+      id: 'manager',
+      displayName: 'Katherine Brooks',
+      aliases: ['Katherine'],
+      role: 'manager',
+      objectives: [{ id: 'deadline', description: 'Agree a deadline.', keywords: ['deadline'] }],
+    },
+    {
+      id: 'peer',
+      displayName: 'Sam Carter',
+      aliases: ['Sam'],
+      role: 'peer colleague',
+      objectives: [{ id: 'handoff', description: 'Confirm handoff.', keywords: ['handoff'] }],
+    },
+  ],
+  coveredObjectiveIds: [],
+}
+
+function routingTask(overrides: Partial<TaskEntry> = {}): TaskEntry {
+  return taskEntry({
+    id: 'routing-001',
+    mode: 'routing',
+    content: { scenarioBrief: 'A routing decision.', turns: [] },
+    routing: { context: routingContext },
+    ...overrides,
+  })
+}
+
+function routingGolden(overrides: Partial<GoldenEntry> = {}): GoldenEntry {
+  return goldenEntry({
+    taskId: 'routing-001',
+    routingLabels: undefined,
+    dimensionScores: undefined,
+    routingOutcome: {
+      intent: 'confirm-handoff',
+      acceptablePersonaIds: ['peer'],
+      allowUserYield: false,
+      labelSource: 'agent',
+    },
+    ...overrides,
+  })
+}
+
 describe('validateTaskTree', () => {
   it('passes a valid English/French tree', async () => {
     const root = await makeTree({
@@ -96,6 +149,79 @@ describe('validateTaskTree', () => {
     })
 
     expect(await validateTaskTree(root)).toEqual([])
+  })
+
+  it('accepts a valid routing task and matching routing label', async () => {
+    const root = await makeTree({
+      [taskPath('en', 'routing-001')]: routingTask(),
+      [goldenPath('en', 'routing-001')]: routingGolden(),
+    })
+    expect(await validateTaskTree(root)).toEqual([])
+  })
+
+  it('flags a routing task without a routing outcome label', async () => {
+    const root = await makeTree({
+      [taskPath('en', 'routing-001')]: routingTask(),
+    })
+    expect((await validateTaskTree(root)).map((violation) => violation.code)).toContain(
+      'ROUTING_LABEL_MISSING',
+    )
+  })
+
+  it('flags an unknown routing persona', async () => {
+    const root = await makeTree({
+      [taskPath('en', 'routing-001')]: routingTask({
+        routing: {
+          context: {
+            ...routingContext,
+            personas: [
+              routingContext.personas[0]!,
+              { ...routingContext.personas[1]!, id: 'ghost' },
+            ],
+          },
+        },
+      }),
+    })
+    expect((await validateTaskTree(root)).map((violation) => violation.code)).toContain(
+      'ROUTING_PERSONA_UNKNOWN',
+    )
+  })
+
+  it('flags an acceptable persona that is not eligible in the task', async () => {
+    const root = await makeTree({
+      [taskPath('en', 'routing-001')]: routingTask(),
+      [goldenPath('en', 'routing-001')]: routingGolden({
+        routingOutcome: {
+          intent: 'unknown',
+          acceptablePersonaIds: ['client'],
+          allowUserYield: false,
+          labelSource: 'agent',
+        },
+      }),
+    })
+    expect((await validateTaskTree(root)).map((violation) => violation.code)).toContain(
+      'ROUTING_LABEL_INVALID',
+    )
+  })
+
+  it('requires a routing label to name its task', async () => {
+    const root = await makeTree({
+      [taskPath('en', 'routing-001')]: routingTask(),
+      [goldenPath('en', 'routing-001')]: routingGolden({ taskId: undefined }),
+    })
+    expect((await validateTaskTree(root)).map((violation) => violation.code)).toContain(
+      'ROUTING_LABEL_INVALID',
+    )
+  })
+
+  it('rejects a routing label on a replay task', async () => {
+    const root = await makeTree({
+      [taskPath('en', 'replay-task')]: taskEntry({ id: 'replay-task' }),
+      [goldenPath('en', 'replay-task')]: routingGolden({ taskId: 'replay-task' }),
+    })
+    expect((await validateTaskTree(root)).map((violation) => violation.code)).toContain(
+      'ROUTING_LABEL_INVALID',
+    )
   })
 
   it('detects a speaker that leaks across calibration and holdout', async () => {

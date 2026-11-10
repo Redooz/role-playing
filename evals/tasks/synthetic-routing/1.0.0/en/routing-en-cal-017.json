@@ -1,0 +1,94 @@
+{
+  "id": "routing-en-cal-017",
+  "lang": "en",
+  "mode": "routing",
+  "domain": "workplace",
+  "scenarioType": "contract",
+  "cefrBand": "B2",
+  "speakerId": "speaker-routing-en-calibration",
+  "split": "calibration",
+  "provenance": {
+    "source": "synthetic",
+    "note": "M3a routing replay decision point"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "routingRubric": "m3a-routing-rubric-v1",
+    "annotationGuideline": "m3a-routing-label-v1"
+  },
+  "content": {
+    "scenarioBrief": "Synthetic routing decision about the contract.",
+    "turns": []
+  },
+  "routing": {
+    "context": {
+      "decisionId": "routing-en-cal-017",
+      "turnId": "routing-en-cal-017-turn",
+      "lang": "en",
+      "transcript": [
+        {
+          "speaker": {
+            "kind": "persona",
+            "personaId": "manager"
+          },
+          "text": "We need to keep the contract moving."
+        },
+        {
+          "speaker": {
+            "kind": "persona",
+            "personaId": "peer"
+          },
+          "text": "I picked up the notes from yesterday."
+        },
+        {
+          "speaker": {
+            "kind": "user"
+          },
+          "text": "Thanks, I’ll make a note of that."
+        }
+      ],
+      "personas": [
+        {
+          "id": "manager",
+          "displayName": "Katherine Brooks",
+          "aliases": ["Katherine", "Kate"],
+          "role": "manager",
+          "objectives": [
+            {
+              "id": "manager_goal",
+              "description": "Own contract approval.",
+              "keywords": ["contract approval"]
+            }
+          ]
+        },
+        {
+          "id": "peer",
+          "displayName": "Sam Carter",
+          "aliases": ["Sam"],
+          "role": "peer colleague",
+          "objectives": [
+            {
+              "id": "peer_goal",
+              "description": "Handle contract records.",
+              "keywords": ["contract records"]
+            }
+          ]
+        },
+        {
+          "id": "client",
+          "displayName": "Julian Moore",
+          "aliases": ["Julian", "Mr Moore"],
+          "role": "external client",
+          "objectives": [
+            {
+              "id": "client_goal",
+              "description": "Resolve contract signature.",
+              "keywords": ["contract signature"]
+            }
+          ]
+        }
+      ],
+      "coveredObjectiveIds": []
+    }
+  }
+}

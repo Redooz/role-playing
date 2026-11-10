@@ -67,6 +67,9 @@ export type ViolationCode =
   | 'SESSION_VERSION_MISMATCH'
   | 'SESSION_LOCALE_MISSING'
   | 'SESSION_PERSONA_MISMATCH'
+  | 'ROUTING_PERSONA_UNKNOWN'
+  | 'ROUTING_LABEL_INVALID'
+  | 'ROUTING_LABEL_MISSING'
 
 export interface TaskViolation {
   /** Path relative to `rootDir`, always with `/` separators. */
@@ -114,7 +117,15 @@ export async function validateTaskTree(rootDir: string): Promise<TaskViolation[]
 
   const ids = new Map<string, { id: string; scope: string; paths: string[] }>()
   const speakers = new Map<string, Map<string, { path: string; split: Split }[]>>()
-  const tasksByLangVersion = new Map<string, { split: Split; path: string }[]>()
+  const tasksByLangVersion = new Map<
+    string,
+    {
+      split: Split
+      path: string
+      routing?: { eligiblePersonaIds: readonly string[] }
+    }[]
+  >()
+  const routingLabelKeys = new Set<string>()
 
   for (const path of taskFiles) {
     const location = parseTaskLocation(relativeToEvals(path))
@@ -161,6 +172,7 @@ export async function validateTaskTree(rootDir: string): Promise<TaskViolation[]
     registerSpeaker(speakers, location.scope, entry.speakerId, path, entry.split)
     registerTaskForGolden(tasksByLangVersion, location, entry, path)
     checkSessionReferences(entry, path, violations)
+    checkRoutingReferences(entry, path, violations)
   }
 
   for (const path of goldenFiles) {
@@ -222,6 +234,29 @@ export async function validateTaskTree(rootDir: string): Promise<TaskViolation[]
       path,
     )
     checkGoldenTaskLink(entry, location, path, tasksByLangVersion, violations)
+    if (entry.routingOutcome !== undefined && entry.taskId !== undefined) {
+      routingLabelKeys.add(
+        `${taskLinkKey(
+          entry.lang,
+          location.version,
+          entry.locale ?? entry.lang,
+          entry.taskId,
+        )}\u0000${entry.split}`,
+      )
+    }
+  }
+
+  for (const [key, records] of tasksByLangVersion) {
+    for (const record of records) {
+      if (record.routing === undefined) continue
+      if (!routingLabelKeys.has(`${key}\u0000${record.split}`)) {
+        violations.push({
+          path: record.path,
+          code: 'ROUTING_LABEL_MISSING',
+          message: 'a routing task requires a routingOutcome golden label in its split',
+        })
+      }
+    }
   }
 
   for (const [, group] of ids) {
@@ -412,17 +447,35 @@ function taskLinkKey(lang: Lang, version: string, locale: string, taskId: string
 }
 
 function registerTaskForGolden(
-  tasks: Map<string, { split: Split; path: string }[]>,
+  tasks: Map<
+    string,
+    {
+      split: Split
+      path: string
+      routing?: { eligiblePersonaIds: readonly string[] }
+    }[]
+  >,
   location: TaskLocation,
   entry: TaskEntry,
   path: string,
 ): void {
   const key = taskLinkKey(entry.lang, location.version, entry.locale ?? entry.lang, entry.id)
+  const record = {
+    split: entry.split,
+    path,
+    ...(entry.routing === undefined
+      ? {}
+      : {
+          routing: {
+            eligiblePersonaIds: entry.routing.context.personas.map((persona) => persona.id),
+          },
+        }),
+  }
   const records = tasks.get(key)
   if (records === undefined) {
-    tasks.set(key, [{ split: entry.split, path }])
+    tasks.set(key, [record])
   } else {
-    records.push({ split: entry.split, path })
+    records.push(record)
   }
 }
 
@@ -431,7 +484,14 @@ function checkGoldenTaskLink(
   entry: GoldenEntry,
   location: GoldenLocation,
   path: string,
-  tasks: Map<string, { split: Split; path: string }[]>,
+  tasks: Map<
+    string,
+    {
+      split: Split
+      path: string
+      routing?: { eligiblePersonaIds: readonly string[] }
+    }[]
+  >,
   violations: TaskViolation[],
 ): void {
   if (entry.locale !== undefined && baseLanguageOfLocale(entry.locale) !== location.lang) {
@@ -439,6 +499,14 @@ function checkGoldenTaskLink(
       path,
       code: 'GOLDEN_LOCALE_MISMATCH',
       message: `entry locale "${entry.locale}" does not match path language "${location.lang}"`,
+    })
+  }
+
+  if (entry.routingOutcome !== undefined && entry.taskId === undefined) {
+    violations.push({
+      path,
+      code: 'ROUTING_LABEL_INVALID',
+      message: 'a routingOutcome label must name the routing taskId it labels',
     })
   }
 
@@ -462,6 +530,43 @@ function checkGoldenTaskLink(
       code: 'GOLDEN_TASK_SPLIT_MISMATCH',
       message: `golden entry split "${entry.split}" does not match task "${entry.taskId}" split (${splits})`,
     })
+  }
+
+  if (entry.routingOutcome === undefined) return
+  const record = records.find((candidate) => candidate.split === entry.split)
+  if (record?.routing === undefined) {
+    violations.push({
+      path,
+      code: 'ROUTING_LABEL_INVALID',
+      message: `routingOutcome label points at task "${entry.taskId}", which is not a routing task`,
+    })
+    return
+  }
+
+  const eligible = new Set(record.routing.eligiblePersonaIds)
+  for (const personaId of entry.routingOutcome.acceptablePersonaIds) {
+    if (!eligible.has(personaId)) {
+      violations.push({
+        path,
+        code: 'ROUTING_LABEL_INVALID',
+        message: `acceptable persona "${personaId}" is not eligible in task "${entry.taskId}"`,
+      })
+    }
+  }
+}
+
+function checkRoutingReferences(entry: TaskEntry, path: string, violations: TaskViolation[]): void {
+  const routing = entry.routing
+  if (entry.mode !== 'routing' || routing === undefined) return
+
+  for (const persona of routing.context.personas) {
+    if (!PERSONAS_BY_ID.has(persona.id)) {
+      violations.push({
+        path,
+        code: 'ROUTING_PERSONA_UNKNOWN',
+        message: `routing persona "${persona.id}" does not resolve to a registered persona`,
+      })
+    }
   }
 }
 

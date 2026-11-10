@@ -1,3 +1,4 @@
+import { routingContextSchema } from '@rp/routing-policy'
 import { baseLanguageOfLocale, tryCanonicalizeLocale } from '@rp/shared'
 import { z } from 'zod'
 
@@ -79,7 +80,7 @@ export const taskContentSchema = z.strictObject({
 })
 
 /** How a task is executed. Existing v1 tasks omit this and default to replay. */
-export const taskModeSchema = z.enum(['replay', 'session'])
+export const taskModeSchema = z.enum(['replay', 'session', 'routing'])
 
 export const localeTagSchema = z
   .string()
@@ -107,6 +108,18 @@ export const sessionTaskSchema = z.strictObject({
 })
 
 export type SessionTask = z.infer<typeof sessionTaskSchema>
+
+/**
+ * Routing execution block (M3a D3).
+ *
+ * The context is exactly what a policy may see. Labels live only in golden
+ * entries, never in this block, so a policy cannot accidentally read the answer.
+ */
+export const routingTaskSchema = z.strictObject({
+  context: routingContextSchema,
+})
+
+export type RoutingTask = z.infer<typeof routingTaskSchema>
 
 /** A name → version map, e.g. `{ rubric: 'v1', annotationGuideline: 'v1' }`. */
 const annotationVersionsSchema = z
@@ -139,6 +152,8 @@ export const taskEntrySchema = z
     content: taskContentSchema,
     /** Present exactly when `mode` is `session`. */
     session: sessionTaskSchema.optional(),
+    /** Present exactly when `mode` is `routing`. */
+    routing: routingTaskSchema.optional(),
   })
   .superRefine((task, ctx) => {
     if (task.locale !== undefined && baseLanguageOfLocale(task.locale) !== task.lang) {
@@ -146,6 +161,14 @@ export const taskEntrySchema = z
         code: 'custom',
         path: ['locale'],
         message: `locale "${task.locale}" does not match base language "${task.lang}"`,
+      })
+    }
+
+    if (task.routing !== undefined && task.mode !== 'routing') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['routing'],
+        message: "only a routing task may carry a 'routing' block",
       })
     }
 
@@ -157,11 +180,55 @@ export const taskEntrySchema = z
           message: "a session task requires a 'session' block",
         })
       }
+      if (task.routing !== undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['routing'],
+          message: 'a session task cannot carry routing context',
+        })
+      }
       if (task.content.turns.length > 0) {
         ctx.addIssue({
           code: 'custom',
           path: ['content', 'turns'],
           message: 'a session task must not store persona turns; the model generates them',
+        })
+      }
+    } else if (task.mode === 'routing') {
+      if (task.routing === undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['routing'],
+          message: "a routing task requires a 'routing' block",
+        })
+      } else {
+        if (task.routing.context.decisionId !== task.id) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['routing', 'context', 'decisionId'],
+            message: `routing decisionId must equal the task id "${task.id}"`,
+          })
+        }
+        if (task.routing.context.lang !== task.lang) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['routing', 'context', 'lang'],
+            message: `routing context language "${task.routing.context.lang}" does not match task language "${task.lang}"`,
+          })
+        }
+      }
+      if (task.session !== undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['session'],
+          message: 'a routing task cannot carry a session block',
+        })
+      }
+      if (task.content.turns.length > 0) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['content', 'turns'],
+          message: 'a routing task stores its transcript in the routing context',
         })
       }
     } else {
@@ -212,6 +279,40 @@ export function hasMeasuredAgreement(value: unknown): boolean {
   return new Set(parsed.data.annotators).size >= 2 && parsed.data.metric.length > 0
 }
 
+/**
+ * M3a acceptable-outcome labels.
+ *
+ * A label is a set, not one exact speaker. `allowUserYield` covers the valid
+ * no-contribution case. The annotation source is explicit so an LLM pass can
+ * never be mistaken for human ground truth.
+ */
+export const routingOutcomeLabelSchema = z
+  .strictObject({
+    intent: z.string().min(1),
+    acceptablePersonaIds: z.array(z.string().min(1)),
+    allowUserYield: z.boolean(),
+    labelSource: z.enum(['agent', 'human']),
+    note: z.string().min(1).optional(),
+  })
+  .superRefine((label, ctx) => {
+    if (label.acceptablePersonaIds.length === 0 && !label.allowUserYield) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['acceptablePersonaIds'],
+        message: 'a routing label must accept at least one persona or learner yield',
+      })
+    }
+    if (new Set(label.acceptablePersonaIds).size !== label.acceptablePersonaIds.length) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['acceptablePersonaIds'],
+        message: 'acceptablePersonaIds must not repeat',
+      })
+    }
+  })
+
+export type RoutingOutcomeLabel = z.infer<typeof routingOutcomeLabelSchema>
+
 /** One human judgment about a single transcript. */
 export const goldenEntrySchema = z
   .strictObject({
@@ -239,12 +340,16 @@ export const goldenEntrySchema = z
      * Which character the turn should be routed to (§4.4.3). `intent` is a short
      * human label; the persona ids are tournament arms, not model versions.
      */
-    routingLabels: z.strictObject({
-      intent: z.string().min(1),
-      expectedPersonaId: z.string().min(1),
-      acceptablePersonaIds: z.array(z.string().min(1)).optional(),
-      note: z.string().min(1).optional(),
-    }),
+    routingLabels: z
+      .strictObject({
+        intent: z.string().min(1),
+        expectedPersonaId: z.string().min(1),
+        acceptablePersonaIds: z.array(z.string().min(1)).optional(),
+        note: z.string().min(1).optional(),
+      })
+      .optional(),
+    /** M3a routing-replay labels; mutually exclusive with legacy routingLabels. */
+    routingOutcome: routingOutcomeLabelSchema.optional(),
     /**
      * 1–5 rubric scores keyed by dimension name. Keeping dimension names as data
      * lets a rubric version add a dimension without a schema major bump.
@@ -259,7 +364,8 @@ export const goldenEntrySchema = z
       )
       .refine((scores) => Object.keys(scores).length > 0, {
         message: 'dimensionScores must contain at least one dimension',
-      }),
+      })
+      .optional(),
     /** Spans that justify a score or label, by turn index and text reference. */
     evidenceSpans: z.array(
       z.strictObject({
@@ -308,6 +414,28 @@ export const goldenEntrySchema = z
           message: `trialId must match "${expected}"`,
         })
       }
+    }
+
+    if (entry.routingLabels === undefined && entry.routingOutcome === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['routingLabels'],
+        message: 'a golden entry requires routingLabels or routingOutcome',
+      })
+    }
+    if (entry.routingLabels !== undefined && entry.routingOutcome !== undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['routingOutcome'],
+        message: 'routingLabels and routingOutcome are mutually exclusive',
+      })
+    }
+    if (entry.routingLabels !== undefined && entry.dimensionScores === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['dimensionScores'],
+        message: 'a legacy routingLabels entry requires dimensionScores',
+      })
     }
 
     if (entry.status !== 'stable') return

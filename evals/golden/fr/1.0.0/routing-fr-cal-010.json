@@ -1,0 +1,22 @@
+{
+  "id": "golden-routing-fr-cal-010",
+  "lang": "fr",
+  "split": "calibration",
+  "taskId": "routing-fr-cal-010",
+  "routingOutcome": {
+    "intent": "Learner asks for the latest on the team staffing.",
+    "acceptablePersonaIds": ["manager"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "note": "Provisional M3a consensus label from two independent context-free annotation passes."
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Où en est effectif de l’équipe ?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent annotation only. Exact agreement between the two passes was 120/120; this is not human ground truth."
+}

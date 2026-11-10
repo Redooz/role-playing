@@ -1,0 +1,22 @@
+{
+  "id": "golden-routing-fr-hold-031",
+  "lang": "fr",
+  "split": "holdout",
+  "taskId": "routing-fr-hold-031",
+  "routingOutcome": {
+    "intent": "Learner asks Catherine to confirm the budget.",
+    "acceptablePersonaIds": ["manager"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "note": "Provisional M3a consensus label from two independent context-free annotation passes."
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Catherine, peux-tu confirmer budget ?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent annotation only. Exact agreement between the two passes was 120/120; this is not human ground truth."
+}

@@ -1,0 +1,22 @@
+{
+  "id": "golden-routing-en-cal-019",
+  "lang": "en",
+  "split": "calibration",
+  "taskId": "routing-en-cal-019",
+  "routingOutcome": {
+    "intent": "Learner asks Katherine to confirm the project timeline.",
+    "acceptablePersonaIds": ["manager"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "note": "Provisional M3a consensus label from two independent context-free annotation passes."
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Katherine, can you confirm the project timeline?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent annotation only. Exact agreement between the two passes was 120/120; this is not human ground truth."
+}

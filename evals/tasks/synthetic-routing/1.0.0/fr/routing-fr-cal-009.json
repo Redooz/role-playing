@@ -1,0 +1,94 @@
+{
+  "id": "routing-fr-cal-009",
+  "lang": "fr",
+  "mode": "routing",
+  "domain": "workplace",
+  "scenarioType": "coverage",
+  "cefrBand": "B2",
+  "speakerId": "speaker-routing-fr-calibration",
+  "split": "calibration",
+  "provenance": {
+    "source": "synthetic",
+    "note": "M3a routing replay decision point"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "routingRubric": "m3a-routing-rubric-v1",
+    "annotationGuideline": "m3a-routing-label-v1"
+  },
+  "content": {
+    "scenarioBrief": "Décision de routage synthétique sur la couverture de demain.",
+    "turns": []
+  },
+  "routing": {
+    "context": {
+      "decisionId": "routing-fr-cal-009",
+      "turnId": "routing-fr-cal-009-turn",
+      "lang": "fr",
+      "transcript": [
+        {
+          "speaker": {
+            "kind": "persona",
+            "personaId": "manager"
+          },
+          "text": "Nous devons faire avancer la couverture de demain."
+        },
+        {
+          "speaker": {
+            "kind": "persona",
+            "personaId": "peer"
+          },
+          "text": "J’ai repris les notes d’hier."
+        },
+        {
+          "speaker": {
+            "kind": "user"
+          },
+          "text": "Julien, est-ce que calendrier de réunion est prête ?"
+        }
+      ],
+      "personas": [
+        {
+          "id": "manager",
+          "displayName": "Catherine Brooks",
+          "aliases": ["Catherine", "Cathy"],
+          "role": "responsable",
+          "objectives": [
+            {
+              "id": "manager_goal",
+              "description": "Prendre en charge effectif de l’équipe.",
+              "keywords": ["effectif de l’équipe"]
+            }
+          ]
+        },
+        {
+          "id": "peer",
+          "displayName": "Samir Carter",
+          "aliases": ["Samir"],
+          "role": "collègue",
+          "objectives": [
+            {
+              "id": "peer_goal",
+              "description": "Gérer remplacement pour le point.",
+              "keywords": ["remplacement pour le point"]
+            }
+          ]
+        },
+        {
+          "id": "client",
+          "displayName": "Julien Moreau",
+          "aliases": ["Julien", "Monsieur Moreau"],
+          "role": "client externe",
+          "objectives": [
+            {
+              "id": "client_goal",
+              "description": "Résoudre calendrier de réunion.",
+              "keywords": ["calendrier de réunion"]
+            }
+          ]
+        }
+      ],
+      "coveredObjectiveIds": []
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "id": "golden-routing-fr-hold-050",
+  "lang": "fr",
+  "split": "holdout",
+  "taskId": "routing-fr-hold-050",
+  "routingOutcome": {
+    "intent": "Learner asks Samir to take care of the peer review.",
+    "acceptablePersonaIds": ["peer"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "note": "Provisional M3a consensus label from two independent context-free annotation passes."
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Samir, peux-tu t’occuper de la revue entre pairs ?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent annotation only. Exact agreement between the two passes was 120/120; this is not human ground truth."
+}

@@ -1,0 +1,22 @@
+{
+  "id": "golden-routing-en-hold-035",
+  "lang": "en",
+  "split": "holdout",
+  "taskId": "routing-en-hold-035",
+  "routingOutcome": {
+    "intent": "Learner thanks the previous speaker and takes a note; no further reply is needed.",
+    "acceptablePersonaIds": [],
+    "allowUserYield": true,
+    "labelSource": "agent",
+    "note": "Provisional M3a consensus label from two independent context-free annotation passes."
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Thanks, I’ll make a note of that."
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent annotation only. Exact agreement between the two passes was 120/120; this is not human ground truth."
+}

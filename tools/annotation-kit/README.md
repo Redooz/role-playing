@@ -76,6 +76,44 @@ reading any other labels directory.
 Set `ANNOTATOR_MODEL` when submitting if you want the model recorded in score
 metadata. Otherwise it is `unspecified`.
 
+## Routing labels (M3a)
+
+Routing tasks do not use Langfuse queues. Build a local bundle from the committed
+routing tasks:
+
+```sh
+node tools/annotation-kit/routing-bundle.mjs \
+  --tasks evals/tasks/synthetic-routing/1.0.0 \
+  --out evals/results/annotation-kit-m3a
+```
+
+`cases.jsonl` contains only the learner-visible transcript, personas, objectives
+and covered ids. It excludes split, speaker id, labels, run ids, arms and scores.
+Give a separate copy to each pass.
+
+An annotator writes one JSON file per task:
+
+```json
+{
+  "taskId": "routing-en-cal-deadline-manager-direct",
+  "lang": "en",
+  "intent": "answer-manager",
+  "acceptablePersonaIds": ["manager"],
+  "allowUserYield": false
+}
+```
+
+Compare the two passes:
+
+```sh
+node tools/annotation-kit/routing-analyze-agreement.mjs \
+  --a /path/to/pass-a/labels --b /path/to/pass-b/labels
+```
+
+The report gives exact accepted-outcome agreement overall and per language. A
+missing task in either pass exits 2. This is agent/provisional annotation unless
+the labels come from blind human double-labelling.
+
 ## The human-label rule
 
 An LLM pass (the M2 pass used OpenCode) is not a human and is not a

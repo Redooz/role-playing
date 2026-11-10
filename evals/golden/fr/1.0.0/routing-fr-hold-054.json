@@ -1,0 +1,22 @@
+{
+  "id": "golden-routing-fr-hold-054",
+  "lang": "fr",
+  "split": "holdout",
+  "taskId": "routing-fr-hold-054",
+  "routingOutcome": {
+    "intent": "Learner asks Catherine and Samir to check the performance feedback and the peer review.",
+    "acceptablePersonaIds": ["manager", "peer"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "note": "Provisional M3a consensus label from two independent context-free annotation passes."
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Catherine et Samir, pouvez-vous vérifier retour de performance et la revue entre pairs ?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent annotation only. Exact agreement between the two passes was 120/120; this is not human ground truth."
+}

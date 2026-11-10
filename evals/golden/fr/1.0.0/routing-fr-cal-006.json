@@ -1,0 +1,22 @@
+{
+  "id": "golden-routing-fr-cal-006",
+  "lang": "fr",
+  "split": "calibration",
+  "taskId": "routing-fr-cal-006",
+  "routingOutcome": {
+    "intent": "Learner asks Catherine and Samir to check the delivery deadline and the handoff.",
+    "acceptablePersonaIds": ["manager", "peer"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "note": "Provisional M3a consensus label from two independent context-free annotation passes."
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Catherine et Samir, pouvez-vous vérifier délai de livraison et la passation ?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent annotation only. Exact agreement between the two passes was 120/120; this is not human ground truth."
+}

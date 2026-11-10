@@ -61,6 +61,35 @@
       "required": ["intent", "expectedPersonaId"],
       "additionalProperties": false
     },
+    "routingOutcome": {
+      "type": "object",
+      "properties": {
+        "intent": {
+          "type": "string",
+          "minLength": 1
+        },
+        "acceptablePersonaIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "allowUserYield": {
+          "type": "boolean"
+        },
+        "labelSource": {
+          "type": "string",
+          "enum": ["agent", "human"]
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": ["intent", "acceptablePersonaIds", "allowUserYield", "labelSource"],
+      "additionalProperties": false
+    },
     "dimensionScores": {
       "type": "object",
       "propertyNames": {
@@ -182,15 +211,6 @@
       "minLength": 1
     }
   },
-  "required": [
-    "id",
-    "lang",
-    "split",
-    "routingLabels",
-    "dimensionScores",
-    "evidenceSpans",
-    "pairwisePreferences",
-    "status"
-  ],
+  "required": ["id", "lang", "split", "evidenceSpans", "pairwisePreferences", "status"],
   "additionalProperties": false
 }
