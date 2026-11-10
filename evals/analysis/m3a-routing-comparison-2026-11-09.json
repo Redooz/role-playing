@@ -1,0 +1,364 @@
+{
+  "schemaVersion": 1,
+  "suite": "m3a-routing-comparison",
+  "split": "holdout",
+  "tasks": 60,
+  "baselineArm": "det-central",
+  "minimumDetectableEffect": 0.2,
+  "deadlineMs": 2500,
+  "costUsd": 0.008513147999999996,
+  "costCapUsd": 5,
+  "noWinnerSelected": true,
+  "note": "Complete four-arm comparison only. No routing policy is adopted by M3a.",
+  "matrix": {
+    "schemaVersion": 1,
+    "arms": [
+      {
+        "armId": "det-central",
+        "lang": "en",
+        "n": 30,
+        "completed": 30,
+        "incomplete": 0,
+        "acceptable": 30,
+        "acceptableOutcomeRate": 1,
+        "falseSpeak": 0,
+        "falseSpeakRate": 0,
+        "falseYield": 0,
+        "falseYieldRate": 0,
+        "timeoutFallbacks": 0,
+        "unsettledFallbacks": 0,
+        "timeoutFallbackRate": 0,
+        "unsettledFallbackRate": 0,
+        "fallbackRate": 0,
+        "latencyMs": {
+          "count": 30,
+          "min": 0.07947899999999208,
+          "p50": 0.19246149999999318,
+          "p95": 5.899374799999977,
+          "p99": 10.48332592,
+          "max": 11.747625
+        },
+        "usage": {
+          "inputTokens": null,
+          "outputTokens": null,
+          "costUsd": null
+        }
+      },
+      {
+        "armId": "det-central",
+        "lang": "fr",
+        "n": 30,
+        "completed": 30,
+        "incomplete": 0,
+        "acceptable": 30,
+        "acceptableOutcomeRate": 1,
+        "falseSpeak": 0,
+        "falseSpeakRate": 0,
+        "falseYield": 0,
+        "falseYieldRate": 0,
+        "timeoutFallbacks": 0,
+        "unsettledFallbacks": 0,
+        "timeoutFallbackRate": 0,
+        "unsettledFallbackRate": 0,
+        "fallbackRate": 0,
+        "latencyMs": {
+          "count": 30,
+          "min": 0.06319899999999734,
+          "p50": 0.12354650000000333,
+          "p95": 3.593004150000007,
+          "p99": 8.822219049999983,
+          "max": 10.950979999999959
+        },
+        "usage": {
+          "inputTokens": null,
+          "outputTokens": null,
+          "costUsd": null
+        }
+      },
+      {
+        "armId": "det-persona",
+        "lang": "en",
+        "n": 30,
+        "completed": 30,
+        "incomplete": 0,
+        "acceptable": 30,
+        "acceptableOutcomeRate": 1,
+        "falseSpeak": 0,
+        "falseSpeakRate": 0,
+        "falseYield": 0,
+        "falseYieldRate": 0,
+        "timeoutFallbacks": 0,
+        "unsettledFallbacks": 0,
+        "timeoutFallbackRate": 0,
+        "unsettledFallbackRate": 0,
+        "fallbackRate": 0,
+        "latencyMs": {
+          "count": 30,
+          "min": 0.060402999999951135,
+          "p50": 0.09930149999999571,
+          "p95": 0.1553105999999786,
+          "p99": 0.8051208699999827,
+          "max": 1.0674829999999815
+        },
+        "usage": {
+          "inputTokens": null,
+          "outputTokens": null,
+          "costUsd": null
+        }
+      },
+      {
+        "armId": "det-persona",
+        "lang": "fr",
+        "n": 30,
+        "completed": 30,
+        "incomplete": 0,
+        "acceptable": 30,
+        "acceptableOutcomeRate": 1,
+        "falseSpeak": 0,
+        "falseSpeakRate": 0,
+        "falseYield": 0,
+        "falseYieldRate": 0,
+        "timeoutFallbacks": 0,
+        "unsettledFallbacks": 0,
+        "timeoutFallbackRate": 0,
+        "unsettledFallbackRate": 0,
+        "fallbackRate": 0,
+        "latencyMs": {
+          "count": 30,
+          "min": 0.050044000000013966,
+          "p50": 0.08183349999998768,
+          "p95": 0.10924884999999449,
+          "p99": 0.13363260000000027,
+          "max": 0.14298800000000256
+        },
+        "usage": {
+          "inputTokens": null,
+          "outputTokens": null,
+          "costUsd": null
+        }
+      },
+      {
+        "armId": "jev-central",
+        "lang": "en",
+        "n": 30,
+        "completed": 30,
+        "incomplete": 0,
+        "acceptable": 22,
+        "acceptableOutcomeRate": 0.7333333333333333,
+        "falseSpeak": 8,
+        "falseSpeakRate": 0.26666666666666666,
+        "falseYield": 0,
+        "falseYieldRate": 0,
+        "timeoutFallbacks": 0,
+        "unsettledFallbacks": 0,
+        "timeoutFallbackRate": 0,
+        "unsettledFallbackRate": 0,
+        "fallbackRate": 0,
+        "latencyMs": {
+          "count": 30,
+          "min": 169.60952799999995,
+          "p50": 194.76082499999984,
+          "p95": 236.36218710000026,
+          "p99": 420.51877389000026,
+          "max": 495.29262299999994
+        },
+        "usage": {
+          "inputTokens": 21504,
+          "outputTokens": 1890,
+          "costUsd": 0.000903168
+        }
+      },
+      {
+        "armId": "jev-central",
+        "lang": "fr",
+        "n": 30,
+        "completed": 30,
+        "incomplete": 0,
+        "acceptable": 22,
+        "acceptableOutcomeRate": 0.7333333333333333,
+        "falseSpeak": 8,
+        "falseSpeakRate": 0.26666666666666666,
+        "falseYield": 0,
+        "falseYieldRate": 0,
+        "timeoutFallbacks": 0,
+        "unsettledFallbacks": 0,
+        "timeoutFallbackRate": 0,
+        "unsettledFallbackRate": 0,
+        "fallbackRate": 0,
+        "latencyMs": {
+          "count": 30,
+          "min": 162.6338370000003,
+          "p50": 200.36911950000012,
+          "p95": 234.46153134999912,
+          "p99": 237.79755883999962,
+          "max": 238.89700799999991
+        },
+        "usage": {
+          "inputTokens": 23252,
+          "outputTokens": 1890,
+          "costUsd": 0.000976584
+        }
+      },
+      {
+        "armId": "jev-persona",
+        "lang": "en",
+        "n": 30,
+        "completed": 30,
+        "incomplete": 0,
+        "acceptable": 30,
+        "acceptableOutcomeRate": 1,
+        "falseSpeak": 0,
+        "falseSpeakRate": 0,
+        "falseYield": 0,
+        "falseYieldRate": 0,
+        "timeoutFallbacks": 0,
+        "unsettledFallbacks": 28,
+        "timeoutFallbackRate": 0,
+        "unsettledFallbackRate": 0.9333333333333333,
+        "fallbackRate": 0.9333333333333333,
+        "latencyMs": {
+          "count": 30,
+          "min": 194.5775109999995,
+          "p50": 222.46887399999832,
+          "p95": 961.1223467499997,
+          "p99": 1307.7724589300028,
+          "max": 1448.4140730000036
+        },
+        "usage": {
+          "inputTokens": 74802,
+          "outputTokens": 10170,
+          "costUsd": 0.003141683999999999
+        }
+      },
+      {
+        "armId": "jev-persona",
+        "lang": "fr",
+        "n": 30,
+        "completed": 30,
+        "incomplete": 0,
+        "acceptable": 30,
+        "acceptableOutcomeRate": 1,
+        "falseSpeak": 0,
+        "falseSpeakRate": 0,
+        "falseYield": 0,
+        "falseYieldRate": 0,
+        "timeoutFallbacks": 0,
+        "unsettledFallbacks": 29,
+        "timeoutFallbackRate": 0,
+        "unsettledFallbackRate": 0.9666666666666667,
+        "fallbackRate": 0.9666666666666667,
+        "latencyMs": {
+          "count": 30,
+          "min": 181.35122000000047,
+          "p50": 213.742169000001,
+          "p95": 302.4827798499987,
+          "p99": 336.00218761000036,
+          "max": 343.87159600000086
+        },
+        "usage": {
+          "inputTokens": 83136,
+          "outputTokens": 10170,
+          "costUsd": 0.0034917120000000005
+        }
+      }
+    ]
+  },
+  "verdicts": [
+    {
+      "armId": "det-central",
+      "lang": "en",
+      "baselineArmId": "det-central",
+      "metric": "routing.acceptable_outcome_rate",
+      "baseline": 1,
+      "candidate": 1,
+      "delta": 0,
+      "minimumDetectableEffect": 0.2,
+      "incomplete": 0,
+      "verdict": "baseline"
+    },
+    {
+      "armId": "det-central",
+      "lang": "fr",
+      "baselineArmId": "det-central",
+      "metric": "routing.acceptable_outcome_rate",
+      "baseline": 1,
+      "candidate": 1,
+      "delta": 0,
+      "minimumDetectableEffect": 0.2,
+      "incomplete": 0,
+      "verdict": "baseline"
+    },
+    {
+      "armId": "det-persona",
+      "lang": "en",
+      "baselineArmId": "det-central",
+      "metric": "routing.acceptable_outcome_rate",
+      "baseline": 1,
+      "candidate": 1,
+      "delta": 0,
+      "minimumDetectableEffect": 0.2,
+      "incomplete": 0,
+      "verdict": "target_missed"
+    },
+    {
+      "armId": "det-persona",
+      "lang": "fr",
+      "baselineArmId": "det-central",
+      "metric": "routing.acceptable_outcome_rate",
+      "baseline": 1,
+      "candidate": 1,
+      "delta": 0,
+      "minimumDetectableEffect": 0.2,
+      "incomplete": 0,
+      "verdict": "target_missed"
+    },
+    {
+      "armId": "jev-central",
+      "lang": "en",
+      "baselineArmId": "det-central",
+      "metric": "routing.acceptable_outcome_rate",
+      "baseline": 1,
+      "candidate": 0.7333333333333333,
+      "delta": -0.2666666666666667,
+      "minimumDetectableEffect": 0.2,
+      "incomplete": 0,
+      "verdict": "target_missed"
+    },
+    {
+      "armId": "jev-central",
+      "lang": "fr",
+      "baselineArmId": "det-central",
+      "metric": "routing.acceptable_outcome_rate",
+      "baseline": 1,
+      "candidate": 0.7333333333333333,
+      "delta": -0.2666666666666667,
+      "minimumDetectableEffect": 0.2,
+      "incomplete": 0,
+      "verdict": "target_missed"
+    },
+    {
+      "armId": "jev-persona",
+      "lang": "en",
+      "baselineArmId": "det-central",
+      "metric": "routing.acceptable_outcome_rate",
+      "baseline": 1,
+      "candidate": 1,
+      "delta": 0,
+      "minimumDetectableEffect": 0.2,
+      "incomplete": 0,
+      "verdict": "target_missed"
+    },
+    {
+      "armId": "jev-persona",
+      "lang": "fr",
+      "baselineArmId": "det-central",
+      "metric": "routing.acceptable_outcome_rate",
+      "baseline": 1,
+      "candidate": 1,
+      "delta": 0,
+      "minimumDetectableEffect": 0.2,
+      "incomplete": 0,
+      "verdict": "target_missed"
+    }
+  ]
+}

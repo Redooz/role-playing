@@ -103,28 +103,30 @@ function usageOfObservation(artifact: RoutingDecisionArtifact): Usage | undefine
   const batches = [
     ...(observation.central?.exact === undefined ? [] : [observation.central.exact]),
     ...Object.values(observation.personas ?? {}).map((entry) => entry.exact),
-  ].filter(
-    (batch): batch is { usage: { input_tokens?: number; output_tokens?: number; cost?: number } } =>
-      batch !== undefined && batch.usage !== undefined,
-  )
+  ]
   if (batches.length === 0) return undefined
+  if (
+    batches.some(
+      (batch) =>
+        batch === undefined ||
+        batch.usage === undefined ||
+        batch.usage.input_tokens === undefined ||
+        batch.usage.output_tokens === undefined ||
+        batch.usage.cost === undefined,
+    )
+  ) {
+    // If any contributing call is incomplete, no total is known. Returning
+    // partial tokens or zero cost would imply measured data we do not have.
+    return {}
+  }
 
   let inputTokens = 0
   let outputTokens = 0
   let costUsd = 0
   for (const batch of batches) {
-    if (
-      batch.usage.input_tokens === undefined ||
-      batch.usage.output_tokens === undefined ||
-      batch.usage.cost === undefined
-    ) {
-      // If any contributing call is incomplete, no total is known. Returning
-      // partial tokens or zero cost would imply measured data we do not have.
-      return {}
-    }
-    inputTokens += batch.usage.input_tokens
-    outputTokens += batch.usage.output_tokens
-    costUsd += batch.usage.cost
+    inputTokens += batch!.usage!.input_tokens!
+    outputTokens += batch!.usage!.output_tokens!
+    costUsd += batch!.usage!.cost!
   }
 
   return { inputTokens, outputTokens, costUsd }
