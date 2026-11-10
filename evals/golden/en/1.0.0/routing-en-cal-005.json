@@ -4,7 +4,7 @@
   "split": "calibration",
   "taskId": "routing-en-cal-005",
   "routingOutcome": {
-    "intent": "Learner thanks the previous speaker and takes a note; no further reply is needed.",
+    "intent": "Learner acknowledgement; no persona has an uncovered relevant objective.",
     "acceptablePersonaIds": [],
     "allowUserYield": true,
     "labelSource": "agent",

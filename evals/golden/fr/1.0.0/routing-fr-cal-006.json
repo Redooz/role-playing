@@ -4,7 +4,7 @@
   "split": "calibration",
   "taskId": "routing-fr-cal-006",
   "routingOutcome": {
-    "intent": "Learner asks Catherine and Samir to check the delivery deadline and the handoff.",
+    "intent": "Dual direct address: Catherine Brooks (Prendre en charge délai de livraison.) and Samir Carter (Gérer passation.).",
     "acceptablePersonaIds": ["manager", "peer"],
     "allowUserYield": false,
     "labelSource": "agent",

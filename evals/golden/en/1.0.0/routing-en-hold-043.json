@@ -4,7 +4,7 @@
   "split": "holdout",
   "taskId": "routing-en-hold-043",
   "routingOutcome": {
-    "intent": "Learner asks Katherine to confirm the incident risk.",
+    "intent": "Direct address to Katherine Brooks about Own incident risk.",
     "acceptablePersonaIds": ["manager"],
     "allowUserYield": false,
     "labelSource": "agent",

@@ -4,7 +4,7 @@
   "split": "holdout",
   "taskId": "routing-fr-hold-048",
   "routingOutcome": {
-    "intent": "Learner asks for the latest on the incident risk, but that objective is already covered.",
+    "intent": "Question about a topic whose objective is already covered; no other relevant persona. (Où en est risque lié à l’incident ?)",
     "acceptablePersonaIds": [],
     "allowUserYield": true,
     "labelSource": "agent",

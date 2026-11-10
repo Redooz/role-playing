@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  agreementFailures,
   annotatorCase,
   labelsAgree,
   outcomeSignature,
@@ -9,7 +10,7 @@ import {
 
 function label(overrides = {}) {
   return {
-    taskId: 'routing-en-cal-1',
+    caseId: 'case-a',
     lang: 'en',
     intent: 'answer',
     acceptablePersonaIds: ['peer'],
@@ -46,7 +47,7 @@ describe('parseRoutingLabel', () => {
   })
 
   it('rejects malformed scalar fields', () => {
-    expect(() => parseRoutingLabel(label({ taskId: '' }))).toThrow(/taskId/i)
+    expect(() => parseRoutingLabel(label({ caseId: '' }))).toThrow(/caseId/i)
     expect(() => parseRoutingLabel(label({ intent: ' ' }))).toThrow(/intent/i)
     expect(() => parseRoutingLabel(label({ allowUserYield: 'yes' }))).toThrow(/boolean/i)
   })
@@ -78,13 +79,13 @@ describe('summarizeRoutingAgreement', () => {
   it('reports exact agreement overall and per language', () => {
     const left = [
       label(),
-      label({ taskId: 'routing-en-cal-2' }),
-      label({ taskId: 'routing-fr-cal-1', lang: 'fr', acceptablePersonaIds: ['manager'] }),
+      label({ caseId: 'case-b' }),
+      label({ caseId: 'case-c', lang: 'fr', acceptablePersonaIds: ['manager'] }),
     ]
     const right = [
       label(),
-      label({ taskId: 'routing-en-cal-2', acceptablePersonaIds: ['manager'] }),
-      label({ taskId: 'routing-fr-cal-1', lang: 'fr', acceptablePersonaIds: ['manager'] }),
+      label({ caseId: 'case-b', acceptablePersonaIds: ['manager'] }),
+      label({ caseId: 'case-c', lang: 'fr', acceptablePersonaIds: ['manager'] }),
     ]
     expect(summarizeRoutingAgreement(left, right)).toEqual({
       n: 3,
@@ -98,16 +99,47 @@ describe('summarizeRoutingAgreement', () => {
     })
   })
 
-  it('reports unmatched task ids', () => {
-    const summary = summarizeRoutingAgreement([label()], [label({ taskId: 'other' })])
+  it('reports unmatched case ids', () => {
+    const summary = summarizeRoutingAgreement([label()], [label({ caseId: 'other' })])
     expect(summary.n).toBe(0)
-    expect(summary.unmatched).toEqual(['other', 'routing-en-cal-1'])
+    expect(summary.unmatched).toEqual(['case-a', 'other'])
   })
 
   it('rejects a language mismatch for the same task', () => {
     expect(() => summarizeRoutingAgreement([label()], [label({ lang: 'fr' })])).toThrow(
       /language mismatch/i,
     )
+  })
+})
+
+describe('agreementFailures', () => {
+  it('passes when every language clears the bar', () => {
+    expect(
+      agreementFailures(
+        { byLang: { en: { n: 2, exact: 2, exactRate: 1 }, fr: { n: 2, exact: 2, exactRate: 1 } } },
+        0.8,
+      ),
+    ).toEqual([])
+  })
+
+  it('names each language below the bar', () => {
+    expect(
+      agreementFailures(
+        {
+          byLang: {
+            en: { n: 2, exact: 2, exactRate: 1 },
+            fr: { n: 2, exact: 1, exactRate: 0.5 },
+          },
+        },
+        0.8,
+      ),
+    ).toEqual(['fr: 0.500 < 0.800'])
+  })
+
+  it('fails a language with no matched cases', () => {
+    expect(agreementFailures({ byLang: { en: { n: 0, exact: 0, exactRate: 0 } } }, 0.8)).toEqual([
+      'en: no matched cases',
+    ])
   })
 })
 
@@ -131,9 +163,9 @@ describe('annotatorCase', () => {
     routingLabels: { acceptablePersonaIds: ['peer'] },
   }
 
-  it('keeps only annotator-visible state', () => {
-    expect(annotatorCase(task)).toEqual({
-      taskId: 'routing-001',
+  it('keeps only annotator-visible state under an opaque id', () => {
+    expect(annotatorCase(task, 'case-opaque')).toEqual({
+      caseId: 'case-opaque',
       lang: 'en',
       cefrBand: 'B1',
       scenarioType: 'deadline',
@@ -144,12 +176,15 @@ describe('annotatorCase', () => {
     })
   })
 
-  it('never includes split, speakerId or labels', () => {
-    const serialized = JSON.stringify(annotatorCase(task))
-    expect(serialized).not.toMatch(/holdout|speaker-holdout|routingLabels|acceptable/i)
+  it('never includes the task id, split, speakerId or labels', () => {
+    const serialized = JSON.stringify(annotatorCase(task, 'case-opaque'))
+    expect(serialized).not.toMatch(/routing-001|holdout|speaker-holdout|routingLabels|acceptable/i)
   })
 
-  it('rejects a non-routing task', () => {
-    expect(() => annotatorCase({ ...task, mode: 'session' })).toThrow(/routing task/i)
+  it('rejects a non-routing task or missing opaque id', () => {
+    expect(() => annotatorCase({ ...task, mode: 'session' }, 'case-opaque')).toThrow(
+      /routing task/i,
+    )
+    expect(() => annotatorCase(task, '')).toThrow(/opaque caseId/i)
   })
 })

@@ -4,7 +4,7 @@
   "split": "calibration",
   "taskId": "routing-en-cal-022",
   "routingOutcome": {
-    "intent": "Learner asks for the latest on the project timeline.",
+    "intent": "Open question about Own project timeline.",
     "acceptablePersonaIds": ["manager"],
     "allowUserYield": false,
     "labelSource": "agent",

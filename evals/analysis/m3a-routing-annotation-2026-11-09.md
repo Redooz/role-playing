@@ -6,11 +6,14 @@ Dataset: `synthetic-routing/1.0.0`, 120 decision points (60 English, 60 French;
 Method:
 
 1. Built a blind bundle with `tools/annotation-kit/routing-bundle.mjs`.
-2. Gave two independent context-free agent passes separate copies. Neither pass
+2. The bundle exposes only opaque case ids. The case-to-task/split mapping stays
+   operator-only in `<out>-operator/manifest.json`.
+3. Gave two independent context-free agent passes separate copies. Neither pass
    saw the other labels, the repository, task sources, split, arm, run or scores.
-3. Each pass labelled all 120 cases with an accepted-outcome set:
+4. Each pass labelled all 120 cases with an accepted-outcome set:
    `acceptablePersonaIds` plus `allowUserYield`.
-4. Compared the passes with `routing-analyze-agreement.mjs`.
+5. Compared the passes with `routing-analyze-agreement.mjs --min 0.8`; the
+   per-language threshold is enforced by exit code.
 
 ## Agreement
 

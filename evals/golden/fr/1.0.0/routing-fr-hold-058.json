@@ -4,7 +4,7 @@
   "split": "holdout",
   "taskId": "routing-fr-hold-058",
   "routingOutcome": {
-    "intent": "Learner asks for the latest on the travel approval.",
+    "intent": "Open question about Prendre en charge validation du déplacement.",
     "acceptablePersonaIds": ["manager"],
     "allowUserYield": false,
     "labelSource": "agent",

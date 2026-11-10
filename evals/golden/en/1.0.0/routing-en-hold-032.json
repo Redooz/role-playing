@@ -4,7 +4,7 @@
   "split": "holdout",
   "taskId": "routing-en-hold-032",
   "routingOutcome": {
-    "intent": "Learner asks Sam to take care of the cost forecast.",
+    "intent": "Direct address to Sam Carter about Handle cost forecast.",
     "acceptablePersonaIds": ["peer"],
     "allowUserYield": false,
     "labelSource": "agent",

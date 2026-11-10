@@ -4,7 +4,7 @@
   "split": "holdout",
   "taskId": "routing-en-hold-046",
   "routingOutcome": {
-    "intent": "Learner asks for the latest on the incident risk.",
+    "intent": "Open question about Own incident risk.",
     "acceptablePersonaIds": ["manager"],
     "allowUserYield": false,
     "labelSource": "agent",

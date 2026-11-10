@@ -4,7 +4,7 @@
   "split": "holdout",
   "taskId": "routing-fr-hold-040",
   "routingOutcome": {
-    "intent": "Learner asks for the latest on the onboarding approval.",
+    "intent": "Open question about Prendre en charge validation de l’intégration.",
     "acceptablePersonaIds": ["manager"],
     "allowUserYield": false,
     "labelSource": "agent",

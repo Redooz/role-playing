@@ -4,7 +4,7 @@
   "split": "holdout",
   "taskId": "routing-fr-hold-038",
   "routingOutcome": {
-    "intent": "Learner asks Samir to take care of the onboarding checklist.",
+    "intent": "Direct address to Samir Carter about Gérer liste d’intégration.",
     "acceptablePersonaIds": ["peer"],
     "allowUserYield": false,
     "labelSource": "agent",

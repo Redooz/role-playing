@@ -4,7 +4,7 @@
   "split": "calibration",
   "taskId": "routing-en-cal-030",
   "routingOutcome": {
-    "intent": "Learner asks Katherine and Sam to check the team priorities and the workload.",
+    "intent": "Dual direct address: Katherine Brooks (Own team priorities.) and Sam Carter (Handle workload.).",
     "acceptablePersonaIds": ["manager", "peer"],
     "allowUserYield": false,
     "labelSource": "agent",

@@ -4,7 +4,7 @@
   "split": "calibration",
   "taskId": "routing-fr-cal-025",
   "routingOutcome": {
-    "intent": "Learner asks Catherine to confirm the team priorities.",
+    "intent": "Direct address to Catherine Brooks about Prendre en charge priorités de l’équipe.",
     "acceptablePersonaIds": ["manager"],
     "allowUserYield": false,
     "labelSource": "agent",

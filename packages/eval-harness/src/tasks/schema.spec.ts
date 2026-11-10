@@ -316,6 +316,44 @@ describe('goldenEntrySchema', () => {
     expect(result.success).toBe(false)
   })
 
+  it('rejects stable status for agent routing labels', () => {
+    const result = goldenEntrySchema.safeParse(
+      goldenEntry({
+        routingLabels: undefined,
+        dimensionScores: undefined,
+        status: 'stable',
+        annotatorAgreement: measuredAgreement,
+        routingOutcome: {
+          intent: 'agent-only',
+          acceptablePersonaIds: ['peer'],
+          allowUserYield: false,
+          labelSource: 'agent',
+        },
+      }),
+    )
+    expect(result.success).toBe(false)
+    expect(result.error?.issues[0]?.path).toEqual(['routingOutcome', 'labelSource'])
+  })
+
+  it('allows stable status for human routing labels with agreement', () => {
+    expect(
+      goldenEntrySchema.safeParse(
+        goldenEntry({
+          routingLabels: undefined,
+          dimensionScores: undefined,
+          status: 'stable',
+          annotatorAgreement: measuredAgreement,
+          routingOutcome: {
+            intent: 'human-labelled',
+            acceptablePersonaIds: ['peer'],
+            allowUserYield: false,
+            labelSource: 'human',
+          },
+        }),
+      ).success,
+    ).toBe(true)
+  })
+
   it('accepts a trial reference that matches the harness trial id', () => {
     const result = goldenEntrySchema.safeParse(
       goldenEntry({

@@ -4,7 +4,7 @@
   "split": "calibration",
   "taskId": "routing-en-cal-002",
   "routingOutcome": {
-    "intent": "Learner asks Sam to take care of the handoff.",
+    "intent": "Direct address to Sam Carter about Handle handoff.",
     "acceptablePersonaIds": ["peer"],
     "allowUserYield": false,
     "labelSource": "agent",

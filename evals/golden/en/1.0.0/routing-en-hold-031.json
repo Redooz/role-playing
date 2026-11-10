@@ -4,7 +4,7 @@
   "split": "holdout",
   "taskId": "routing-en-hold-031",
   "routingOutcome": {
-    "intent": "Learner asks Katherine to confirm the budget.",
+    "intent": "Direct address to Katherine Brooks about Own budget.",
     "acceptablePersonaIds": ["manager"],
     "allowUserYield": false,
     "labelSource": "agent",

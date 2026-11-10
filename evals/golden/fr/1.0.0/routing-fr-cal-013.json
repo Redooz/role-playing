@@ -4,7 +4,7 @@
   "split": "calibration",
   "taskId": "routing-fr-cal-013",
   "routingOutcome": {
-    "intent": "Learner asks Catherine to confirm the contract approval.",
+    "intent": "Direct address to Catherine Brooks about Prendre en charge validation du contrat.",
     "acceptablePersonaIds": ["manager"],
     "allowUserYield": false,
     "labelSource": "agent",

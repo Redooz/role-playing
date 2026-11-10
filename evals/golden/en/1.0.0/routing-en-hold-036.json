@@ -4,7 +4,7 @@
   "split": "holdout",
   "taskId": "routing-en-hold-036",
   "routingOutcome": {
-    "intent": "Learner asks for the latest on the budget, but that objective is already covered.",
+    "intent": "Question about a topic whose objective is already covered; no other relevant persona. (What is the latest on the budget?)",
     "acceptablePersonaIds": [],
     "allowUserYield": true,
     "labelSource": "agent",

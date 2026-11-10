@@ -4,7 +4,7 @@
   "split": "holdout",
   "taskId": "routing-en-hold-054",
   "routingOutcome": {
-    "intent": "Learner asks Katherine and Sam to check the performance feedback and the peer review.",
+    "intent": "Dual direct address: Katherine Brooks (Own performance feedback.) and Sam Carter (Handle peer review.).",
     "acceptablePersonaIds": ["manager", "peer"],
     "allowUserYield": false,
     "labelSource": "agent",

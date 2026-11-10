@@ -4,7 +4,7 @@
   "split": "holdout",
   "taskId": "routing-fr-hold-049",
   "routingOutcome": {
-    "intent": "Learner asks Catherine to confirm the performance feedback.",
+    "intent": "Direct address to Catherine Brooks about Prendre en charge retour de performance.",
     "acceptablePersonaIds": ["manager"],
     "allowUserYield": false,
     "labelSource": "agent",

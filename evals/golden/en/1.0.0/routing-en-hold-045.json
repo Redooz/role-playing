@@ -4,7 +4,7 @@
   "split": "holdout",
   "taskId": "routing-en-hold-045",
   "routingOutcome": {
-    "intent": "Learner asks Julian whether the status update is ready.",
+    "intent": "Direct address to Julian Moore about Resolve status update.",
     "acceptablePersonaIds": ["client"],
     "allowUserYield": false,
     "labelSource": "agent",

@@ -4,7 +4,7 @@
   "split": "calibration",
   "taskId": "routing-en-cal-014",
   "routingOutcome": {
-    "intent": "Learner asks Sam to take care of the contract records.",
+    "intent": "Direct address to Sam Carter about Handle contract records.",
     "acceptablePersonaIds": ["peer"],
     "allowUserYield": false,
     "labelSource": "agent",

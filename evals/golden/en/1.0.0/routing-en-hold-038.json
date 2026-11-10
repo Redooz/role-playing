@@ -4,7 +4,7 @@
   "split": "holdout",
   "taskId": "routing-en-hold-038",
   "routingOutcome": {
-    "intent": "Learner asks Sam to take care of the onboarding checklist.",
+    "intent": "Direct address to Sam Carter about Handle onboarding checklist.",
     "acceptablePersonaIds": ["peer"],
     "allowUserYield": false,
     "labelSource": "agent",

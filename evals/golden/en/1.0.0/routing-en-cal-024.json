@@ -4,7 +4,7 @@
   "split": "calibration",
   "taskId": "routing-en-cal-024",
   "routingOutcome": {
-    "intent": "Learner asks for the latest on the project timeline, but that objective is already covered.",
+    "intent": "Question about a topic whose objective is already covered; no other relevant persona. (What is the latest on the project timeline?)",
     "acceptablePersonaIds": [],
     "allowUserYield": true,
     "labelSource": "agent",

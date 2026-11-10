@@ -4,7 +4,7 @@
   "split": "calibration",
   "taskId": "routing-fr-cal-009",
   "routingOutcome": {
-    "intent": "Learner asks Julien whether the meeting schedule is ready.",
+    "intent": "Direct address to Julien Moreau about Résoudre calendrier de réunion.",
     "acceptablePersonaIds": ["client"],
     "allowUserYield": false,
     "labelSource": "agent",

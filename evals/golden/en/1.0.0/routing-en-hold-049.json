@@ -4,7 +4,7 @@
   "split": "holdout",
   "taskId": "routing-en-hold-049",
   "routingOutcome": {
-    "intent": "Learner asks Katherine to confirm the performance feedback.",
+    "intent": "Direct address to Katherine Brooks about Own performance feedback.",
     "acceptablePersonaIds": ["manager"],
     "allowUserYield": false,
     "labelSource": "agent",

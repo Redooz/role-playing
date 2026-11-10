@@ -4,7 +4,7 @@
   "split": "holdout",
   "taskId": "routing-fr-hold-045",
   "routingOutcome": {
-    "intent": "Learner asks Julien whether the status update is ready.",
+    "intent": "Direct address to Julien Moreau about Résoudre point de situation.",
     "acceptablePersonaIds": ["client"],
     "allowUserYield": false,
     "labelSource": "agent",

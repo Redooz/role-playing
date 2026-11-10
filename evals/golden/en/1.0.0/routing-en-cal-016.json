@@ -4,7 +4,7 @@
   "split": "calibration",
   "taskId": "routing-en-cal-016",
   "routingOutcome": {
-    "intent": "Learner asks for the latest on the contract approval.",
+    "intent": "Open question about Own contract approval.",
     "acceptablePersonaIds": ["manager"],
     "allowUserYield": false,
     "labelSource": "agent",

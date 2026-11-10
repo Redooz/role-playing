@@ -4,7 +4,7 @@
   "split": "holdout",
   "taskId": "routing-en-hold-051",
   "routingOutcome": {
-    "intent": "Learner asks Julian whether the satisfaction survey is ready.",
+    "intent": "Direct address to Julian Moore about Resolve satisfaction survey.",
     "acceptablePersonaIds": ["client"],
     "allowUserYield": false,
     "labelSource": "agent",

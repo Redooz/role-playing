@@ -4,7 +4,7 @@
   "split": "holdout",
   "taskId": "routing-en-hold-037",
   "routingOutcome": {
-    "intent": "Learner asks Katherine to confirm the onboarding approval.",
+    "intent": "Direct address to Katherine Brooks about Own onboarding approval.",
     "acceptablePersonaIds": ["manager"],
     "allowUserYield": false,
     "labelSource": "agent",

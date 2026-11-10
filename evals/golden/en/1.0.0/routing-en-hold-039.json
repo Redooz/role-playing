@@ -4,7 +4,7 @@
   "split": "holdout",
   "taskId": "routing-en-hold-039",
   "routingOutcome": {
-    "intent": "Learner asks Julian whether the start date is ready.",
+    "intent": "Direct address to Julian Moore about Resolve start date.",
     "acceptablePersonaIds": ["client"],
     "allowUserYield": false,
     "labelSource": "agent",

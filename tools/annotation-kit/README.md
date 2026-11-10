@@ -87,15 +87,17 @@ node tools/annotation-kit/routing-bundle.mjs \
   --out evals/results/annotation-kit-m3a
 ```
 
-`cases.jsonl` contains only the learner-visible transcript, personas, objectives
-and covered ids. It excludes split, speaker id, labels, run ids, arms and scores.
+`cases.jsonl` contains only an opaque `caseId`, the learner-visible transcript,
+personas, objectives and covered ids. It excludes the real task id, split, speaker
+id, labels, run ids, arms and scores. The opaque-to-real-task mapping is written
+operator-only to `<out>-operator/manifest.json`; keep it away from annotators.
 Give a separate copy to each pass.
 
-An annotator writes one JSON file per task:
+An annotator writes one JSON file per case:
 
 ```json
 {
-  "taskId": "routing-en-cal-deadline-manager-direct",
+  "caseId": "case-0123456789abcdef",
   "lang": "en",
   "intent": "answer-manager",
   "acceptablePersonaIds": ["manager"],
@@ -107,12 +109,14 @@ Compare the two passes:
 
 ```sh
 node tools/annotation-kit/routing-analyze-agreement.mjs \
-  --a /path/to/pass-a/labels --b /path/to/pass-b/labels
+  --a /path/to/pass-a/labels --b /path/to/pass-b/labels \
+  --min 0.8
 ```
 
 The report gives exact accepted-outcome agreement overall and per language. A
-missing task in either pass exits 2. This is agent/provisional annotation unless
-the labels come from blind human double-labelling.
+missing case in either pass exits 2. Any language below `--min` (default 0.8)
+exits 3, so the pre-registered bar is enforced. This is agent/provisional
+annotation unless the labels come from blind human double-labelling.
 
 ## The human-label rule
 

@@ -11,14 +11,14 @@ export function parseRoutingLabel(raw) {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
     throw new Error('routing label must be a JSON object')
   }
-  const taskId = raw.taskId
+  const caseId = raw.caseId
   const intent = raw.intent
   const acceptablePersonaIds = raw.acceptablePersonaIds
   const allowUserYield = raw.allowUserYield
   const lang = raw.lang
 
-  if (typeof taskId !== 'string' || taskId.length === 0) {
-    throw new Error('taskId must be a non-empty string')
+  if (typeof caseId !== 'string' || caseId.length === 0) {
+    throw new Error('caseId must be a non-empty string')
   }
   if (typeof intent !== 'string' || intent.trim().length === 0) {
     throw new Error('intent must be a non-empty string')
@@ -43,7 +43,7 @@ export function parseRoutingLabel(raw) {
   }
 
   return {
-    taskId,
+    caseId,
     lang,
     intent,
     acceptablePersonaIds: [...acceptablePersonaIds],
@@ -63,15 +63,15 @@ export function labelsAgree(left, right) {
 }
 
 export function summarizeRoutingAgreement(leftLabels, rightLabels) {
-  const rightByTask = new Map(rightLabels.map((label) => [label.taskId, label]))
+  const rightByCase = new Map(rightLabels.map((label) => [label.caseId, label]))
   const pairs = []
   for (const left of leftLabels) {
-    const right = rightByTask.get(left.taskId)
+    const right = rightByCase.get(left.caseId)
     if (right === undefined) continue
     if (left.lang !== right.lang) {
-      throw new Error(`language mismatch for ${left.taskId}: ${left.lang} vs ${right.lang}`)
+      throw new Error(`language mismatch for ${left.caseId}: ${left.lang} vs ${right.lang}`)
     }
-    pairs.push({ taskId: left.taskId, lang: left.lang, agree: labelsAgree(left, right) })
+    pairs.push({ caseId: left.caseId, lang: left.lang, agree: labelsAgree(left, right) })
   }
 
   const summary = { n: pairs.length, exact: 0, exactRate: 0, byLang: {} }
@@ -90,25 +90,40 @@ export function summarizeRoutingAgreement(leftLabels, rightLabels) {
   }
 
   const unmatched = [
-    ...leftLabels.filter((label) => !rightByTask.has(label.taskId)).map((label) => label.taskId),
+    ...leftLabels.filter((label) => !rightByCase.has(label.caseId)).map((label) => label.caseId),
     ...rightLabels
-      .filter((label) => !leftLabels.some((left) => left.taskId === label.taskId))
-      .map((label) => label.taskId),
+      .filter((label) => !leftLabels.some((left) => left.caseId === label.caseId))
+      .map((label) => label.caseId),
   ].sort()
 
   return { ...summary, unmatched }
 }
 
+/** Return every language below the pre-registered exact-agreement bar. */
+export function agreementFailures(summary, minimum) {
+  const failures = []
+  for (const [lang, entry] of Object.entries(summary.byLang)) {
+    if (entry.n === 0) failures.push(`${lang}: no matched cases`)
+    else if (entry.exactRate < minimum) {
+      failures.push(`${lang}: ${entry.exactRate.toFixed(3)} < ${minimum.toFixed(3)}`)
+    }
+  }
+  return failures
+}
+
 /** Strip operator-only metadata before an annotator sees a case. */
-export function annotatorCase(task) {
+export function annotatorCase(task, caseId) {
   if (task === null || typeof task !== 'object' || task.mode !== 'routing') {
     throw new Error('only a routing task can become an annotator case')
+  }
+  if (typeof caseId !== 'string' || caseId.length === 0) {
+    throw new Error('an annotator case needs an opaque caseId')
   }
   const context = task.routing?.context
   if (context === undefined) throw new Error('routing task has no context')
 
   return {
-    taskId: task.id,
+    caseId,
     lang: task.lang,
     cefrBand: task.cefrBand,
     scenarioType: task.scenarioType,

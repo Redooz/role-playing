@@ -4,7 +4,7 @@
   "split": "holdout",
   "taskId": "routing-fr-hold-054",
   "routingOutcome": {
-    "intent": "Learner asks Catherine and Samir to check the performance feedback and the peer review.",
+    "intent": "Dual direct address: Catherine Brooks (Prendre en charge retour de performance.) and Samir Carter (Gérer revue entre pairs.).",
     "acceptablePersonaIds": ["manager", "peer"],
     "allowUserYield": false,
     "labelSource": "agent",

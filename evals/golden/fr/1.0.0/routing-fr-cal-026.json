@@ -4,7 +4,7 @@
   "split": "calibration",
   "taskId": "routing-fr-cal-026",
   "routingOutcome": {
-    "intent": "Learner asks Samir to take care of the workload.",
+    "intent": "Direct address to Samir Carter about Gérer charge de travail.",
     "acceptablePersonaIds": ["peer"],
     "allowUserYield": false,
     "labelSource": "agent",

@@ -4,7 +4,7 @@
   "split": "holdout",
   "taskId": "routing-en-hold-034",
   "routingOutcome": {
-    "intent": "Learner asks for the latest on the budget.",
+    "intent": "Open question about Own budget.",
     "acceptablePersonaIds": ["manager"],
     "allowUserYield": false,
     "labelSource": "agent",

@@ -4,7 +4,7 @@
   "split": "calibration",
   "taskId": "routing-en-cal-009",
   "routingOutcome": {
-    "intent": "Learner asks Julian whether the meeting schedule is ready.",
+    "intent": "Direct address to Julian Moore about Resolve meeting schedule.",
     "acceptablePersonaIds": ["client"],
     "allowUserYield": false,
     "labelSource": "agent",

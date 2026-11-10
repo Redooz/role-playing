@@ -4,7 +4,7 @@
   "split": "calibration",
   "taskId": "routing-en-cal-003",
   "routingOutcome": {
-    "intent": "Learner asks Julian whether the contract renewal is ready.",
+    "intent": "Direct address to Julian Moore about Resolve contract renewal.",
     "acceptablePersonaIds": ["client"],
     "allowUserYield": false,
     "labelSource": "agent",

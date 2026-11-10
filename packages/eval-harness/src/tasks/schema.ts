@@ -439,6 +439,14 @@ export const goldenEntrySchema = z
     }
 
     if (entry.status !== 'stable') return
+    if (entry.routingOutcome?.labelSource === 'agent') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['routingOutcome', 'labelSource'],
+        message:
+          "agent routing labels cannot be 'stable'; only blind human double-labelling can be stable",
+      })
+    }
     if (!hasMeasuredAgreement(entry.annotatorAgreement)) {
       ctx.addIssue({
         code: 'custom',

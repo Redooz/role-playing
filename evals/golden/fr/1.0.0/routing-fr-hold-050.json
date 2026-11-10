@@ -4,7 +4,7 @@
   "split": "holdout",
   "taskId": "routing-fr-hold-050",
   "routingOutcome": {
-    "intent": "Learner asks Samir to take care of the peer review.",
+    "intent": "Direct address to Samir Carter about Gérer revue entre pairs.",
     "acceptablePersonaIds": ["peer"],
     "allowUserYield": false,
     "labelSource": "agent",

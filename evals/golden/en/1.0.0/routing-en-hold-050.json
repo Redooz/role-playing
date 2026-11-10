@@ -4,7 +4,7 @@
   "split": "holdout",
   "taskId": "routing-en-hold-050",
   "routingOutcome": {
-    "intent": "Learner asks Sam to take care of the peer review.",
+    "intent": "Direct address to Sam Carter about Handle peer review.",
     "acceptablePersonaIds": ["peer"],
     "allowUserYield": false,
     "labelSource": "agent",

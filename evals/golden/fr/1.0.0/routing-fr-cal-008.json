@@ -4,7 +4,7 @@
   "split": "calibration",
   "taskId": "routing-fr-cal-008",
   "routingOutcome": {
-    "intent": "Learner asks Samir to take care of the standup cover.",
+    "intent": "Direct address to Samir Carter about Gérer remplacement pour le point.",
     "acceptablePersonaIds": ["peer"],
     "allowUserYield": false,
     "labelSource": "agent",
