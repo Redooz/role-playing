@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { packageOf, scoreMutants } from './mutation-floor.mjs'
+import { findBaselineRegressions, packageOf, scoreMutants } from './mutation-floor.mjs'
 
 /**
  * Record the measured mutation baseline (M1 D9 / gate M1-G6).
@@ -70,6 +70,20 @@ const baseline = {
   global: baselineScore(global),
   packages,
   files,
+}
+
+let previous
+try {
+  previous = JSON.parse(await readFile(baselinePath, 'utf8'))
+} catch (error) {
+  if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT') throw error
+}
+
+const regressions = findBaselineRegressions(previous, baseline)
+if (regressions.length > 0) {
+  console.error('refusing to record a baseline that lowers an existing floor:')
+  for (const regression of regressions) console.error(`- ${regression}`)
+  process.exit(1)
 }
 
 await writeFile(baselinePath, `${JSON.stringify(baseline, null, 2)}\n`, 'utf8')

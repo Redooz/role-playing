@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { evaluateMutationFloor, packageOf, scoreMutants } from './mutation-floor.mjs'
+import {
+  evaluateMutationFloor,
+  findBaselineRegressions,
+  packageOf,
+  scoreMutants,
+} from './mutation-floor.mjs'
 
 interface Mutant {
   status: string
@@ -175,5 +180,72 @@ describe('evaluateMutationFloor', () => {
     expect(result.failures).toContain(
       'packages/new-package has mutants but no baseline floor; add it to evals/baselines/m1-mutation.json',
     )
+  })
+})
+
+describe('findBaselineRegressions', () => {
+  it('allows a new package and higher scores', () => {
+    expect(
+      findBaselineRegressions(baseline, {
+        global: { total: 60, covered: 61 },
+        packages: {
+          'packages/session-core': { total: 60, covered: 61 },
+          'packages/routing-policy': { total: 100, covered: 100 },
+        },
+      }),
+    ).toEqual([])
+  })
+
+  it('allows the same scores', () => {
+    expect(findBaselineRegressions(baseline, baseline)).toEqual([])
+  })
+
+  it('rejects a lower global total', () => {
+    expect(
+      findBaselineRegressions(baseline, {
+        global: { total: 49, covered: 50 },
+        packages: { 'packages/session-core': { total: 50, covered: 50 } },
+      }),
+    ).toContain('global total 49.00% < existing floor 50.00%')
+  })
+
+  it('rejects a lower global covered score', () => {
+    expect(
+      findBaselineRegressions(baseline, {
+        global: { total: 50, covered: 49 },
+        packages: { 'packages/session-core': { total: 50, covered: 50 } },
+      }),
+    ).toContain('global covered 49.00% < existing floor 50.00%')
+  })
+
+  it('rejects a lower package total', () => {
+    expect(
+      findBaselineRegressions(baseline, {
+        global: { total: 50, covered: 50 },
+        packages: { 'packages/session-core': { total: 49, covered: 50 } },
+      }),
+    ).toContain('packages/session-core total 49.00% < existing floor 50.00%')
+  })
+
+  it('rejects a lower package covered score', () => {
+    expect(
+      findBaselineRegressions(baseline, {
+        global: { total: 50, covered: 50 },
+        packages: { 'packages/session-core': { total: 50, covered: 49 } },
+      }),
+    ).toContain('packages/session-core covered 49.00% < existing floor 50.00%')
+  })
+
+  it('rejects a missing existing package', () => {
+    expect(
+      findBaselineRegressions(baseline, {
+        global: { total: 50, covered: 50 },
+        packages: {},
+      }),
+    ).toContain('packages/session-core is missing from the new baseline')
+  })
+
+  it('does nothing when no previous baseline exists', () => {
+    expect(findBaselineRegressions(undefined, baseline)).toEqual([])
   })
 })

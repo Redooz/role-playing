@@ -78,7 +78,8 @@ metadata. Otherwise it is `unspecified`.
 
 ## The human-label rule
 
-An LLM pass is a `system-one-model` annotator, not a human. Use these labels for
-prefill, triage and provisional agreement. Do not call them human ground truth or
-use them to claim human–Jev agreement. The project guideline requires blind human
-double-labelling before an entry becomes `stable`.
+An LLM pass (the M2 pass used OpenCode) is not a human and is not a
+`system-one-model` grader. Use these labels for prefill, triage and provisional
+agreement. Do not call them human ground truth or use them to claim human–Jev
+agreement. The project guideline requires blind human double-labelling before an
+entry becomes `stable`.
