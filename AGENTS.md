@@ -30,6 +30,7 @@ Do not invent commands, folders or build steps that do not exist.
   - M0.1 Plan: Langfuse Review Layer — `41183d257ddf81bc9c41e6464a643407`
   - M1 Plan: Single-Agent Text — `41183d257ddf81ba8e0ffccae64d3e0e`
   - M2 Plan: Personas and Scenarios — `41283d257ddf8186a092fdf50b9bae4b`
+  - M3a Plan: Routing Replay — `41383d25-7ddf-8140-9066-f73406f10a77`
 - Local plan copies live in `docs/plans/`. Refresh one with
   `ntn pages get <page-id> > docs/plans/<file>.md`; search with
   `ntn api /v1/search -d '{"query":"..."}'`.
@@ -49,6 +50,8 @@ npm run test:unit        # fast suite, the PR gate (alias: npm test)
 npm run test:bench       # wall-time measurements, never the PR gate
 # LATENCY_PROVIDER=groq|openrouter|livekit, LATENCY_MODEL=<id>
 LATENCY_PROVIDER=livekit LATENCY_MODEL=google/gemma-4-31b-it npm run test:bench -- tools/agent-harness-bench/src/session-latency.bench.spec.ts
+RUN_M3A_TIMING=1 npm run test:bench -- tools/routing-bench/src/routing-timing.bench.spec.ts
+RUN_M3A_COMPARISON=1 node --env-file-if-exists=.env tools/routing-bench/src/compare.ts
 npm run mutation         # Stryker + per-package floor check; not a PR gate
 
 # One test file or one package
@@ -98,8 +101,12 @@ validator and Jev-canary jobs. The canary is skipped when
   and the streaming plain-text decorator. Base URLs are constructor options;
   the composition roots read `GROQ_BASE_URL`, `OPENROUTER_BASE_URL` and
   `LIVEKIT_INFERENCE_URL` from the environment.
+- `packages/routing-policy` — M3a offline routing contracts, deterministic
+  arms, central-answer validation and decision assembly. Pure functions, no
+  provider imports.
 - `packages/eval-harness` — task workflow, Jev axial grader, replay and live
-  session runners, `pass^k`, verdicts, and the observation plan/grade sidecar.
+  session runners, routing replay/comparison and matrix aggregation, `pass^k`,
+  verdicts, and the observation plan/grade sidecar.
 - `tools/eval-harness-cli` — eval run/compare/validate CLI. It builds the live
   provider (Groq, OpenRouter or LiveKit Inference) and Jev grader from the
   environment. The only place that imports Langfuse or OpenTelemetry is
@@ -115,9 +122,10 @@ validator and Jev-canary jobs. The canary is skipped when
 - `infra/livekit-soak` — isolated LiveKit compatibility spike. It imports nothing
   from the session or eval code; keep it that way.
 
-`apps/api`, `apps/web`, `apps/orchestrator`, `packages/feedback-worker`,
-`packages/routing-policy`, `packages/turn-arbiter` and `tools/routing-bench` are
-intentional `.gitkeep` placeholders. Do not fill them with speculative code.
+`apps/api`, `apps/web`, `apps/orchestrator`, `packages/feedback-worker` and
+`packages/turn-arbiter` are intentional `.gitkeep` placeholders. Do not fill
+them with speculative code. `tools/routing-bench` holds the M3a timing and
+comparison benches; it is outside the PR gate and never contains a UI.
 
 ## Non-obvious mechanics
 

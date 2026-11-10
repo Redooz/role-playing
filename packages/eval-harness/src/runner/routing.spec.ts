@@ -406,6 +406,35 @@ describe('routing artifacts', () => {
     expect(routingDecisionArtifactSchema.safeParse(artifact).success).toBe(true)
   })
 
+  it('records a timeout as incomplete while preserving the fallback decision for audit', async () => {
+    const timeout = await runJevRoutingReplay(
+      context,
+      'persona_requests',
+      {
+        async judgeCentral() {
+          throw new Error('unexpected')
+        },
+        async judgePersona() {
+          await new Promise(() => {})
+          throw new Error('unreachable')
+        },
+      },
+      { seed: 1, deadlineMs: 5 },
+    )
+    if (!timeout.ok) throw new Error('expected timeout result')
+    const artifact = routingArtifact(context, timeout, {
+      trialId: '0:en:decision-1',
+      taskId: 'decision-1',
+      arm: { topology: 'persona_requests', judgmentSource: 'jev' },
+    })
+    expect(artifact).toMatchObject({
+      outcome: 'infrastructure_incomplete',
+      observation: { kind: 'timeout' },
+      error: 'routing policy timed out; deterministic fallback preserved for audit only',
+    })
+    expect(artifact.decision).toBeDefined()
+  })
+
   it('records an incomplete failure without a decision', () => {
     const artifact = routingArtifact(
       context,
