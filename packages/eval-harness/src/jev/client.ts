@@ -268,7 +268,7 @@ export function createJevClient(options: JevClientOptions): JevClient {
       state: judgment.state,
       questions: { [judgment.metadata.id]: judgment.question },
     })
-    if (!result.ok) return { ...result, questionId }
+    if (!result.ok) return failure(questionId, result.error, result.cache.key)
 
     const distribution = result.distributions[judgment.metadata.id]
     if (distribution === undefined) {

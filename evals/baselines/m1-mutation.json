@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
   "suite": "m1-mutation",
-  "generatedAt": "2026-11-10T00:37:50.635Z",
-  "commit": "1b789c1e35a028e5cbebe3e47045fe96c0bb7805",
+  "generatedAt": "2026-11-10T00:57:05.434Z",
+  "commit": "5cd91d8db117e03479ada050bca1cb615a714ca5",
   "tool": "@stryker-mutator/core 10.1.1 + @stryker-mutator/vitest-runner 10.1.1",
   "command": "npm run mutation",
   "note": "Measured floor. Timed-out mutants count as killed; runtime/compile errors are excluded. Not a PR gate.",
   "global": {
-    "mutants": 2841,
-    "killed": 2674,
+    "mutants": 2819,
+    "killed": 2653,
     "timeout": 17,
-    "survived": 116,
+    "survived": 115,
     "noCoverage": 11,
     "ignored": 0,
     "errors": 23,
-    "total": 95.49325762952449,
-    "covered": 95.86747417171357
+    "total": 95.49356223175965,
+    "covered": 95.87073608617594
   },
   "packages": {
     "apps/cli": {
@@ -74,15 +74,15 @@
       "covered": 99.00990099009901
     },
     "packages/routing-policy": {
-      "mutants": 286,
-      "killed": 285,
+      "mutants": 264,
+      "killed": 264,
       "timeout": 0,
-      "survived": 1,
+      "survived": 0,
       "noCoverage": 0,
       "ignored": 0,
       "errors": 0,
-      "total": 99.65034965034964,
-      "covered": 99.65034965034964
+      "total": 100,
+      "covered": 100
     },
     "packages/scenario-kit": {
       "mutants": 14,
@@ -296,8 +296,8 @@
       "covered": 100
     },
     "packages/routing-policy/src/jev.ts": {
-      "mutants": 42,
-      "killed": 42,
+      "mutants": 28,
+      "killed": 28,
       "timeout": 0,
       "survived": 0,
       "noCoverage": 0,
@@ -307,15 +307,15 @@
       "covered": 100
     },
     "packages/routing-policy/src/rank.ts": {
-      "mutants": 36,
-      "killed": 35,
+      "mutants": 28,
+      "killed": 28,
       "timeout": 0,
-      "survived": 1,
+      "survived": 0,
       "noCoverage": 0,
       "ignored": 0,
       "errors": 0,
-      "total": 97.22222222222221,
-      "covered": 97.22222222222221
+      "total": 100,
+      "covered": 100
     },
     "packages/scenario-kit/src/lookup.ts": {
       "mutants": 8,

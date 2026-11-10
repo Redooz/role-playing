@@ -31,8 +31,7 @@ export function compareTurnRequests(
 
   const leftTie = hashValue({ seed, turnId: context.turnId, personaId: left.personaId })
   const rightTie = hashValue({ seed, turnId: context.turnId, personaId: right.personaId })
-  if (leftTie === rightTie) return 0
-  return leftTie < rightTie ? -1 : 1
+  return leftTie.localeCompare(rightTie)
 }
 
 /** Stable sort using the documented comparator; input order is not mutated. */

@@ -23,7 +23,10 @@ export type CentralJudgmentResult =
  * invalid model response, never a speaker. Deadline and fallback policy stay in
  * the runner, not here.
  */
-export function interpretCentralJudgment(input: CentralJudgmentInput): CentralJudgmentResult {
+export function interpretCentralJudgment(
+  input: CentralJudgmentInput,
+  eligiblePersonaIds: readonly string[],
+): CentralJudgmentResult {
   if (
     !Number.isFinite(input.anyoneWarranted) ||
     input.anyoneWarranted < 0 ||
@@ -31,7 +34,7 @@ export function interpretCentralJudgment(input: CentralJudgmentInput): CentralJu
   ) {
     return { ok: false, reason: 'invalid_probability' }
   }
-  if (input.selectedPersonaId.length === 0) {
+  if (!eligiblePersonaIds.includes(input.selectedPersonaId)) {
     return { ok: false, reason: 'unknown_persona' }
   }
   return {
@@ -41,15 +44,13 @@ export function interpretCentralJudgment(input: CentralJudgmentInput): CentralJu
   }
 }
 
-/** Check that a central judge selected one of the context's eligible personas. */
+/** Validate a central judge against the context's eligible persona set. */
 export function interpretCentralJudgmentForContext(
   context: RoutingContext,
   input: CentralJudgmentInput,
 ): CentralJudgmentResult {
-  const interpreted = interpretCentralJudgment(input)
-  if (!interpreted.ok) return interpreted
-  if (!context.personas.some((persona) => persona.id === interpreted.selectedPersonaId)) {
-    return { ok: false, reason: 'unknown_persona' }
-  }
-  return interpreted
+  return interpretCentralJudgment(
+    input,
+    context.personas.map((persona) => persona.id),
+  )
 }

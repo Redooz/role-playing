@@ -3,7 +3,7 @@ import type { JevCache } from './cache.js'
 import { createJevClient } from './client.js'
 import { JEV_ENDPOINT } from './constants.js'
 import { JevConfigError, JevInvalidResponseError, JevUnavailableError } from './errors.js'
-import { declareJevBatchJudgment } from './questions.js'
+import { declareJevBatchJudgment, declareJevJudgment } from './questions.js'
 import { CENTRAL_CONTRIBUTION_QUESTION_ID, CENTRAL_SPEAKER_QUESTION_ID } from './routing.js'
 import type { JevBatchJudgment } from './types.js'
 
@@ -174,6 +174,26 @@ describe('JevClient.decideMany', () => {
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error).toBeInstanceOf(JevConfigError)
+  })
+
+  it('keeps a single-question failure in the single-question shape', async () => {
+    const single = declareJevJudgment({
+      metadata: { id: 'single-failure', lang: 'en', rubricVersion: 'routing-v1' },
+      state: { utterance: 'Hello.' },
+      question: {
+        type: 'noul',
+        instructions: 'Is this a greeting?',
+        criteria: { true: 'It greets.', false: 'It does not greet.' },
+      },
+    })
+    const { fetchImpl } = recordingFetch(() => new Response('down', { status: 503 }))
+    const client = createJevClient({ apiKey: 'test-key', fetchImpl, cache: false })
+    const result = await client.grade(single)
+    expect(result.ok).toBe(false)
+    expect(result).not.toHaveProperty('questionIds')
+    if (result.ok) return
+    expect(result.questionId).toBe('single-failure')
+    expect(result.error).toBeInstanceOf(JevUnavailableError)
   })
 
   it('rejects a choice with only one option', async () => {
