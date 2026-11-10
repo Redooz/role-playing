@@ -14,8 +14,9 @@ adopted or selected; that is M3c.
   two independent agent passes, 120 draft agent labels, and routing agreement
   tooling.
 - Routing replay runner, 2,500 ms complete-decision deadline, same-topology
-  deterministic fallback, infrastructure-incomplete failures, and restricted
-  exact artifacts.
+  deterministic fallback preserved for audit, infrastructure-incomplete
+  timeout/transport/schema failures excluded from quality, and restricted exact
+  artifacts.
 - Matrix aggregator with quality, false-speak/yield, timeout/unsettled fallback,
   latency and honest unknown-cost handling.
 - Four-arm holdout comparison and per-language verdicts.

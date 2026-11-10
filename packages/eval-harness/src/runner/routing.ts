@@ -395,11 +395,15 @@ export function routingArtifact(
   }
 
   if (result.ok) {
+    const timedOut = result.observation.kind === 'timeout'
     return routingDecisionArtifactSchema.parse({
       ...common,
       decision: result.decision,
-      outcome: 'completed',
+      outcome: timedOut ? 'infrastructure_incomplete' : 'completed',
       observation: result.observation,
+      ...(timedOut
+        ? { error: 'routing policy timed out; deterministic fallback preserved for audit only' }
+        : {}),
     })
   }
 
