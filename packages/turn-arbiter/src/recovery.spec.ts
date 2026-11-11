@@ -86,6 +86,7 @@ describe('turn arbiter policy failures', () => {
   it('yields a policy timeout when every persona fails', () => {
     const first = runArbiter(openWindow(), {
       kind: 'policy_failed',
+      turnId: 'turn-1',
       personaId: 'peer',
       cause: 'timeout',
       nowMs: 10,
@@ -95,6 +96,7 @@ describe('turn arbiter policy failures', () => {
 
     const second = runArbiter(first.state, {
       kind: 'policy_failed',
+      turnId: 'turn-1',
       personaId: 'manager',
       cause: 'error',
       nowMs: 20,
@@ -113,6 +115,7 @@ describe('turn arbiter policy failures', () => {
 
     const failed = runArbiter(declined, {
       kind: 'policy_failed',
+      turnId: 'turn-1',
       personaId: 'manager',
       cause: 'error',
       nowMs: 20,
@@ -129,6 +132,7 @@ describe('turn arbiter policy failures', () => {
 
     const failed = runArbiter(asked, {
       kind: 'policy_failed',
+      turnId: 'turn-1',
       personaId: 'peer',
       cause: 'timeout',
       nowMs: 20,
@@ -140,20 +144,34 @@ describe('turn arbiter policy failures', () => {
   it('drops a duplicate, unknown or out-of-phase policy failure without recording it', () => {
     const state = runArbiter(openWindow(), {
       kind: 'policy_failed',
+      turnId: 'turn-1',
       personaId: 'peer',
       cause: 'timeout',
       nowMs: 10,
     }).state
 
     expect(
-      runArbiter(state, { kind: 'policy_failed', personaId: 'peer', cause: 'error', nowMs: 20 }),
+      runArbiter(state, {
+        kind: 'policy_failed',
+        turnId: 'turn-1',
+        personaId: 'peer',
+        cause: 'error',
+        nowMs: 20,
+      }),
     ).toEqual({ state, effects: [] })
     expect(
-      runArbiter(state, { kind: 'policy_failed', personaId: 'client', cause: 'error', nowMs: 20 }),
+      runArbiter(state, {
+        kind: 'policy_failed',
+        turnId: 'turn-1',
+        personaId: 'client',
+        cause: 'error',
+        nowMs: 20,
+      }),
     ).toEqual({ state, effects: [] })
     expect(
       runArbiter(INITIAL_ARBITER_STATE, {
         kind: 'policy_failed',
+        turnId: 'turn-1',
         personaId: 'peer',
         cause: 'error',
         nowMs: 20,
@@ -164,11 +182,52 @@ describe('turn arbiter policy failures', () => {
     expect(
       runArbiter(grantedState, {
         kind: 'policy_failed',
+        turnId: 'turn-1',
         personaId: 'manager',
         cause: 'error',
         nowMs: 20,
       }),
     ).toEqual({ state: grantedState, effects: [] })
+  })
+
+  it('drops a late failure from another turn or a closed window', () => {
+    const state = runArbiter(openWindow(), {
+      kind: 'policy_failed',
+      turnId: 'turn-1',
+      personaId: 'peer',
+      cause: 'timeout',
+      nowMs: 10,
+    }).state
+
+    expect(
+      runArbiter(state, {
+        kind: 'policy_failed',
+        turnId: 'turn-other',
+        personaId: 'manager',
+        cause: 'error',
+        nowMs: 20,
+      }),
+    ).toEqual({ state, effects: [] })
+
+    expect(
+      runArbiter(state, {
+        kind: 'policy_failed',
+        turnId: 'turn-1',
+        personaId: 'manager',
+        cause: 'error',
+        nowMs: 1_000,
+      }),
+    ).toEqual({ state, effects: [] })
+
+    const atBoundary = runArbiter(state, {
+      kind: 'policy_failed',
+      turnId: 'turn-1',
+      personaId: 'manager',
+      cause: 'error',
+      nowMs: 999,
+    })
+    expect(atBoundary.state.phase).toBe('idle')
+    expect(atBoundary.effects).toEqual([emitted('turn.user_yielded', { reason: 'policy_timeout' })])
   })
 })
 

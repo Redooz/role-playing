@@ -121,6 +121,7 @@ function peerGrantAfterPolicyFailure(): ArbiterState {
   }).state
   return runArbiter(asked, {
     kind: 'policy_failed',
+    turnId: 'turn-1',
     personaId: 'manager',
     cause: 'error',
     nowMs: 20,

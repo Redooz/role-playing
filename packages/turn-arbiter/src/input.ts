@@ -66,6 +66,7 @@ const declinedSchema = z.strictObject({
 
 const policyFailedSchema = z.strictObject({
   kind: z.literal('policy_failed'),
+  turnId: turnIdSchema,
   personaId: personaIdSchema,
   cause: z.enum(['timeout', 'error']),
   nowMs: z.number(),

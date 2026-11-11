@@ -142,6 +142,7 @@ export interface DeclinedInput {
  */
 export interface PolicyFailedInput {
   readonly kind: 'policy_failed'
+  readonly turnId: string
   readonly personaId: PersonaId
   readonly cause: 'timeout' | 'error'
   readonly nowMs: number

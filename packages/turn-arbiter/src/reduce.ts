@@ -330,6 +330,8 @@ function onPolicyFailed(
   if (state.phase !== 'window_open') return unchanged(state)
 
   const turn = state.turn
+  if (input.turnId !== turn.turnId) return unchanged(state)
+  if (input.nowMs >= turn.windowEndsAtMs) return unchanged(state)
   if (!turn.eligiblePersonaIds.includes(input.personaId)) return unchanged(state)
   if (hasResponded(turn, input.personaId)) return unchanged(state)
 
