@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
   "suite": "m1-mutation",
-  "generatedAt": "2026-11-10T01:39:04.706Z",
-  "commit": "fafed53ed36f246ad9a6472edcde7b5468a20736",
+  "generatedAt": "2026-11-11T21:16:51.326Z",
+  "commit": "415bbf7c67880aeacefe565d7f27208227bf3035",
   "tool": "@stryker-mutator/core 10.1.1 + @stryker-mutator/vitest-runner 10.1.1",
   "command": "npm run mutation",
   "note": "Measured floor. Timed-out mutants count as killed; runtime/compile errors are excluded. Not a PR gate.",
   "global": {
-    "mutants": 2885,
-    "killed": 2719,
+    "mutants": 3089,
+    "killed": 2923,
     "timeout": 17,
     "survived": 115,
     "noCoverage": 11,
     "ignored": 0,
     "errors": 23,
-    "total": 95.59748427672956,
-    "covered": 95.96632760434936
+    "total": 95.8904109589041,
+    "covered": 96.23567921440261
   },
   "packages": {
     "apps/cli": {
@@ -92,6 +92,17 @@
       "noCoverage": 0,
       "ignored": 0,
       "errors": 6,
+      "total": 100,
+      "covered": 100
+    },
+    "packages/turn-arbiter": {
+      "mutants": 204,
+      "killed": 204,
+      "timeout": 0,
+      "survived": 0,
+      "noCoverage": 0,
+      "ignored": 0,
+      "errors": 0,
       "total": 100,
       "covered": 100
     }
@@ -405,6 +416,17 @@
       "total": 97.61904761904762,
       "covered": 97.61904761904762
     },
+    "packages/turn-arbiter/src/reduce.ts": {
+      "mutants": 201,
+      "killed": 201,
+      "timeout": 0,
+      "survived": 0,
+      "noCoverage": 0,
+      "ignored": 0,
+      "errors": 0,
+      "total": 100,
+      "covered": 100
+    },
     "packages/scenario-kit/src/scenarios/helpers.ts": {
       "mutants": 6,
       "killed": 0,
@@ -415,6 +437,17 @@
       "errors": 6,
       "total": null,
       "covered": null
+    },
+    "packages/turn-arbiter/src/config.ts": {
+      "mutants": 3,
+      "killed": 3,
+      "timeout": 0,
+      "survived": 0,
+      "noCoverage": 0,
+      "ignored": 0,
+      "errors": 0,
+      "total": 100,
+      "covered": 100
     }
   }
 }

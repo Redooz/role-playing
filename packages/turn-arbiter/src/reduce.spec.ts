@@ -6,6 +6,7 @@ import { makeTurnContext } from './fixtures.js'
 import { INITIAL_ARBITER_STATE, reduce } from './reduce.js'
 import type {
   ArbiterEffect,
+  ArbiterGrantState,
   ArbiterInput,
   ArbiterResult,
   ArbiterState,
@@ -48,21 +49,19 @@ function openWindow(): ArbiterState {
 }
 
 /** A turn where both personas requested and one holds the grant. */
-function grantedTurn(): ArbiterState {
+function grantedTurn(): ArbiterGrantState {
   const first = run(openWindow(), { kind: 'request', request: request('peer'), nowMs: 10 })
   const second = run(first.state, { kind: 'request', request: request('manager'), nowMs: 20 })
-  return second.state
+  return granted(second.state)
 }
 
-function kinds(effects: readonly ArbiterEffect[]): string[] {
-  return effects.map((effect) =>
-    effect.kind === 'emit_event' ? `event:${effect.type}` : effect.kind,
-  )
+function granted(state: ArbiterState): ArbiterGrantState {
+  if (state.phase !== 'grant_active') throw new Error('expected a grant')
+  return state
 }
 
-function granted(result: ArbiterResult): NonNullable<ArbiterState['grant']> {
-  if (result.state.grant === undefined) throw new Error('expected a grant')
-  return result.state.grant
+function event(type: string, payload: unknown): ArbiterEffect {
+  return { kind: 'emit_event', type, payload } as ArbiterEffect
 }
 
 describe('turn arbiter normal flow', () => {
@@ -70,9 +69,10 @@ describe('turn arbiter normal flow', () => {
     const result = run(INITIAL_ARBITER_STATE, committed())
 
     expect(result.state.phase).toBe('window_open')
-    expect(result.state.turn?.windowEndsAtMs).toBe(1_000)
+    expect(result.state.phase === 'window_open' && result.state.turn.windowEndsAtMs).toBe(1_000)
     expect(result.state.grantsIssued).toBe(0)
-    expect(kinds(result.effects)).toEqual(['event:turn.opened'])
+    expect(result.state.phase === 'window_open' && result.state.turn.declinedBy).toEqual([])
+    expect(result.effects).toEqual([event('turn.opened', { turnId: 'turn-1' })])
   })
 
   it('ignores a committed utterance while a window is open', () => {
@@ -81,54 +81,42 @@ describe('turn arbiter normal flow', () => {
   })
 
   it('records one request per eligible persona', () => {
-    const result = run(openWindow(), { kind: 'request', request: request('peer'), nowMs: 10 })
+    const peer = request('peer')
+    const result = run(openWindow(), { kind: 'request', request: peer, nowMs: 10 })
 
-    expect(result.state.turn?.requests).toHaveLength(1)
-    expect(kinds(result.effects)).toEqual(['event:persona.requested_turn'])
+    expect(result.state.phase === 'window_open' && result.state.turn.requests).toEqual([peer])
+    expect(result.effects).toEqual([event('persona.requested_turn', { request: peer })])
   })
 
   it('decides as soon as every eligible persona has responded', () => {
-    const first = run(openWindow(), { kind: 'request', request: request('peer'), nowMs: 10 })
+    const peer = request('peer')
+    const manager = request('manager', { addressedByUser: true })
+    const first = run(openWindow(), { kind: 'request', request: peer, nowMs: 10 })
     expect(first.state.phase).toBe('window_open')
 
-    const second = run(first.state, {
-      kind: 'request',
-      request: request('manager', { addressedByUser: true }),
-      nowMs: 20,
-    })
+    const second = run(first.state, { kind: 'request', request: manager, nowMs: 20 })
 
-    expect(second.state.phase).toBe('grant_active')
-    expect(granted(second).personaId).toBe('manager')
-    expect(kinds(second.effects)).toEqual([
-      'event:persona.requested_turn',
-      'event:turn.granted',
-      'start_generation',
+    expect(granted(second.state).grant.personaId).toBe('manager')
+    expect(second.effects).toEqual([
+      event('persona.requested_turn', { request: manager }),
+      event('turn.granted', {
+        grant: {
+          turnId: 'turn-1',
+          grantId: 'grant:turn-1:1',
+          personaId: 'manager',
+          expiresAt: '1970-01-01T00:00:05.020Z',
+        },
+      }),
+      { kind: 'start_generation', grantId: 'grant:turn-1:1', personaId: 'manager' },
     ])
-  })
 
-  it('emits a valid §3.2 grant with an ISO expiry', () => {
-    const first = run(openWindow(), { kind: 'request', request: request('peer'), nowMs: 10 })
-    const result = run(first.state, {
-      kind: 'request',
-      request: request('manager', { addressedByUser: true }),
-      nowMs: 20,
-    })
-
-    const emitted = result.effects.find(
-      (effect) => effect.kind === 'emit_event' && effect.type === 'turn.granted',
-    )
-    expect(emitted).toBeDefined()
-    if (emitted?.kind !== 'emit_event' || emitted.type !== 'turn.granted') {
+    const grantEffect = second.effects[1]
+    if (grantEffect?.kind !== 'emit_event' || grantEffect.type !== 'turn.granted') {
       throw new Error('expected turn.granted')
     }
-
-    expect(sessionEventSchema.parse({ type: emitted.type, payload: emitted.payload })).toBeDefined()
-    expect(emitted.payload.grant).toEqual({
-      turnId: 'turn-1',
-      grantId: 'grant:turn-1:1',
-      personaId: 'manager',
-      expiresAt: '1970-01-01T00:00:05.020Z',
-    })
+    expect(
+      sessionEventSchema.parse({ type: grantEffect.type, payload: grantEffect.payload }),
+    ).toBeDefined()
   })
 
   it('yields to the learner when every persona declines', () => {
@@ -138,7 +126,9 @@ describe('turn arbiter normal flow', () => {
       personaId: 'peer',
       nowMs: 10,
     })
-    expect(kinds(first.effects)).toEqual(['event:persona.declined'])
+    expect(first.effects).toEqual([
+      event('persona.declined', { turnId: 'turn-1', personaId: 'peer' }),
+    ])
     expect(first.state.phase).toBe('window_open')
 
     const second = run(first.state, {
@@ -147,7 +137,10 @@ describe('turn arbiter normal flow', () => {
       personaId: 'manager',
       nowMs: 20,
     })
-    expect(kinds(second.effects)).toEqual(['event:persona.declined', 'event:turn.user_yielded'])
+    expect(second.effects).toEqual([
+      event('persona.declined', { turnId: 'turn-1', personaId: 'manager' }),
+      event('turn.user_yielded', { reason: 'all_declined' }),
+    ])
     expect(second.state.phase).toBe('idle')
   })
 
@@ -157,22 +150,24 @@ describe('turn arbiter normal flow', () => {
     expect(run(state, { kind: 'tick', nowMs: 999 })).toEqual({ state, effects: [] })
 
     const closed = run(state, { kind: 'tick', nowMs: 1_000 })
-    expect(closed.state.phase).toBe('grant_active')
-    expect(granted(closed).personaId).toBe('peer')
+    expect(granted(closed.state).grant.personaId).toBe('peer')
   })
 
   it('yields when the window closes with no requests', () => {
     const closed = run(openWindow(), { kind: 'tick', nowMs: 1_000 })
 
-    expect(kinds(closed.effects)).toEqual(['event:turn.user_yielded'])
+    expect(closed.effects).toEqual([event('turn.user_yielded', { reason: 'all_declined' })])
     expect(closed.state.phase).toBe('idle')
   })
 
   it('yields immediately when no persona is eligible', () => {
     const result = run(INITIAL_ARBITER_STATE, committed({ eligiblePersonaIds: [] }))
 
-    expect(kinds(result.effects)).toEqual(['event:turn.opened', 'event:turn.user_yielded'])
-    expect(result.state.phase).toBe('idle')
+    expect(result.effects).toEqual([
+      event('turn.opened', { turnId: 'turn-1' }),
+      event('turn.user_yielded', { reason: 'all_declined' }),
+    ])
+    expect(result.state).toEqual({ phase: 'idle', grantsIssued: 0 })
   })
 
   it('drops a request at the exact window boundary', () => {
@@ -220,6 +215,20 @@ describe('turn arbiter normal flow', () => {
     ).toEqual([])
   })
 
+  it('drops a decline while a grant is active', () => {
+    const state = grantedTurn()
+    expect(
+      run(state, { kind: 'declined', turnId: 'turn-1', personaId: 'peer', nowMs: 30 }).effects,
+    ).toEqual([])
+  })
+
+  it('drops a request while a grant is active', () => {
+    const state = grantedTurn()
+    expect(run(state, { kind: 'request', request: request('manager'), nowMs: 30 }).effects).toEqual(
+      [],
+    )
+  })
+
   it('grants one deterministic speaker when two requests tie', () => {
     const manager = request('manager')
     const peer = request('peer')
@@ -228,21 +237,18 @@ describe('turn arbiter normal flow', () => {
 
     const first = run(openWindow(), { kind: 'request', request: manager, nowMs: 10 })
     const second = run(first.state, { kind: 'request', request: peer, nowMs: 20 })
-    expect(granted(second).personaId).toBe(expected)
+    expect(granted(second.state).grant.personaId).toBe(expected)
 
     const replayFirst = run(openWindow(), { kind: 'request', request: manager, nowMs: 10 })
     const replaySecond = run(replayFirst.state, { kind: 'request', request: peer, nowMs: 20 })
-    expect(granted(replaySecond).grantId).toBe(granted(second).grantId)
+    expect(granted(replaySecond.state).grant.grantId).toBe(granted(second.state).grant.grantId)
   })
 
   it('issues unique grant ids across turns', () => {
     const first = grantedTurn()
-    const firstGrant = first.grant
-    if (firstGrant === undefined) throw new Error('expected a grant')
-
     const ended = run(first, {
       kind: 'response_ended',
-      grantId: firstGrant.grantId,
+      grantId: first.grant.grantId,
       outcome: 'completed',
       nowMs: 30,
     })
@@ -261,61 +267,64 @@ describe('turn arbiter normal flow', () => {
       nowMs: 60,
     })
 
-    expect(granted(second).grantId).not.toBe(firstGrant.grantId)
-    expect(second.state.grantsIssued).toBe(2)
+    expect(granted(second.state).grant.grantId).not.toBe(first.grant.grantId)
+    expect(granted(second.state).grantsIssued).toBe(2)
   })
 })
 
 describe('turn arbiter grant lifecycle', () => {
   it('revokes an expired grant once and returns to idle', () => {
     const state = grantedTurn()
-    const grant = state.grant
-    if (grant === undefined) throw new Error('expected a grant')
+    const { grantId, expiresAtMs } = state.grant
 
-    const expired = run(state, { kind: 'tick', nowMs: grant.expiresAtMs })
-    expect(kinds(expired.effects)).toEqual(['event:turn.revoked', 'cancel_generation'])
+    const expired = run(state, { kind: 'tick', nowMs: expiresAtMs })
+    expect(expired.effects).toEqual([
+      event('turn.revoked', { grantId, reason: 'timeout' }),
+      { kind: 'cancel_generation', grantId, reason: 'timeout' },
+    ])
     expect(expired.state.phase).toBe('idle')
 
-    expect(run(expired.state, { kind: 'tick', nowMs: grant.expiresAtMs + 1 })).toEqual({
+    expect(run(expired.state, { kind: 'tick', nowMs: expiresAtMs + 1 })).toEqual({
       state: expired.state,
       effects: [],
     })
   })
 
+  it('keeps an unexpired grant across a tick after the window closes', () => {
+    const state = grantedTurn()
+    expect(run(state, { kind: 'tick', nowMs: 2_000 })).toEqual({ state, effects: [] })
+  })
+
   it('closes a completed response without cancelling generation', () => {
     const state = grantedTurn()
-    const grant = state.grant
-    if (grant === undefined) throw new Error('expected a grant')
+    const { grantId } = state.grant
 
     const result = run(state, {
       kind: 'response_ended',
-      grantId: grant.grantId,
+      grantId,
       outcome: 'completed',
       nowMs: 30,
     })
 
-    expect(kinds(result.effects)).toEqual(['event:turn.revoked'])
+    expect(result.effects).toEqual([event('turn.revoked', { grantId, reason: 'completed' })])
     expect(result.state.phase).toBe('idle')
-    expect(result.effects[0]).toMatchObject({
-      kind: 'emit_event',
-      type: 'turn.revoked',
-      payload: { grantId: grant.grantId, reason: 'completed' },
-    })
   })
 
   it('revokes a cancelled response and cancels generation', () => {
     const state = grantedTurn()
-    const grant = state.grant
-    if (grant === undefined) throw new Error('expected a grant')
+    const { grantId } = state.grant
 
     const result = run(state, {
       kind: 'response_ended',
-      grantId: grant.grantId,
+      grantId,
       outcome: 'cancelled',
       nowMs: 30,
     })
 
-    expect(kinds(result.effects)).toEqual(['event:turn.revoked', 'cancel_generation'])
+    expect(result.effects).toEqual([
+      event('turn.revoked', { grantId, reason: 'cancelled' }),
+      { kind: 'cancel_generation', grantId, reason: 'cancelled' },
+    ])
     expect(result.state.phase).toBe('idle')
   })
 
@@ -331,17 +340,28 @@ describe('turn arbiter grant lifecycle', () => {
     ).toEqual([])
   })
 
+  it('ignores a response while the window is still open', () => {
+    const state = openWindow()
+    expect(
+      run(state, {
+        kind: 'response_ended',
+        grantId: 'grant:turn-1:1',
+        outcome: 'completed',
+        nowMs: 10,
+      }).effects,
+    ).toEqual([])
+  })
+
   it('revokes an active grant before completing the session', () => {
     const state = grantedTurn()
-    const grant = state.grant
-    if (grant === undefined) throw new Error('expected a grant')
+    const { grantId } = state.grant
 
     const closed = run(state, { kind: 'close', nowMs: 30 })
-    expect(kinds(closed.effects)).toEqual([
-      'event:turn.revoked',
-      'cancel_generation',
-      'event:session.completed',
-      'close_session',
+    expect(closed.effects).toEqual([
+      event('turn.revoked', { grantId, reason: 'session_completed' }),
+      { kind: 'cancel_generation', grantId, reason: 'session_completed' },
+      event('session.completed', {}),
+      { kind: 'close_session' },
     ])
     expect(closed.state.phase).toBe('ended')
 
@@ -353,8 +373,40 @@ describe('turn arbiter grant lifecycle', () => {
 
   it('completes an idle session', () => {
     const result = run(INITIAL_ARBITER_STATE, { kind: 'close', nowMs: 10 })
-    expect(kinds(result.effects)).toEqual(['event:session.completed', 'close_session'])
+    expect(result.effects).toEqual([event('session.completed', {}), { kind: 'close_session' }])
+    expect(result.state).toEqual({ phase: 'ended', grantsIssued: 0 })
+  })
+
+  it('completes a session with an open window', () => {
+    const result = run(openWindow(), { kind: 'close', nowMs: 10 })
+    expect(result.effects).toEqual([event('session.completed', {}), { kind: 'close_session' }])
     expect(result.state.phase).toBe('ended')
+  })
+
+  it('drops a decline at the exact window boundary', () => {
+    expect(
+      run(openWindow(), { kind: 'declined', turnId: 'turn-1', personaId: 'peer', nowMs: 1_000 })
+        .effects,
+    ).toEqual([])
+  })
+
+  it('drops a decline from an ineligible persona', () => {
+    expect(
+      run(openWindow(), { kind: 'declined', turnId: 'turn-1', personaId: 'client', nowMs: 10 })
+        .effects,
+    ).toEqual([])
+  })
+
+  it('drops a second decline from the same persona', () => {
+    const state = run(openWindow(), {
+      kind: 'declined',
+      turnId: 'turn-1',
+      personaId: 'peer',
+      nowMs: 10,
+    }).state
+    expect(
+      run(state, { kind: 'declined', turnId: 'turn-1', personaId: 'peer', nowMs: 20 }).effects,
+    ).toEqual([])
   })
 
   it('ignores a tick while idle', () => {

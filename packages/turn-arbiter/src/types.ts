@@ -15,8 +15,10 @@ import type {
  * and the routing context arrive in the input, and every observable result is
  * an effect. It never reads a clock, a random source or a provider.
  *
- * `deciding` from the plan is a synchronous step inside the reducer, not a
- * stored phase: no input boundary can observe it.
+ * `deciding` and `closing` from the plan are synchronous steps inside the
+ * reducer, not stored phases: no input boundary can observe them. The state is
+ * a discriminated union so an impossible state (a window without a turn, a
+ * grant phase without a grant) cannot be constructed.
  */
 
 export type TurnArbiterPhase = 'idle' | 'window_open' | 'grant_active' | 'ended'
@@ -36,18 +38,35 @@ export interface ActiveTurn {
 /** The single current grant. */
 export interface ActiveGrant {
   readonly grantId: string
-  readonly turnId: string
   readonly personaId: PersonaId
   readonly expiresAtMs: number
 }
 
-export interface ArbiterState {
-  readonly phase: TurnArbiterPhase
-  readonly turn?: ActiveTurn
-  readonly grant?: ActiveGrant
+export interface ArbiterIdleState {
+  readonly phase: 'idle'
   /** Monotonic per session; keeps grant ids unique across turns. */
   readonly grantsIssued: number
 }
+
+export interface ArbiterWindowState {
+  readonly phase: 'window_open'
+  readonly turn: ActiveTurn
+  readonly grantsIssued: number
+}
+
+export interface ArbiterGrantState {
+  readonly phase: 'grant_active'
+  readonly grant: ActiveGrant
+  readonly grantsIssued: number
+}
+
+export interface ArbiterEndedState {
+  readonly phase: 'ended'
+  readonly grantsIssued: number
+}
+
+export type ArbiterState =
+  ArbiterIdleState | ArbiterWindowState | ArbiterGrantState | ArbiterEndedState
 
 /** A committed user utterance opens the request window. */
 export interface UserCommittedInput {
