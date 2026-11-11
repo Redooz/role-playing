@@ -1,6 +1,7 @@
-import { rankTurnRequests, routingContextSchema } from '@rp/routing-policy'
+import { rankTurnRequests } from '@rp/routing-policy'
 import type { EventPayloadFor, SessionEventName, TurnGrant } from '@rp/session-core'
 import type { TurnArbiterConfig } from './config.js'
+import { parseArbiterInput } from './input.js'
 import type {
   ActiveGrant,
   ActiveTurn,
@@ -23,6 +24,8 @@ import type {
  *
  * Invalid and late inputs are dropped, not thrown: the reducer must stay total
  * so a fuzz run and a misbehaving transport cannot crash a live session.
+ * `parseArbiterInput` validates every field at the boundary; a handler only
+ * ever sees a well-typed input.
  */
 
 export const INITIAL_ARBITER_STATE: ArbiterState = Object.freeze({
@@ -125,14 +128,9 @@ function onUserCommitted(
 ): ArbiterResult {
   if (state.phase !== 'idle') return unchanged(state)
 
-  // The routing context crosses the transport boundary, so a malformed one is
-  // dropped here rather than thrown from the comparator deep inside `decide`.
-  const parsedContext = routingContextSchema.safeParse(input.context)
-  if (!parsedContext.success) return unchanged(state)
-
   const turn: ActiveTurn = {
     turnId: input.turnId,
-    context: parsedContext.data,
+    context: input.context,
     eligiblePersonaIds: input.eligiblePersonaIds,
     seed: input.seed,
     windowEndsAtMs: input.nowMs + config.requestWindowMs,
@@ -261,17 +259,20 @@ export function reduce(
   input: ArbiterInput,
   config: TurnArbiterConfig,
 ): ArbiterResult {
-  switch (input.kind) {
+  const valid = parseArbiterInput(input, config)
+  if (valid === undefined) return unchanged(state)
+
+  switch (valid.kind) {
     case 'user_committed':
-      return onUserCommitted(state, input, config)
+      return onUserCommitted(state, valid, config)
     case 'request':
-      return onRequest(state, input, config)
+      return onRequest(state, valid, config)
     case 'declined':
-      return onDeclined(state, input, config)
+      return onDeclined(state, valid, config)
     case 'tick':
-      return onTick(state, input, config)
+      return onTick(state, valid, config)
     case 'response_ended':
-      return onResponseEnded(state, input)
+      return onResponseEnded(state, valid)
     case 'close':
       return onClose(state)
   }
