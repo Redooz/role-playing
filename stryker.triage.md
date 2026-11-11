@@ -6,7 +6,7 @@ Command: `npm run mutation` (Stryker) followed by `node scripts/check-mutation-f
 The floor is the **measured** baseline, not a number chosen in advance. Timed-out
 mutants count as killed and are reported separately. Per-package scores are the
 gate; the global number is a summary. `evals/baselines/m1-mutation.json` is the
-current measured floor after the M3b D1 turn-arbiter pass.
+current measured floor after the M3b D2 turn-arbiter pass.
 
 ## Score before and after
 
@@ -39,6 +39,40 @@ mutants. No existing floor changed.
 | ----------------------- | ------------------- | ------ | ------- | -------- | ----------- | ------ |
 | **Global**              | **95.89 / 96.24**   | 2923   | 17      | 115      | 11          | 23     |
 | `packages/turn-arbiter` | **100.00 / 100.00** | 204    | 0       | 0        | 0           | 0      |
+
+### M3b D2 addendum (2026-11-11)
+
+`turn-arbiter` now covers interjection, partials, the recovery matrix and the
+streak cap. The measured floor is **96.26 / 96.58** globally, with
+`turn-arbiter` at **100.00 / 100.00** over 508 mutants. No existing floor
+changed and the baseline file was not re-recorded.
+
+| Scope                   | Total / covered     | Killed | Timeout | Survived | No coverage | Errors |
+| ----------------------- | ------------------- | ------ | ------- | -------- | ----------- | ------ |
+| **Global**              | **96.26 / 96.58**   | 3227   | 17      | 115      | 11          | 33     |
+| `packages/turn-arbiter` | **100.00 / 100.00** | 508    | 0       | 0        | 0           | 10     |
+
+The first D2 pass scored 98.05 with ten survivors. They were gaps, not
+equivalent mutants, and were closed by changing the code and the tests:
+
+- The interject-opportunity guard on the request path was dead because expiry
+  already covers a closed window; it was removed. The remaining "resolve once"
+  guard is covered by a reference-identity tick test.
+- `lastInterjectionAt` now returns negative infinity instead of
+  `number | undefined`, removing an equivalent `last !== undefined &&` branch.
+  A three-persona test proves the cooldown applies only to the persona that
+  interjected.
+- The policy-failure tests now assert the whole state, so a dropped ineligible
+  or duplicate failure cannot leak into `failedBy`.
+- A stale-clock speak request in the grant phase, a replacement bound with a
+  fallback still available, and the negative-infinity config lifetime each have
+  a targeted case.
+
+The ten `input.ts` errors are schema-shape mutants: replacing a
+`z.strictObject({...})` option with `{}` makes the discriminated union invalid
+at import, so the suite cannot start. Stryker excludes runtime/compile errors
+from the score; they are not observable behaviour and are not counted as
+killed.
 
 ## What the added tests cover
 
