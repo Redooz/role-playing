@@ -1,4 +1,4 @@
-import { rankTurnRequests } from '@rp/routing-policy'
+import { rankTurnRequests, routingContextSchema } from '@rp/routing-policy'
 import type { EventPayloadFor, SessionEventName, TurnGrant } from '@rp/session-core'
 import type { TurnArbiterConfig } from './config.js'
 import type {
@@ -61,17 +61,23 @@ function isWindowComplete(turn: ActiveTurn): boolean {
  *
  * The comparator is the M3a post-turn ordering, so a live session and an
  * offline replay cannot disagree about who speaks next.
+ *
+ * The caller names the yield reason because only it knows why the window
+ * closed. A complete window with no winner means every persona declined; an
+ * expired window means at least one persona never answered, which is a policy
+ * timeout and must never be recorded as a decline.
  */
 function decide(
   state: ArbiterWindowState,
   nowMs: number,
   config: TurnArbiterConfig,
+  noWinnerReason: 'all_declined' | 'policy_timeout',
 ): ArbiterResult {
   const winner = rankTurnRequests(state.turn.context, state.turn.requests, state.turn.seed)[0]
   if (winner === undefined) {
     return {
       state: idleAfter(state),
-      effects: [emit('turn.user_yielded', { reason: 'all_declined' })],
+      effects: [emit('turn.user_yielded', { reason: noWinnerReason })],
     }
   }
 
@@ -108,7 +114,7 @@ function closeWindowIfComplete(
   if (!isWindowComplete(turn)) {
     return { state: { ...state, turn }, effects }
   }
-  const decided = decide({ ...state, turn }, nowMs, config)
+  const decided = decide({ ...state, turn }, nowMs, config, 'all_declined')
   return { state: decided.state, effects: [...effects, ...decided.effects] }
 }
 
@@ -119,9 +125,14 @@ function onUserCommitted(
 ): ArbiterResult {
   if (state.phase !== 'idle') return unchanged(state)
 
+  // The routing context crosses the transport boundary, so a malformed one is
+  // dropped here rather than thrown from the comparator deep inside `decide`.
+  const parsedContext = routingContextSchema.safeParse(input.context)
+  if (!parsedContext.success) return unchanged(state)
+
   const turn: ActiveTurn = {
     turnId: input.turnId,
-    context: input.context,
+    context: parsedContext.data,
     eligiblePersonaIds: input.eligiblePersonaIds,
     seed: input.seed,
     windowEndsAtMs: input.nowMs + config.requestWindowMs,
@@ -207,7 +218,9 @@ function onTick(
   }
 
   if (state.phase === 'window_open' && input.nowMs >= state.turn.windowEndsAtMs) {
-    return decide(state, input.nowMs, config)
+    // A window that reached its deadline with an unfinished set of responses
+    // never saw every eligible persona answer, so the yield is a timeout.
+    return decide(state, input.nowMs, config, 'policy_timeout')
   }
 
   return unchanged(state)
