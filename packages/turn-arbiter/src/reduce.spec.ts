@@ -3,6 +3,7 @@ import { sessionEventSchema, type PersonaId, type TurnRequest } from '@rp/sessio
 import { describe, expect, it } from 'vitest'
 import { parseTurnArbiterConfig } from './config.js'
 import { makeTurnContext } from './fixtures.js'
+import { MAX_TIME_VALUE_MS } from './input.js'
 import { INITIAL_ARBITER_STATE, reduce } from './reduce.js'
 import type {
   ArbiterEffect,
@@ -42,6 +43,11 @@ function committed(overrides: Partial<UserCommittedInput> = {}): UserCommittedIn
 
 function run(state: ArbiterState, input: ArbiterInput): ArbiterResult {
   return reduce(state, input, CONFIG)
+}
+
+/** Bypasses the compile-time input type, as a transport or fuzz run would. */
+function runRaw(state: ArbiterState, input: unknown): ArbiterResult {
+  return reduce(state, input as ArbiterInput, CONFIG)
 }
 
 function openWindow(): ArbiterState {
@@ -452,5 +458,145 @@ describe('turn arbiter grant lifecycle', () => {
     const before = JSON.stringify(state)
     run(state, { kind: 'request', request: request('peer'), nowMs: 10 })
     expect(JSON.stringify(state)).toBe(before)
+  })
+})
+
+describe('turn arbiter input totality', () => {
+  const unusableClocks: readonly unknown[] = [undefined, null, 'soon', NaN, Infinity, -Infinity]
+
+  it('drops a request whose payload is not a turn request', () => {
+    const state = openWindow()
+
+    expect(runRaw(state, { kind: 'request', request: null, nowMs: 10 })).toEqual({
+      state,
+      effects: [],
+    })
+    expect(
+      runRaw(state, { kind: 'request', request: request('peer', { urgency: 5 }), nowMs: 10 }),
+    ).toEqual({ state, effects: [] })
+    expect(
+      runRaw(state, {
+        kind: 'request',
+        request: { ...request('peer'), unexpected: true },
+        nowMs: 10,
+      }),
+    ).toEqual({ state, effects: [] })
+  })
+
+  it('drops the input that would otherwise rank with an unusable clock', () => {
+    const state = run(openWindow(), { kind: 'request', request: request('peer'), nowMs: 10 }).state
+    expect(state.phase).toBe('window_open')
+
+    for (const nowMs of unusableClocks) {
+      expect(runRaw(state, { kind: 'request', request: request('manager'), nowMs })).toEqual({
+        state,
+        effects: [],
+      })
+    }
+  })
+
+  it('drops a decline with an unusable clock', () => {
+    const state = run(openWindow(), { kind: 'request', request: request('peer'), nowMs: 10 }).state
+
+    for (const nowMs of unusableClocks) {
+      expect(
+        runRaw(state, { kind: 'declined', turnId: 'turn-1', personaId: 'manager', nowMs }),
+      ).toEqual({ state, effects: [] })
+    }
+  })
+
+  it('drops a committed turn with an unusable clock instead of opening an immortal window', () => {
+    for (const nowMs of unusableClocks) {
+      expect(runRaw(INITIAL_ARBITER_STATE, { ...committed(), nowMs })).toEqual({
+        state: INITIAL_ARBITER_STATE,
+        effects: [],
+      })
+    }
+  })
+
+  it('drops a committed turn whose clock would overflow the Date range', () => {
+    const almostValid = { ...committed(), nowMs: MAX_TIME_VALUE_MS - 1 }
+    expect(runRaw(INITIAL_ARBITER_STATE, almostValid)).toEqual({
+      state: INITIAL_ARBITER_STATE,
+      effects: [],
+    })
+  })
+
+  it('drops a committed turn whose fields are not well typed', () => {
+    const malformed: readonly unknown[] = [
+      { ...committed(), eligiblePersonaIds: null },
+      { ...committed(), eligiblePersonaIds: ['manager', 7] },
+      { ...committed(), eligiblePersonaIds: [''] },
+      { ...committed(), seed: 'seven' },
+      { ...committed(), turnId: '' },
+      { ...committed(), unexpected: true },
+    ]
+
+    for (const input of malformed) {
+      expect(runRaw(INITIAL_ARBITER_STATE, input)).toEqual({
+        state: INITIAL_ARBITER_STATE,
+        effects: [],
+      })
+    }
+  })
+
+  it('drops a decline whose persona id is not a string', () => {
+    const state = openWindow()
+    expect(
+      runRaw(state, { kind: 'declined', turnId: 'turn-1', personaId: null, nowMs: 10 }),
+    ).toEqual({ state, effects: [] })
+  })
+
+  it('drops a tick with an unusable clock', () => {
+    const state = openWindow()
+    for (const nowMs of unusableClocks) {
+      expect(runRaw(state, { kind: 'tick', nowMs })).toEqual({ state, effects: [] })
+    }
+  })
+
+  it('drops an unknown response outcome instead of revoking the grant', () => {
+    const state = grantedTurn()
+
+    expect(
+      runRaw(state, {
+        kind: 'response_ended',
+        grantId: state.grant.grantId,
+        outcome: 'bogus',
+        nowMs: 30,
+      }),
+    ).toEqual({ state, effects: [] })
+    expect(state.phase).toBe('grant_active')
+  })
+
+  it('drops a response or a close that carries an unusable clock', () => {
+    const state = grantedTurn()
+
+    for (const nowMs of unusableClocks) {
+      expect(
+        runRaw(state, {
+          kind: 'response_ended',
+          grantId: state.grant.grantId,
+          outcome: 'completed',
+          nowMs,
+        }),
+      ).toEqual({ state, effects: [] })
+      expect(runRaw(state, { kind: 'close', nowMs })).toEqual({ state, effects: [] })
+    }
+  })
+
+  it('drops an unknown input kind and a non-object input in every phase', () => {
+    const states: readonly ArbiterState[] = [
+      INITIAL_ARBITER_STATE,
+      openWindow(),
+      grantedTurn(),
+      run(openWindow(), { kind: 'close', nowMs: 10 }).state,
+    ]
+    const malformed: readonly unknown[] = [null, undefined, 42, 'tick', [], {}, { kind: 'nope' }]
+
+    for (const state of states) {
+      for (const input of malformed) {
+        expect(runRaw(state, input)).toEqual({ state, effects: [] })
+      }
+    }
   })
 })
