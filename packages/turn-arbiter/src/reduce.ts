@@ -1,19 +1,15 @@
 import { rankTurnRequests } from '@rp/routing-policy'
-import type {
-  EventPayloadFor,
-  PersonaId,
-  RevocationReason,
-  SessionEventName,
-  TurnGrant,
-} from '@rp/session-core'
+import type { EventPayloadFor, SessionEventName, TurnGrant } from '@rp/session-core'
 import type { TurnArbiterConfig } from './config.js'
 import type {
   ActiveGrant,
   ActiveTurn,
   ArbiterEffect,
+  ArbiterGrantState,
   ArbiterInput,
   ArbiterResult,
   ArbiterState,
+  ArbiterWindowState,
   EmitEventEffect,
 } from './types.js'
 
@@ -45,11 +41,11 @@ function unchanged(state: ArbiterState): ArbiterResult {
   return { state, effects: [] }
 }
 
-function idleAfter(state: ArbiterState): ArbiterState {
+function idleAfter(state: { readonly grantsIssued: number }): ArbiterState {
   return { phase: 'idle', grantsIssued: state.grantsIssued }
 }
 
-function hasResponded(turn: ActiveTurn, personaId: PersonaId): boolean {
+function hasResponded(turn: ActiveTurn, personaId: string): boolean {
   return (
     turn.declinedBy.includes(personaId) ||
     turn.requests.some((request) => request.personaId === personaId)
@@ -67,12 +63,11 @@ function isWindowComplete(turn: ActiveTurn): boolean {
  * offline replay cannot disagree about who speaks next.
  */
 function decide(
-  state: ArbiterState,
-  turn: ActiveTurn,
+  state: ArbiterWindowState,
   nowMs: number,
   config: TurnArbiterConfig,
 ): ArbiterResult {
-  const winner = rankTurnRequests(turn.context, turn.requests, turn.seed)[0]
+  const winner = rankTurnRequests(state.turn.context, state.turn.requests, state.turn.seed)[0]
   if (winner === undefined) {
     return {
       state: idleAfter(state),
@@ -83,20 +78,19 @@ function decide(
   const grantsIssued = state.grantsIssued + 1
   const expiresAtMs = nowMs + config.grantTtlMs
   const grant: TurnGrant = {
-    turnId: turn.turnId,
-    grantId: `grant:${turn.turnId}:${grantsIssued}`,
+    turnId: state.turn.turnId,
+    grantId: `grant:${state.turn.turnId}:${grantsIssued}`,
     personaId: winner.personaId,
     expiresAt: new Date(expiresAtMs).toISOString(),
   }
   const active: ActiveGrant = {
     grantId: grant.grantId,
-    turnId: turn.turnId,
     personaId: grant.personaId,
     expiresAtMs,
   }
 
   return {
-    state: { phase: 'grant_active', turn, grant: active, grantsIssued },
+    state: { phase: 'grant_active', grant: active, grantsIssued },
     effects: [
       emit('turn.granted', { grant }),
       { kind: 'start_generation', grantId: active.grantId, personaId: active.personaId },
@@ -105,7 +99,7 @@ function decide(
 }
 
 function closeWindowIfComplete(
-  state: ArbiterState,
+  state: ArbiterWindowState,
   turn: ActiveTurn,
   nowMs: number,
   config: TurnArbiterConfig,
@@ -114,7 +108,7 @@ function closeWindowIfComplete(
   if (!isWindowComplete(turn)) {
     return { state: { ...state, turn }, effects }
   }
-  const decided = decide({ ...state, turn }, turn, nowMs, config)
+  const decided = decide({ ...state, turn }, nowMs, config)
   return { state: decided.state, effects: [...effects, ...decided.effects] }
 }
 
@@ -134,17 +128,16 @@ function onUserCommitted(
     requests: [],
     declinedBy: [],
   }
+  const window: ArbiterWindowState = {
+    phase: 'window_open',
+    turn,
+    grantsIssued: state.grantsIssued,
+  }
   const opened: ArbiterEffect[] = [emit('turn.opened', { turnId: input.turnId })]
 
-  // A turn with no eligible persona is an immediate learner yield, not a window
-  // that nobody can answer.
-  if (turn.eligiblePersonaIds.length === 0) {
-    return closeWindowIfComplete({ ...state, turn }, turn, input.nowMs, config, opened)
-  }
-  return {
-    state: { phase: 'window_open', turn, grantsIssued: state.grantsIssued },
-    effects: opened,
-  }
+  // `closeWindowIfComplete` also covers a turn with no eligible persona: the
+  // empty window is complete at once and yields to the learner.
+  return closeWindowIfComplete(window, turn, input.nowMs, config, opened)
 }
 
 function onRequest(
@@ -152,9 +145,9 @@ function onRequest(
   input: Extract<ArbiterInput, { kind: 'request' }>,
   config: TurnArbiterConfig,
 ): ArbiterResult {
-  const turn = state.turn
-  if (state.phase !== 'window_open' || turn === undefined) return unchanged(state)
+  if (state.phase !== 'window_open') return unchanged(state)
 
+  const turn = state.turn
   const request = input.request
   if (request.turnId !== turn.turnId) return unchanged(state)
   if (request.action !== 'speak') return unchanged(state)
@@ -172,8 +165,9 @@ function onDeclined(
   input: Extract<ArbiterInput, { kind: 'declined' }>,
   config: TurnArbiterConfig,
 ): ArbiterResult {
+  if (state.phase !== 'window_open') return unchanged(state)
+
   const turn = state.turn
-  if (state.phase !== 'window_open' || turn === undefined) return unchanged(state)
   if (input.turnId !== turn.turnId) return unchanged(state)
   if (input.nowMs >= turn.windowEndsAtMs) return unchanged(state)
   if (!turn.eligiblePersonaIds.includes(input.personaId)) return unchanged(state)
@@ -186,13 +180,14 @@ function onDeclined(
   return closeWindowIfComplete(state, nextTurn, input.nowMs, config, effects)
 }
 
-function revoke(state: ArbiterState, reason: RevocationReason, cancel: boolean): ArbiterResult {
-  const grant = state.grant
-  if (grant === undefined) return unchanged(state)
-
-  const effects: ArbiterEffect[] = [emit('turn.revoked', { grantId: grant.grantId, reason })]
+function revoke(
+  state: ArbiterGrantState,
+  reason: 'completed' | 'cancelled' | 'timeout' | 'session_completed',
+  cancel: boolean,
+): ArbiterResult {
+  const effects: ArbiterEffect[] = [emit('turn.revoked', { grantId: state.grant.grantId, reason })]
   if (cancel) {
-    effects.push({ kind: 'cancel_generation', grantId: grant.grantId, reason })
+    effects.push({ kind: 'cancel_generation', grantId: state.grant.grantId, reason })
   }
   return { state: idleAfter(state), effects }
 }
@@ -203,7 +198,7 @@ function onTick(
   config: TurnArbiterConfig,
 ): ArbiterResult {
   if (state.phase === 'grant_active') {
-    if (state.grant !== undefined && input.nowMs >= state.grant.expiresAtMs) {
+    if (input.nowMs >= state.grant.expiresAtMs) {
       // D1 revokes and returns to idle. The bounded replacement belongs to the
       // D2 recovery matrix and must not be simulated here.
       return revoke(state, 'timeout', true)
@@ -211,11 +206,8 @@ function onTick(
     return unchanged(state)
   }
 
-  if (state.phase === 'window_open') {
-    const turn = state.turn
-    if (turn !== undefined && input.nowMs >= turn.windowEndsAtMs) {
-      return decide(state, turn, input.nowMs, config)
-    }
+  if (state.phase === 'window_open' && input.nowMs >= state.turn.windowEndsAtMs) {
+    return decide(state, input.nowMs, config)
   }
 
   return unchanged(state)
@@ -225,9 +217,8 @@ function onResponseEnded(
   state: ArbiterState,
   input: Extract<ArbiterInput, { kind: 'response_ended' }>,
 ): ArbiterResult {
-  const grant = state.grant
-  if (state.phase !== 'grant_active' || grant === undefined) return unchanged(state)
-  if (grant.grantId !== input.grantId) return unchanged(state)
+  if (state.phase !== 'grant_active') return unchanged(state)
+  if (state.grant.grantId !== input.grantId) return unchanged(state)
 
   if (input.outcome === 'completed') return revoke(state, 'completed', false)
   return revoke(state, 'cancelled', true)
@@ -237,7 +228,7 @@ function onClose(state: ArbiterState): ArbiterResult {
   if (state.phase === 'ended') return unchanged(state)
 
   const effects: ArbiterEffect[] = []
-  if (state.grant !== undefined) {
+  if (state.phase === 'grant_active') {
     effects.push(
       emit('turn.revoked', { grantId: state.grant.grantId, reason: 'session_completed' }),
     )
@@ -270,7 +261,5 @@ export function reduce(
       return onResponseEnded(state, input)
     case 'close':
       return onClose(state)
-    default:
-      return unchanged(state)
   }
 }

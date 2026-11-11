@@ -263,8 +263,9 @@ test uses a local server, and Groq/OpenRouter use injected `fetch`).
 
 - `npm run mutation` scores the behaviour-bearing files listed in
   `stryker.config.json` (session-core, pipeline, persona-kit prompt/lookup,
-  scenario-kit lookup/helpers, routing-policy, shared locale/plain-text,
-  apps/cli), then checks each package against `evals/baselines/m1-mutation.json`.
+  scenario-kit lookup/helpers, routing-policy, turn-arbiter, shared
+  locale/plain-text, apps/cli), then checks each package against
+  `evals/baselines/m1-mutation.json`.
   The global break threshold is 95. Timed-out mutants count as killed;
   runtime/compile errors are excluded. Never lower the floor or hand-edit the
   baseline. Record a new baseline only with `npm run mutation:record` after a

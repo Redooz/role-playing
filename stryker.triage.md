@@ -6,7 +6,7 @@ Command: `npm run mutation` (Stryker) followed by `node scripts/check-mutation-f
 The floor is the **measured** baseline, not a number chosen in advance. Timed-out
 mutants count as killed and are reported separately. Per-package scores are the
 gate; the global number is a summary. `evals/baselines/m1-mutation.json` is the
-current measured floor after the M3a D1 routing-policy pass.
+current measured floor after the M3b D1 turn-arbiter pass.
 
 ## Score before and after
 
@@ -21,13 +21,24 @@ current measured floor after the M3a D1 routing-policy pass.
 | `packages/shared`         | 61.86 / 63.49          | **93.27 / 93.57**     | 291    | 0       | 20       | 1           | 0      |
 | `packages/scenario-kit`   | 75.00 / 75.00          | **100.00 / 100.00**   | 8      | 0       | 0        | 0           | 6      |
 
-Global and five of seven packages meet 95%. `session-core` (91.96/92.24) and
+Global and six of eight packages meet 95%. `session-core` (91.96/92.24) and
 `shared` (93.27/93.57) do **not**. The remaining gap is 30 kills in
 `session-core` and 6 in `shared`. Neither gap can be closed without violating the
 stated scope: see [Remaining gap](#remaining-gap).
 
 `stryker.config.json` now uses a 95 break threshold; this raises the old 68.21
 break threshold and does not lower any floor.
+
+### M3b D1 addendum (2026-11-11)
+
+`packages/turn-arbiter` joined the scope. The measured floor is now
+**95.89 / 96.24** globally, with `turn-arbiter` at **100.00 / 100.00** over 204
+mutants. No existing floor changed.
+
+| Scope                   | Total / covered     | Killed | Timeout | Survived | No coverage | Errors |
+| ----------------------- | ------------------- | ------ | ------- | -------- | ----------- | ------ |
+| **Global**              | **95.89 / 96.24**   | 2923   | 17      | 115      | 11          | 23     |
+| `packages/turn-arbiter` | **100.00 / 100.00** | 204    | 0       | 0        | 0           | 0      |
 
 ## What the added tests cover
 
@@ -91,9 +102,9 @@ The pass is organised by survivor class, not by one large test:
 | `packages/session-core` | 91.96; needs +30 kills | 17 survivors are `events.ts` enum/literal schema definitions; 8 are `session-log.ts` Zod field schemas; 1 is the `version.ts` schema message; 2 are equivalent `readSchemaVersion` guards; 4 are equivalent guard/loop guards. The remaining 40 driver survivors are redundant race/defensive paths documented below. | If schema literals are allowed back into scope, event-vocabulary and header-bound contract tests would add 26 kills and clear 95. Under the stated “no static data / Zod schema” rule, the honest floor is 91.96. |
 | `packages/shared`       | 93.27; needs +6 kills  | 19 `plain-text.ts` survivors are equivalent under the normaliser or are shadowed by the following line (table rows with 2+ pipes are removed by the generic table-row rule); 1 `locale.ts` catch block falls through to the same `undefined` result.                                                                  | Add Unicode line-separator (U+2028/U+2029) table cases to distinguish the three `^…$` table-row mutants, and either refactor the redundant `groups[1] ?? ''` fallback or accept the 93.27 floor.                  |
 
-The global total is 95.60/95.97 because the other packages are far above 95
+The global total is 95.89/96.24 because the other packages are far above 95
 (`persona-kit` 99.13, `pipeline` 99.01, `routing-policy` 100.00,
-`scenario-kit` 100.00, `apps/cli` 95.95).
+`scenario-kit` 100.00, `apps/cli` 95.95, `turn-arbiter` 100.00).
 
 ## Equivalent-mutant inventory
 
@@ -244,6 +255,16 @@ mutant is gone. `routing-policy` is 100% total and covered.
   Equivalent.
 - Line 186: `.finally(() => pending.delete(sending))`; the cleanup only affects
   memory after the send has settled, not the awaited result. Equivalent.
+
+### `packages/turn-arbiter` (0 survivors)
+
+The first D1 pass scored 84.55 with 35 survivors and one no-coverage mutant.
+They were design smells, not equivalent mutants: the state allowed a window
+without a turn and a grant phase without a grant, the empty-eligible branch was
+redundant, `ActiveGrant.turnId` was dead, and the tests asserted event names
+without payloads. The state is now a discriminated union, the branch and the
+dead field are gone, and every test asserts the complete effect. The remaining
+mutants are killed, so there is no equivalent mutant to record.
 
 ## Known limits
 
