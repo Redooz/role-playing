@@ -80,6 +80,24 @@ describe('turn arbiter normal flow', () => {
     expect(run(state, committed({ turnId: 'turn-2' }))).toEqual({ state, effects: [] })
   })
 
+  it('drops a committed utterance whose routing context is malformed', () => {
+    const malformed = {
+      ...makeTurnContext(),
+      transcript: [],
+    } as unknown as UserCommittedInput['context']
+
+    const result = run(INITIAL_ARBITER_STATE, committed({ context: malformed }))
+
+    expect(result).toEqual({ state: INITIAL_ARBITER_STATE, effects: [] })
+  })
+
+  it('never throws on a non-object routing context', () => {
+    const malformed = null as unknown as UserCommittedInput['context']
+
+    expect(() => run(INITIAL_ARBITER_STATE, committed({ context: malformed }))).not.toThrow()
+    expect(run(INITIAL_ARBITER_STATE, committed({ context: malformed })).effects).toEqual([])
+  })
+
   it('records one request per eligible persona', () => {
     const peer = request('peer')
     const result = run(openWindow(), { kind: 'request', request: peer, nowMs: 10 })
@@ -153,11 +171,26 @@ describe('turn arbiter normal flow', () => {
     expect(granted(closed.state).grant.personaId).toBe('peer')
   })
 
-  it('yields when the window closes with no requests', () => {
+  it('yields a policy timeout when the window expires unanswered', () => {
     const closed = run(openWindow(), { kind: 'tick', nowMs: 1_000 })
 
-    expect(closed.effects).toEqual([event('turn.user_yielded', { reason: 'all_declined' })])
+    expect(closed.effects).toEqual([event('turn.user_yielded', { reason: 'policy_timeout' })])
     expect(closed.state.phase).toBe('idle')
+  })
+
+  it('does not report a partial decline as all_declined when the window expires', () => {
+    const declined = run(openWindow(), {
+      kind: 'declined',
+      turnId: 'turn-1',
+      personaId: 'peer',
+      nowMs: 10,
+    })
+    expect(declined.state.phase).toBe('window_open')
+
+    const expired = run(declined.state, { kind: 'tick', nowMs: 1_000 })
+
+    expect(expired.effects).toEqual([event('turn.user_yielded', { reason: 'policy_timeout' })])
+    expect(expired.state.phase).toBe('idle')
   })
 
   it('yields immediately when no persona is eligible', () => {
