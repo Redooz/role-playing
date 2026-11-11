@@ -43,14 +43,14 @@ mutants. No existing floor changed.
 ### M3b D2 addendum (2026-11-11)
 
 `turn-arbiter` now covers interjection, partials, the recovery matrix and the
-streak cap. The measured floor is **96.26 / 96.58** globally, with
-`turn-arbiter` at **100.00 / 100.00** over 508 mutants. No existing floor
+streak cap. The measured floor is **96.27 / 96.58** globally, with
+`turn-arbiter` at **100.00 / 100.00** over 515 mutants. No existing floor
 changed and the baseline file was not re-recorded.
 
 | Scope                   | Total / covered     | Killed | Timeout | Survived | No coverage | Errors |
 | ----------------------- | ------------------- | ------ | ------- | -------- | ----------- | ------ |
-| **Global**              | **96.26 / 96.58**   | 3227   | 17      | 115      | 11          | 33     |
-| `packages/turn-arbiter` | **100.00 / 100.00** | 508    | 0       | 0        | 0           | 10     |
+| **Global**              | **96.27 / 96.58**   | 3234   | 17      | 115      | 11          | 33     |
+| `packages/turn-arbiter` | **100.00 / 100.00** | 515    | 0       | 0        | 0           | 10     |
 
 The first D2 pass scored 98.05 with ten survivors. They were gaps, not
 equivalent mutants, and were closed by changing the code and the tests:

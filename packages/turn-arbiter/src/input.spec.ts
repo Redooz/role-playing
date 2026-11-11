@@ -49,6 +49,7 @@ const INPUTS = {
   declined: { kind: 'declined', turnId: 'turn-1', personaId: 'peer', nowMs: 10 },
   policyFailed: {
     kind: 'policy_failed',
+    turnId: 'turn-1',
     personaId: 'peer',
     cause: 'timeout',
     nowMs: 10,
