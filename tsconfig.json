@@ -7,6 +7,7 @@
     { "path": "./packages/scenario-kit" },
     { "path": "./packages/persona-kit" },
     { "path": "./packages/routing-policy" },
+    { "path": "./packages/turn-arbiter" },
     { "path": "./packages/eval-harness" },
     { "path": "./tools/eval-harness-cli" },
     { "path": "./tools/agent-harness-bench" },
