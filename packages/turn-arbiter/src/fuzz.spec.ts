@@ -291,7 +291,7 @@ function assertInvariants(
 }
 
 describe('turn arbiter invariant fuzz', () => {
-  it('holds every invariant over 1,000 seeded mixed inputs under 10 s', () => {
+  it('holds every invariant over 1,000 seeded mixed inputs', () => {
     const rng = createSeededRandom(2_026)
     const ledger: InvariantLedger = { grantIds: new Set(), partialSequences: new Map() }
 
