@@ -1,73 +1,42 @@
 import { rankTurnRequests } from '@rp/routing-policy'
 import { sessionEventSchema, type PersonaId, type TurnRequest } from '@rp/session-core'
 import { describe, expect, it } from 'vitest'
-import { parseTurnArbiterConfig } from './config.js'
-import { makeTurnContext } from './fixtures.js'
+import {
+  emitted,
+  granted,
+  grantedTurn,
+  makeCommitted,
+  makeRequest,
+  makeTurnContext,
+  openWindow,
+  runArbiter,
+  runRawArbiter,
+} from './fixtures.js'
 import { MAX_TIME_VALUE_MS } from './input.js'
-import { INITIAL_ARBITER_STATE, reduce } from './reduce.js'
-import type {
-  ArbiterEffect,
-  ArbiterGrantState,
-  ArbiterInput,
-  ArbiterResult,
-  ArbiterState,
-  UserCommittedInput,
-} from './types.js'
+import { INITIAL_ARBITER_STATE } from './reduce.js'
+import type { ArbiterInput, ArbiterResult, ArbiterState, UserCommittedInput } from './types.js'
 
-const CONFIG = parseTurnArbiterConfig({ requestWindowMs: 1_000, grantTtlMs: 5_000 })
-
-function request(personaId: PersonaId, overrides: Partial<TurnRequest> = {}): TurnRequest {
-  return {
-    turnId: 'turn-1',
-    personaId,
-    action: 'speak',
-    urgency: 0.5,
-    confidence: 0.5,
-    addressedByUser: false,
-    objectiveRelevance: 0.5,
-    ...overrides,
-  }
+const EMPTY_COUNTERS = {
+  grantsIssued: 0,
+  agentOnlyTurns: 0,
+  consecutiveFailures: 0,
+  interjections: [],
 }
 
 function committed(overrides: Partial<UserCommittedInput> = {}): UserCommittedInput {
-  return {
-    kind: 'user_committed',
-    turnId: 'turn-1',
-    nowMs: 0,
-    seed: 7,
-    context: makeTurnContext(),
-    eligiblePersonaIds: ['manager', 'peer'],
-    ...overrides,
-  }
+  return makeCommitted(overrides)
+}
+
+function request(personaId: PersonaId, overrides: Partial<TurnRequest> = {}): TurnRequest {
+  return makeRequest(personaId, overrides)
 }
 
 function run(state: ArbiterState, input: ArbiterInput): ArbiterResult {
-  return reduce(state, input, CONFIG)
+  return runArbiter(state, input)
 }
 
-/** Bypasses the compile-time input type, as a transport or fuzz run would. */
 function runRaw(state: ArbiterState, input: unknown): ArbiterResult {
-  return reduce(state, input as ArbiterInput, CONFIG)
-}
-
-function openWindow(): ArbiterState {
-  return run(INITIAL_ARBITER_STATE, committed()).state
-}
-
-/** A turn where both personas requested and one holds the grant. */
-function grantedTurn(): ArbiterGrantState {
-  const first = run(openWindow(), { kind: 'request', request: request('peer'), nowMs: 10 })
-  const second = run(first.state, { kind: 'request', request: request('manager'), nowMs: 20 })
-  return granted(second.state)
-}
-
-function granted(state: ArbiterState): ArbiterGrantState {
-  if (state.phase !== 'grant_active') throw new Error('expected a grant')
-  return state
-}
-
-function event(type: string, payload: unknown): ArbiterEffect {
-  return { kind: 'emit_event', type, payload } as ArbiterEffect
+  return runRawArbiter(state, input)
 }
 
 describe('turn arbiter normal flow', () => {
@@ -76,9 +45,10 @@ describe('turn arbiter normal flow', () => {
 
     expect(result.state.phase).toBe('window_open')
     expect(result.state.phase === 'window_open' && result.state.turn.windowEndsAtMs).toBe(1_000)
-    expect(result.state.grantsIssued).toBe(0)
+    expect(result.state.counters).toEqual(EMPTY_COUNTERS)
     expect(result.state.phase === 'window_open' && result.state.turn.declinedBy).toEqual([])
-    expect(result.effects).toEqual([event('turn.opened', { turnId: 'turn-1' })])
+    expect(result.state.phase === 'window_open' && result.state.turn.failedBy).toEqual([])
+    expect(result.effects).toEqual([emitted('turn.opened', { turnId: 'turn-1' })])
   })
 
   it('ignores a committed utterance while a window is open', () => {
@@ -109,7 +79,7 @@ describe('turn arbiter normal flow', () => {
     const result = run(openWindow(), { kind: 'request', request: peer, nowMs: 10 })
 
     expect(result.state.phase === 'window_open' && result.state.turn.requests).toEqual([peer])
-    expect(result.effects).toEqual([event('persona.requested_turn', { request: peer })])
+    expect(result.effects).toEqual([emitted('persona.requested_turn', { request: peer })])
   })
 
   it('decides as soon as every eligible persona has responded', () => {
@@ -121,9 +91,13 @@ describe('turn arbiter normal flow', () => {
     const second = run(first.state, { kind: 'request', request: manager, nowMs: 20 })
 
     expect(granted(second.state).grant.personaId).toBe('manager')
+    expect(granted(second.state).counters).toEqual({
+      ...EMPTY_COUNTERS,
+      grantsIssued: 1,
+    })
     expect(second.effects).toEqual([
-      event('persona.requested_turn', { request: manager }),
-      event('turn.granted', {
+      emitted('persona.requested_turn', { request: manager }),
+      emitted('turn.granted', {
         grant: {
           turnId: 'turn-1',
           grantId: 'grant:turn-1:1',
@@ -151,7 +125,7 @@ describe('turn arbiter normal flow', () => {
       nowMs: 10,
     })
     expect(first.effects).toEqual([
-      event('persona.declined', { turnId: 'turn-1', personaId: 'peer' }),
+      emitted('persona.declined', { turnId: 'turn-1', personaId: 'peer' }),
     ])
     expect(first.state.phase).toBe('window_open')
 
@@ -162,8 +136,8 @@ describe('turn arbiter normal flow', () => {
       nowMs: 20,
     })
     expect(second.effects).toEqual([
-      event('persona.declined', { turnId: 'turn-1', personaId: 'manager' }),
-      event('turn.user_yielded', { reason: 'all_declined' }),
+      emitted('persona.declined', { turnId: 'turn-1', personaId: 'manager' }),
+      emitted('turn.user_yielded', { reason: 'all_declined' }),
     ])
     expect(second.state.phase).toBe('idle')
   })
@@ -180,7 +154,7 @@ describe('turn arbiter normal flow', () => {
   it('yields a policy timeout when the window expires unanswered', () => {
     const closed = run(openWindow(), { kind: 'tick', nowMs: 1_000 })
 
-    expect(closed.effects).toEqual([event('turn.user_yielded', { reason: 'policy_timeout' })])
+    expect(closed.effects).toEqual([emitted('turn.user_yielded', { reason: 'policy_timeout' })])
     expect(closed.state.phase).toBe('idle')
   })
 
@@ -195,7 +169,7 @@ describe('turn arbiter normal flow', () => {
 
     const expired = run(declined.state, { kind: 'tick', nowMs: 1_000 })
 
-    expect(expired.effects).toEqual([event('turn.user_yielded', { reason: 'policy_timeout' })])
+    expect(expired.effects).toEqual([emitted('turn.user_yielded', { reason: 'policy_timeout' })])
     expect(expired.state.phase).toBe('idle')
   })
 
@@ -203,10 +177,10 @@ describe('turn arbiter normal flow', () => {
     const result = run(INITIAL_ARBITER_STATE, committed({ eligiblePersonaIds: [] }))
 
     expect(result.effects).toEqual([
-      event('turn.opened', { turnId: 'turn-1' }),
-      event('turn.user_yielded', { reason: 'all_declined' }),
+      emitted('turn.opened', { turnId: 'turn-1' }),
+      emitted('turn.user_yielded', { reason: 'all_declined' }),
     ])
-    expect(result.state).toEqual({ phase: 'idle', grantsIssued: 0 })
+    expect(result.state).toEqual({ phase: 'idle', counters: EMPTY_COUNTERS })
   })
 
   it('drops a request at the exact window boundary', () => {
@@ -261,11 +235,27 @@ describe('turn arbiter normal flow', () => {
     ).toEqual([])
   })
 
-  it('drops a request while a grant is active', () => {
+  it('drops a speak request while a grant is active', () => {
     const state = grantedTurn()
     expect(run(state, { kind: 'request', request: request('manager'), nowMs: 30 }).effects).toEqual(
       [],
     )
+  })
+
+  it('drops a stale speak request from the grant phase even with an earlier clock', () => {
+    const asked = run(openWindow(), {
+      kind: 'request',
+      request: request('peer'),
+      nowMs: 10,
+    }).state
+    const closed = run(asked, { kind: 'tick', nowMs: 1_000 })
+    const state = granted(closed.state)
+    expect(state.grant.personaId).toBe('peer')
+
+    expect(run(state, { kind: 'request', request: request('manager'), nowMs: 500 })).toEqual({
+      state,
+      effects: [],
+    })
   })
 
   it('grants one deterministic speaker when two requests tie', () => {
@@ -307,7 +297,7 @@ describe('turn arbiter normal flow', () => {
     })
 
     expect(granted(second.state).grant.grantId).not.toBe(first.grant.grantId)
-    expect(granted(second.state).grantsIssued).toBe(2)
+    expect(granted(second.state).counters.grantsIssued).toBe(2)
   })
 })
 
@@ -318,7 +308,7 @@ describe('turn arbiter grant lifecycle', () => {
 
     const expired = run(state, { kind: 'tick', nowMs: expiresAtMs })
     expect(expired.effects).toEqual([
-      event('turn.revoked', { grantId, reason: 'timeout' }),
+      emitted('turn.revoked', { grantId, reason: 'timeout' }),
       { kind: 'cancel_generation', grantId, reason: 'timeout' },
     ])
     expect(expired.state.phase).toBe('idle')
@@ -329,9 +319,28 @@ describe('turn arbiter grant lifecycle', () => {
     })
   })
 
-  it('keeps an unexpired grant across a tick after the window closes', () => {
+  it('leaves an open grant untouched before the interject opportunity ends', () => {
     const state = grantedTurn()
-    expect(run(state, { kind: 'tick', nowMs: 2_000 })).toEqual({ state, effects: [] })
+    expect(run(state, { kind: 'tick', nowMs: 1_000 })).toEqual({ state, effects: [] })
+  })
+
+  it('closes an interject opportunity with no interjects', () => {
+    const state = grantedTurn()
+    const resolved = run(state, { kind: 'tick', nowMs: 1_820 })
+
+    expect(resolved.effects).toEqual([])
+    expect(granted(resolved.state).grant.interjectWindowClosed).toBe(true)
+    expect(granted(resolved.state).counters.grantsIssued).toBe(1)
+  })
+
+  it('resolves the interject opportunity at most once', () => {
+    const state = grantedTurn()
+    const first = run(state, { kind: 'tick', nowMs: 1_820 })
+    const second = run(first.state, { kind: 'tick', nowMs: 1_821 })
+
+    expect(granted(first.state).grant.interjectWindowClosed).toBe(true)
+    expect(second.effects).toEqual([])
+    expect(second.state).toBe(first.state)
   })
 
   it('closes a completed response without cancelling generation', () => {
@@ -345,7 +354,7 @@ describe('turn arbiter grant lifecycle', () => {
       nowMs: 30,
     })
 
-    expect(result.effects).toEqual([event('turn.revoked', { grantId, reason: 'completed' })])
+    expect(result.effects).toEqual([emitted('turn.revoked', { grantId, reason: 'completed' })])
     expect(result.state.phase).toBe('idle')
   })
 
@@ -361,7 +370,7 @@ describe('turn arbiter grant lifecycle', () => {
     })
 
     expect(result.effects).toEqual([
-      event('turn.revoked', { grantId, reason: 'cancelled' }),
+      emitted('turn.revoked', { grantId, reason: 'cancelled' }),
       { kind: 'cancel_generation', grantId, reason: 'cancelled' },
     ])
     expect(result.state.phase).toBe('idle')
@@ -397,9 +406,9 @@ describe('turn arbiter grant lifecycle', () => {
 
     const closed = run(state, { kind: 'close', nowMs: 30 })
     expect(closed.effects).toEqual([
-      event('turn.revoked', { grantId, reason: 'session_completed' }),
+      emitted('turn.revoked', { grantId, reason: 'session_completed' }),
       { kind: 'cancel_generation', grantId, reason: 'session_completed' },
-      event('session.completed', {}),
+      emitted('session.completed', {}),
       { kind: 'close_session' },
     ])
     expect(closed.state.phase).toBe('ended')
@@ -412,13 +421,13 @@ describe('turn arbiter grant lifecycle', () => {
 
   it('completes an idle session', () => {
     const result = run(INITIAL_ARBITER_STATE, { kind: 'close', nowMs: 10 })
-    expect(result.effects).toEqual([event('session.completed', {}), { kind: 'close_session' }])
-    expect(result.state).toEqual({ phase: 'ended', grantsIssued: 0 })
+    expect(result.effects).toEqual([emitted('session.completed', {}), { kind: 'close_session' }])
+    expect(result.state).toEqual({ phase: 'ended', counters: EMPTY_COUNTERS })
   })
 
   it('completes a session with an open window', () => {
     const result = run(openWindow(), { kind: 'close', nowMs: 10 })
-    expect(result.effects).toEqual([event('session.completed', {}), { kind: 'close_session' }])
+    expect(result.effects).toEqual([emitted('session.completed', {}), { kind: 'close_session' }])
     expect(result.state.phase).toBe('ended')
   })
 

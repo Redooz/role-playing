@@ -12,6 +12,7 @@
   "dependencies": {
     "@rp/routing-policy": "*",
     "@rp/session-core": "*",
+    "@rp/shared": "*",
     "zod": "^4.6.7"
   }
 }
