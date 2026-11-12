@@ -1,0 +1,36 @@
+{
+  "id": "fr-b2-scope-fr-hold-321",
+  "lang": "fr",
+  "locale": "fr",
+  "mode": "session",
+  "domain": "workplace",
+  "scenarioType": "standup-scope-change",
+  "cefrBand": "B2",
+  "speakerId": "syn-fr-scope-fr-hold-321",
+  "split": "holdout",
+  "provenance": {
+    "source": "synthetic"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "rubric": "m3b-turn-taking-rubric-v1",
+    "annotationGuideline": "m2-annotation-guideline-v2"
+  },
+  "content": {
+    "scenarioBrief": "The manager changes the release scope at stand-up; the learner clarifies impact and priority.",
+    "turns": []
+  },
+  "session": {
+    "personaId": "manager",
+    "personaIds": ["manager", "peer"],
+    "personaVersion": "1.0.0",
+    "scenarioId": "standup-scope-change",
+    "scenarioVersion": "1.0.0",
+    "scriptedUserTurns": [
+      "Qu’est-ce qu’on a exactement retiré de vendredi ?",
+      "Samir, où en sont les notifications ?",
+      "Catherine, qu’est-ce qui part à la place ?",
+      "Qui va documenter le travail partiel ?"
+    ]
+  }
+}

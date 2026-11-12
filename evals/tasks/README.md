@@ -34,7 +34,7 @@ Codes: `EVALS_DIR_MISSING`, `UNREADABLE_DIRECTORY`,
 `GOLDEN_AGREEMENT_MISSING`, `GOLDEN_TASK_MISSING`,
 `GOLDEN_TASK_SPLIT_MISMATCH`, `GOLDEN_LOCALE_MISMATCH`,
 `SESSION_REFERENCE_MISSING`, `SESSION_VERSION_MISMATCH`,
-`SESSION_LOCALE_MISSING`, `SESSION_PERSONA_MISMATCH`.
+`SESSION_LOCALE_MISSING`, `SESSION_PERSONA_MISMATCH`, `SPEAKER_LABEL_INVALID`.
 
 ## Session tasks (M2)
 
@@ -63,6 +63,23 @@ storing persona turns:
 - `recordedPersonaTurns` is a canned-regression fixture only. A live run ignores
   it and the model generates the persona turns.
 - A replay task (`mode` omitted or `"replay"`) keeps `content.turns`.
+
+### Multi-persona session tasks (M3b)
+
+`session.personaIds` is optional and additive. When present it lists the
+eligible personas in driver order; the first entry must equal the opening
+`personaId`. Every listed persona must resolve, match `personaVersion`, have a
+locale variant, and belong to the scenario variant. The M3b data lives in
+`synthetic-multi-persona-session/m3b-v1`, separate from the M2
+`synthetic-workplace-session` dataset, so the M2 canned regression still selects
+only its original six tasks.
+
+A golden entry for a multi-persona session uses `speakerLabels` instead of the
+routing labels: one entry per scripted user turn, with an acceptable persona set
+(or learner yield) and `labelSource`. The validator requires every user turn,
+rejects unknown personas, and refuses `stable` while the labels are agent-only.
+The D5 labels are `draft`; their two-pass agreement was 0.75 per language, below
+the pre-registered 0.80, so they are not ground truth.
 
 ## Provenance and consent
 
@@ -100,8 +117,9 @@ in place invalidates results that referenced it.
 
 ## Golden entries
 
-Golden entries are the human-based grader: they carry routing labels, 1–5 per-dimension scores, evidence spans,
-blind pairwise preferences, and an optional `annotatorAgreement` block. A
+Golden entries are the human-based grader: they carry routing labels (or, for a
+multi-persona session, `speakerLabels`), 1–5 per-dimension scores, evidence
+spans, blind pairwise preferences, and an optional `annotatorAgreement` block. A
 golden entry's `taskId`, when present, must resolve to a task in the same
 language and version, and its `split` must match that task's split. A golden
 entry may only use `status: "stable"` when agreement was measured with at least

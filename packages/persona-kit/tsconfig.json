@@ -5,5 +5,9 @@
     "outDir": "dist"
   },
   "include": ["src/**/*.ts"],
-  "references": [{ "path": "../shared" }, { "path": "../scenario-kit" }]
+  "references": [
+    { "path": "../shared" },
+    { "path": "../scenario-kit" },
+    { "path": "../routing-policy" }
+  ]
 }

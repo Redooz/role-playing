@@ -1,0 +1,41 @@
+{
+  "id": "golden-en-b2-scope-en-hold-302",
+  "lang": "en",
+  "locale": "en",
+  "split": "holdout",
+  "taskId": "en-b2-scope-en-hold-302",
+  "speakerLabels": [
+    {
+      "turnIndex": 0,
+      "acceptablePersonaIds": ["manager", "peer"],
+      "allowUserYield": false,
+      "labelSource": "agent",
+      "note": "D5 agent label: adjudicated after two independent passes; provisional, not human ground truth."
+    },
+    {
+      "turnIndex": 1,
+      "acceptablePersonaIds": ["peer"],
+      "allowUserYield": false,
+      "labelSource": "agent",
+      "note": "D5 draft label; provisional until two independent passes are compared."
+    },
+    {
+      "turnIndex": 2,
+      "acceptablePersonaIds": ["manager"],
+      "allowUserYield": false,
+      "labelSource": "agent",
+      "note": "D5 draft label; provisional until two independent passes are compared."
+    },
+    {
+      "turnIndex": 3,
+      "acceptablePersonaIds": ["manager", "peer"],
+      "allowUserYield": false,
+      "labelSource": "agent",
+      "note": "D5 agent label: adjudicated after two independent passes; provisional, not human ground truth."
+    }
+  ],
+  "status": "draft",
+  "notes": "D5 agent labels. Raw two-pass exact agreement was 75% per language, below the pre-registered 80%; the adjudication kept the shared set. Not human ground truth and not stable.",
+  "evidenceSpans": [],
+  "pairwisePreferences": []
+}

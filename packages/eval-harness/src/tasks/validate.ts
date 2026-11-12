@@ -70,6 +70,7 @@ export type ViolationCode =
   | 'ROUTING_PERSONA_UNKNOWN'
   | 'ROUTING_LABEL_INVALID'
   | 'ROUTING_LABEL_MISSING'
+  | 'SPEAKER_LABEL_INVALID'
 
 export interface TaskViolation {
   /** Path relative to `rootDir`, always with `/` separators. */
@@ -446,21 +447,21 @@ function taskLinkKey(lang: Lang, version: string, locale: string, taskId: string
   return `${lang}\u0000${version}\u0000${locale}\u0000${taskId}`
 }
 
+interface TaskLinkRecord {
+  readonly split: Split
+  readonly path: string
+  readonly routing?: { readonly eligiblePersonaIds: readonly string[] }
+  readonly session?: { readonly personaIds: readonly string[]; readonly turns: number }
+}
+
 function registerTaskForGolden(
-  tasks: Map<
-    string,
-    {
-      split: Split
-      path: string
-      routing?: { eligiblePersonaIds: readonly string[] }
-    }[]
-  >,
+  tasks: Map<string, TaskLinkRecord[]>,
   location: TaskLocation,
   entry: TaskEntry,
   path: string,
 ): void {
   const key = taskLinkKey(entry.lang, location.version, entry.locale ?? entry.lang, entry.id)
-  const record = {
+  const record: TaskLinkRecord = {
     split: entry.split,
     path,
     ...(entry.routing === undefined
@@ -468,6 +469,14 @@ function registerTaskForGolden(
       : {
           routing: {
             eligiblePersonaIds: entry.routing.context.personas.map((persona) => persona.id),
+          },
+        }),
+    ...(entry.session === undefined
+      ? {}
+      : {
+          session: {
+            personaIds: entry.session.personaIds ?? [entry.session.personaId],
+            turns: entry.session.scriptedUserTurns.length,
           },
         }),
   }
@@ -484,14 +493,7 @@ function checkGoldenTaskLink(
   entry: GoldenEntry,
   location: GoldenLocation,
   path: string,
-  tasks: Map<
-    string,
-    {
-      split: Split
-      path: string
-      routing?: { eligiblePersonaIds: readonly string[] }
-    }[]
-  >,
+  tasks: Map<string, TaskLinkRecord[]>,
   violations: TaskViolation[],
 ): void {
   if (entry.locale !== undefined && baseLanguageOfLocale(entry.locale) !== location.lang) {
@@ -507,6 +509,13 @@ function checkGoldenTaskLink(
       path,
       code: 'ROUTING_LABEL_INVALID',
       message: 'a routingOutcome label must name the routing taskId it labels',
+    })
+  }
+  if (entry.speakerLabels !== undefined && entry.taskId === undefined) {
+    violations.push({
+      path,
+      code: 'SPEAKER_LABEL_INVALID',
+      message: 'a speakerLabels entry must name the session taskId it labels',
     })
   }
 
@@ -530,6 +539,45 @@ function checkGoldenTaskLink(
       code: 'GOLDEN_TASK_SPLIT_MISMATCH',
       message: `golden entry split "${entry.split}" does not match task "${entry.taskId}" split (${splits})`,
     })
+  }
+
+  if (entry.speakerLabels !== undefined) {
+    const record = records.find((candidate) => candidate.split === entry.split)
+    if (record?.session === undefined) {
+      violations.push({
+        path,
+        code: 'SPEAKER_LABEL_INVALID',
+        message: `speakerLabels point at task "${entry.taskId}", which is not a session task`,
+      })
+    } else {
+      const { personaIds, turns } = record.session
+      if (entry.speakerLabels.length !== turns) {
+        violations.push({
+          path,
+          code: 'SPEAKER_LABEL_INVALID',
+          message: `speakerLabels cover ${entry.speakerLabels.length} turn(s), but task "${entry.taskId}" has ${turns} scripted user turn(s)`,
+        })
+      }
+      const eligible = new Set(personaIds)
+      for (const label of entry.speakerLabels) {
+        if (label.turnIndex >= turns) {
+          violations.push({
+            path,
+            code: 'SPEAKER_LABEL_INVALID',
+            message: `speakerLabels turnIndex ${label.turnIndex} is outside task "${entry.taskId}"`,
+          })
+        }
+        for (const personaId of label.acceptablePersonaIds) {
+          if (!eligible.has(personaId)) {
+            violations.push({
+              path,
+              code: 'SPEAKER_LABEL_INVALID',
+              message: `acceptable persona "${personaId}" is not eligible in session task "${entry.taskId}"`,
+            })
+          }
+        }
+      }
+    }
   }
 
   if (entry.routingOutcome === undefined) return
@@ -575,14 +623,17 @@ function checkSessionReferences(entry: TaskEntry, path: string, violations: Task
   if (entry.mode !== 'session' || session === undefined) return
 
   const locale = entry.locale ?? entry.lang
-  const persona = PERSONAS_BY_ID.get(session.personaId)
-  if (persona === undefined) {
-    violations.push({
-      path,
-      code: 'SESSION_REFERENCE_MISSING',
-      message: `personaId "${session.personaId}" does not resolve to a registered persona`,
-    })
-  } else {
+  const personaIds = session.personaIds ?? [session.personaId]
+  for (const personaId of personaIds) {
+    const persona = PERSONAS_BY_ID.get(personaId)
+    if (persona === undefined) {
+      violations.push({
+        path,
+        code: 'SESSION_REFERENCE_MISSING',
+        message: `personaId "${personaId}" does not resolve to a registered persona`,
+      })
+      continue
+    }
     if (persona.version !== session.personaVersion) {
       violations.push({
         path,
@@ -631,12 +682,14 @@ function checkSessionReferences(entry: TaskEntry, path: string, violations: Task
     return
   }
 
-  if (!variant.personaIds.includes(session.personaId)) {
-    violations.push({
-      path,
-      code: 'SESSION_PERSONA_MISMATCH',
-      message: `scenario "${scenario.id}" does not include persona "${session.personaId}"`,
-    })
+  for (const personaId of personaIds) {
+    if (!variant.personaIds.includes(personaId)) {
+      violations.push({
+        path,
+        code: 'SESSION_PERSONA_MISMATCH',
+        message: `scenario "${scenario.id}" does not include persona "${personaId}"`,
+      })
+    }
   }
 }
 

@@ -12,8 +12,10 @@
   "dependencies": {
     "@rp/persona-kit": "*",
     "@rp/pipeline": "*",
+    "@rp/routing-policy": "*",
     "@rp/scenario-kit": "*",
     "@rp/session-core": "*",
-    "@rp/shared": "*"
+    "@rp/shared": "*",
+    "@rp/turn-arbiter": "*"
   }
 }

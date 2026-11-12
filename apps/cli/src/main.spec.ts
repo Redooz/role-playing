@@ -92,6 +92,25 @@ describe('main session id argument', () => {
     }
   })
 
+  it.each([
+    [['--persona', 'manager', '--personas', 'manager,peer'], 'either --persona or --personas'],
+    [['--personas', 'manager'], 'exactly two'],
+    [['--personas', 'manager,peer,client'], 'exactly two'],
+    [['--personas', 'manager,manager'], 'must not repeat'],
+    [
+      ['--personas', 'manager,peer', '--scenario', 'request-deadline-extension'],
+      'does not include persona',
+    ],
+  ])('rejects invalid multi-persona selection %j with exit code 2', async (args, message) => {
+    const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+    try {
+      await expect(main(args)).resolves.toBe(2)
+      expect(err.mock.calls.map((call) => String(call[0])).join('')).toContain(message)
+    } finally {
+      err.mockRestore()
+    }
+  })
+
   it('requires an explicit persona for live mode', async () => {
     const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
     try {

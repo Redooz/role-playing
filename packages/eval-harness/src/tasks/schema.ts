@@ -98,6 +98,12 @@ export const localeTagSchema = z
  */
 export const sessionTaskSchema = z.strictObject({
   personaId: z.string().min(1),
+  /**
+   * Personas eligible in this session, in driver order. The first entry is the
+   * opening persona and must equal `personaId`. Omitted means the M2
+   * single-persona mode.
+   */
+  personaIds: z.array(z.string().min(1)).min(1).max(3).optional(),
   personaVersion: z.string().min(1),
   scenarioId: z.string().min(1),
   scenarioVersion: z.string().min(1),
@@ -193,6 +199,25 @@ export const taskEntrySchema = z
           path: ['content', 'turns'],
           message: 'a session task must not store persona turns; the model generates them',
         })
+      }
+      if (task.session !== undefined) {
+        const personaIds = task.session.personaIds
+        if (personaIds !== undefined) {
+          if (new Set(personaIds).size !== personaIds.length) {
+            ctx.addIssue({
+              code: 'custom',
+              path: ['session', 'personaIds'],
+              message: 'session personaIds must not repeat',
+            })
+          }
+          if (personaIds[0] !== task.session.personaId) {
+            ctx.addIssue({
+              code: 'custom',
+              path: ['session', 'personaIds'],
+              message: 'the first session persona must be the opening personaId',
+            })
+          }
+        }
       }
     } else if (task.mode === 'routing') {
       if (task.routing === undefined) {
@@ -313,6 +338,40 @@ export const routingOutcomeLabelSchema = z
 
 export type RoutingOutcomeLabel = z.infer<typeof routingOutcomeLabelSchema>
 
+/**
+ * One user turn's acceptable speakers in a session task.
+ *
+ * `turnIndex` is the index in `session.scriptedUserTurns`, not the transcript.
+ * A label is a set: one persona, both personas in either order, or a learner
+ * yield. Labels stay provisional until the annotation agreement gate.
+ */
+export const speakerLabelSchema = z
+  .strictObject({
+    turnIndex: z.int().nonnegative(),
+    acceptablePersonaIds: z.array(z.string().min(1)),
+    allowUserYield: z.boolean(),
+    labelSource: z.enum(['agent', 'human']),
+    note: z.string().min(1).optional(),
+  })
+  .superRefine((label, ctx) => {
+    if (label.acceptablePersonaIds.length === 0 && !label.allowUserYield) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['acceptablePersonaIds'],
+        message: 'a speaker label must accept at least one persona or learner yield',
+      })
+    }
+    if (new Set(label.acceptablePersonaIds).size !== label.acceptablePersonaIds.length) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['acceptablePersonaIds'],
+        message: 'acceptablePersonaIds must not repeat',
+      })
+    }
+  })
+
+export type SpeakerLabel = z.infer<typeof speakerLabelSchema>
+
 /** One human judgment about a single transcript. */
 export const goldenEntrySchema = z
   .strictObject({
@@ -350,6 +409,11 @@ export const goldenEntrySchema = z
       .optional(),
     /** M3a routing-replay labels; mutually exclusive with legacy routingLabels. */
     routingOutcome: routingOutcomeLabelSchema.optional(),
+    /**
+     * M3b session labels: acceptable speakers after each scripted user turn.
+     * Mutually exclusive with routing labels; the entry must carry one family.
+     */
+    speakerLabels: z.array(speakerLabelSchema).min(1).optional(),
     /**
      * 1–5 rubric scores keyed by dimension name. Keeping dimension names as data
      * lets a rubric version add a dimension without a schema major bump.
@@ -416,11 +480,15 @@ export const goldenEntrySchema = z
       }
     }
 
-    if (entry.routingLabels === undefined && entry.routingOutcome === undefined) {
+    if (
+      entry.routingLabels === undefined &&
+      entry.routingOutcome === undefined &&
+      entry.speakerLabels === undefined
+    ) {
       ctx.addIssue({
         code: 'custom',
         path: ['routingLabels'],
-        message: 'a golden entry requires routingLabels or routingOutcome',
+        message: 'a golden entry requires routingLabels, routingOutcome or speakerLabels',
       })
     }
     if (entry.routingLabels !== undefined && entry.routingOutcome !== undefined) {
@@ -429,6 +497,34 @@ export const goldenEntrySchema = z
         path: ['routingOutcome'],
         message: 'routingLabels and routingOutcome are mutually exclusive',
       })
+    }
+    if (
+      entry.speakerLabels !== undefined &&
+      (entry.routingLabels !== undefined || entry.routingOutcome !== undefined)
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['speakerLabels'],
+        message: 'speakerLabels cannot be combined with routing labels',
+      })
+    }
+    if (entry.speakerLabels !== undefined) {
+      const turns = entry.speakerLabels.map((label) => label.turnIndex)
+      for (const [index, turnIndex] of turns.entries()) {
+        if (index === 0 && turnIndex !== 0) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['speakerLabels', 0, 'turnIndex'],
+            message: 'speakerLabels must start at the first user turn (index 0)',
+          })
+        } else if (index > 0 && turnIndex !== (turns[index - 1] ?? -1) + 1) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['speakerLabels', index, 'turnIndex'],
+            message: 'speakerLabels must cover consecutive user turns in order',
+          })
+        }
+      }
     }
     if (entry.routingLabels !== undefined && entry.dimensionScores === undefined) {
       ctx.addIssue({
@@ -445,6 +541,14 @@ export const goldenEntrySchema = z
         path: ['routingOutcome', 'labelSource'],
         message:
           "agent routing labels cannot be 'stable'; only blind human double-labelling can be stable",
+      })
+    }
+    if (entry.speakerLabels?.some((label) => label.labelSource === 'agent')) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['speakerLabels'],
+        message:
+          "agent speaker labels cannot be 'stable'; only blind human double-labelling can be stable",
       })
     }
     if (!hasMeasuredAgreement(entry.annotatorAgreement)) {

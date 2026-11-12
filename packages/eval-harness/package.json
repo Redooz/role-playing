@@ -15,6 +15,7 @@
     "@rp/scenario-kit": "*",
     "@rp/session-core": "*",
     "@rp/shared": "*",
+    "@rp/turn-arbiter": "*",
     "zod": "^4.6.7"
   }
 }
