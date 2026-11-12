@@ -469,10 +469,11 @@ describe('seeded task tree', () => {
       }
 
       const goldenDir = join(REPO_ROOT, 'evals/golden', lang, 'v1')
-      const goldenFile =
-        lang === 'en'
-          ? 'golden-en-v1-report-deadline-001.json'
-          : 'golden-fr-v1-rapport-delai-001.json'
+      const goldenFiles = (await readdir(goldenDir)).filter((name) => name.endsWith('.json'))
+      expect(goldenFiles).toHaveLength(1)
+
+      const [goldenFile] = goldenFiles
+      if (goldenFile === undefined) continue
       const golden = JSON.parse(await readFile(join(goldenDir, goldenFile), 'utf8')) as GoldenEntry
       expect(golden.status).toBe('draft')
       expect(golden.annotatorAgreement).toBeUndefined()

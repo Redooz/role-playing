@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { resolve } from 'node:path'
+import { isAbsolute, relative, resolve } from 'node:path'
 import { createInterface } from 'node:readline/promises'
 import { parseArgs } from 'node:util'
 import {
@@ -88,10 +88,20 @@ function printable(value: string): string {
   return JSON.stringify(bounded)
 }
 
+/** Reject a resolved path that is the base directory or escapes it. */
+export function assertPathInside(baseDir: string, path: string): void {
+  const base = resolve(baseDir)
+  const target = resolve(path)
+  const relativePath = relative(base, target)
+  if (relativePath === '' || relativePath.startsWith('..') || isAbsolute(relativePath)) {
+    throw new Error(`refusing to write a session log outside "${base}"`)
+  }
+}
+
 /**
  * Resolve the log file for a session id and reject any path that escapes the
- * log directory. The id validation already makes traversal impossible; this is
- * the defence-in-depth check on the resolved path.
+ * log directory. The id pattern already makes traversal impossible; this is a
+ * defence-in-depth check for the exported helper.
  */
 export function resolveSessionLogPath(logDir: string, sessionId: string): string {
   if (!isValidSessionId(sessionId)) {
@@ -99,7 +109,9 @@ export function resolveSessionLogPath(logDir: string, sessionId: string): string
   }
 
   const base = resolve(logDir)
-  return resolve(base, `${sessionId}.jsonl`)
+  const path = resolve(base, `${sessionId}.jsonl`)
+  assertPathInside(base, path)
+  return path
 }
 
 export async function main(argv: readonly string[]): Promise<number> {
@@ -263,7 +275,13 @@ export async function main(argv: readonly string[]): Promise<number> {
   // parseArgs supplies the default, so the value is always present.
   const logDir = resolve(values['log-dir'] as string)
 
-  const logPath = resolveSessionLogPath(logDir, sessionId)
+  let logPath: string
+  try {
+    logPath = resolveSessionLogPath(logDir, sessionId)
+  } catch (error) {
+    io.err(`error: ${error instanceof Error ? error.message : String(error)}`)
+    return 2
+  }
 
   let provider: CliProvider
   let clock: Clock

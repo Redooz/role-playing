@@ -205,7 +205,7 @@ export async function runCli(options: RunCliOptions): Promise<void> {
       }
       await driver.interrupt()
       try {
-        await printReplay(path, io, readFileImpl, multiPersona)
+        await printReplay(path, io, readFileImpl)
       } catch (error) {
         io.err(`replay failed: ${messageOf(error)}`)
       }
@@ -243,9 +243,9 @@ async function printReplay(
   path: string,
   io: CliIo,
   readFileImpl: (path: string) => Promise<string>,
-  multiPersona: boolean,
 ): Promise<void> {
   const replayed = replaySessionLog(await readFileImpl(path))
+  const multiPersona = (replayed.header.personaIds?.length ?? 0) > 1
 
   io.out(
     `session ${replayed.header.sessionId} (${replayed.header.startedAt}, provider ${replayed.header.provider}, lang ${replayed.header.lang})`,
