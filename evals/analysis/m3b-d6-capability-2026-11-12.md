@@ -71,8 +71,9 @@ records never changed a session event. Report:
 | `det-central` | 48      | 1.000 (48/48)               | 0          |
 | `jev-central` | 48      | 0.625 (30/48)               | 0.00162    |
 
-Total shadow cost: **$0.0056**. Combined with the capability runs, spend stayed
-well below the $5 cap. No arm is promoted.
+Shadow cost: **$0.0056**. The eval runner does not meter capability spend, so the
+combined M3b total is **unmeasured**; it is not claimed as below the $5 cap. No
+arm is promoted.
 
 ## Findings
 

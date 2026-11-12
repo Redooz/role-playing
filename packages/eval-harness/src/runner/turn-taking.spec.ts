@@ -120,7 +120,7 @@ function trial(overrides: Partial<TrialRecord> = {}): TrialRecord {
 }
 
 describe('turn-taking grader', () => {
-  it('counts a turn acceptable when any grant is in the label set', () => {
+  it('counts a turn acceptable when any granted speaker is in the label set', () => {
     expect(scoreTrialTurnTaking(trial())).toEqual({ turns: 4, acceptable: 3 })
 
     const multiple = trial({

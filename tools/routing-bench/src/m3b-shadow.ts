@@ -1,10 +1,10 @@
-import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
+import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
   createJevClient,
   createJevRoutingJudge,
   runSessionTask,
-  taskEntrySchema,
   writeShadowRecords,
   type CompletionProvider,
   type ShadowRecord,
@@ -16,6 +16,7 @@ import {
   createLiveKitInferenceTextModel,
 } from '@rp/pipeline'
 import { SystemClock } from '@rp/shared'
+import { aggregate, costOf, loadHoldoutTasks } from './m3b-shadow-summary.js'
 
 /**
  * M3b shadow comparison, eval only.
@@ -24,7 +25,7 @@ import { SystemClock } from '@rp/shared'
  * non-live arms after each user turn. Shadow records cannot change a session
  * event; they go to `shadow.jsonl` and a summary. No policy is adopted.
  */
-const REPO_ROOT = resolve(new URL('../../../', import.meta.url).pathname)
+const REPO_ROOT = fileURLToPath(new URL('../../../', import.meta.url))
 const TASKS_ROOT = join(REPO_ROOT, 'evals/tasks/synthetic-multi-persona-session/m3b-v1')
 const RESULTS_ROOT = join(REPO_ROOT, 'evals/results/m3b-shadow')
 const CURRENT_DATE = '2026-11-12'
@@ -63,60 +64,10 @@ function liveProvider(): CompletionProvider {
   }
 }
 
-async function loadHoldoutTasks() {
-  const tasks = []
-  for (const lang of ['en', 'fr'] as const) {
-    const directory = join(TASKS_ROOT, lang)
-    const files = (await readdir(directory)).filter((name) => name.endsWith('.json')).sort()
-    for (const file of files) {
-      const task = taskEntrySchema.parse(JSON.parse(await readFile(join(directory, file), 'utf8')))
-      if (task.split === 'holdout') tasks.push(task)
-    }
-  }
-  return tasks
-}
-
-function costOf(records: readonly ShadowRecord[]): number {
-  return records.reduce((total, record) => total + (record.usage?.costUsd ?? 0), 0)
-}
-
-function aggregate(tasks: readonly { taskId: string; summary: ShadowSummary }[]) {
-  const arms = new Map<
-    string,
-    { records: number; agreements: number; disagreements: number; costUsd: number }
-  >()
-  for (const entry of tasks) {
-    for (const arm of entry.summary.arms) {
-      const current = arms.get(arm.arm) ?? {
-        records: 0,
-        agreements: 0,
-        disagreements: 0,
-        costUsd: 0,
-      }
-      current.records += arm.records
-      current.agreements += arm.agreements
-      current.disagreements += arm.disagreements
-      current.costUsd += arm.usage?.costUsd ?? 0
-      arms.set(arm.arm, current)
-    }
-  }
-  return [...arms.entries()].map(([arm, value]) => ({
-    arm,
-    records: value.records,
-    agreements: value.agreements,
-    disagreements: value.disagreements,
-    agreementRate:
-      value.agreements + value.disagreements === 0
-        ? null
-        : value.agreements / (value.agreements + value.disagreements),
-    costUsd: value.costUsd,
-  }))
-}
-
 async function main(): Promise<void> {
   const apiKey = env('OPENROUTER_API_KEY')
   const judge = createJevRoutingJudge(createJevClient({ apiKey, cache: false }))
-  const tasks = await loadHoldoutTasks()
+  const tasks = await loadHoldoutTasks(TASKS_ROOT)
   const records: ShadowRecord[] = []
   const summaries: { taskId: string; summary: ShadowSummary }[] = []
 
@@ -143,6 +94,9 @@ async function main(): Promise<void> {
       summaries.push({ taskId: task.id, summary: result.shadow.summary })
       await writeShadowRecords(join(RESULTS_ROOT, 'shadow.jsonl'), result.shadow.records)
       const totalCost = costOf(records)
+      if (totalCost === null) {
+        throw new Error('shadow cost is unknown; refusing to treat a missing cost as zero')
+      }
       if (totalCost >= COST_CAP_USD) {
         throw new Error(`shadow cost $${totalCost.toFixed(4)} reached the $${COST_CAP_USD} cap`)
       }
@@ -154,14 +108,17 @@ async function main(): Promise<void> {
     }
   }
 
+  const shadowCost = costOf(records)
   const combined = {
     schemaVersion: 1,
     suite: 'm3b-shadow',
     note: 'Eval-only shadow comparison over holdout tasks. No policy is adopted.',
+    capUsd: COST_CAP_USD,
+    capScope: 'shadow records only; capability spend is recorded separately',
     seed: SEED,
     deadlineMs: DEADLINE_MS,
     records: records.length,
-    costUsd: costOf(records),
+    costUsd: shadowCost,
     arms: aggregate(summaries),
     tasks: summaries,
     generatedAt: new Date().toISOString(),
