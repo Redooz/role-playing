@@ -6,7 +6,7 @@ import {
   type ReasoningEffort,
 } from './version.js'
 import type { PersonaVariant } from '../persona.js'
-import type { ScenarioVariant } from '@rp/scenario-kit'
+import { objectivesForPersona, type ScenarioVariant } from '@rp/scenario-kit'
 
 /**
  * Static prompt sections (M2 D3).
@@ -109,8 +109,9 @@ export function renderExamples(variant: PersonaVariant): string {
   return lines.join('\n')
 }
 
-export function renderScenarioDetails(variant: ScenarioVariant): string {
-  const objectives = variant.objectives.flatMap((objective) => [
+/** Render the scenario facts and only the objectives that apply to this persona. */
+export function renderScenarioDetails(variant: ScenarioVariant, personaId: string): string {
+  const objectives = objectivesForPersona(variant, personaId).flatMap((objective) => [
     `- ${objective.id}: ${objective.description}`,
     ...objective.successCriteria.map((criterion) => `  - ${criterion}`),
   ])

@@ -346,27 +346,43 @@ describe('persona prompt builder', () => {
     }
   })
 
-  it('rejects a scenario whose opening is assigned to another persona', () => {
-    const scenario = scenarioById('request-deadline-extension')
-    const variant = scenario.variants['en']!
-    const mismatched: ScenarioSpec = {
-      ...scenario,
-      variants: {
-        ...scenario.variants,
-        en: {
-          ...variant,
-          opening: { ...variant.opening, personaId: 'peer' },
-        },
-      },
-    }
-    expect(() =>
-      buildPersonaPrompt({
-        persona: personaById('manager'),
-        scenario: mismatched,
-        locale: 'en',
-        currentDate: DATE,
-      }),
-    ).toThrow(/opens with persona "peer"/)
+  it('builds a non-opening persona without the greeting opening section', () => {
+    const scenario = scenarioById('standup-scope-change')
+    const manager = buildPersonaPrompt({
+      persona: personaById('manager'),
+      scenario,
+      locale: 'en',
+      currentDate: DATE,
+    })
+    const peer = buildPersonaPrompt({
+      persona: personaById('peer'),
+      scenario,
+      locale: 'en',
+      currentDate: DATE,
+    })
+    const peerGemma = buildPersonaPrompt({
+      persona: personaById('peer'),
+      scenario,
+      locale: 'en',
+      currentDate: DATE,
+      style: 'gemma',
+    })
+
+    expect(manager.greetingSystemPrompt).toContain('## Opening')
+    expect(peer.greetingSystemPrompt).not.toContain('## Opening')
+    expect(peer.greetingPack).not.toContain('Stryker was here')
+
+    expect(manager.sessionSystemPrompt).toContain('agree-priority')
+    expect(manager.sessionSystemPrompt).not.toContain('assess-impact')
+    expect(peer.sessionSystemPrompt).toContain('assess-impact')
+    expect(peer.sessionSystemPrompt).not.toContain('agree-priority')
+    expect(peer.sessionSystemPrompt).toContain('confirm-scope')
+    expect(peer.sessionSystemPrompt).toContain('state-next-step')
+
+    expect(peerGemma.sessionSystemPrompt).not.toContain('FIRST TURN')
+    expect(peerGemma.greetingPack).not.toContain('Stryker was here')
+    expect(peerGemma.sessionSystemPrompt).toContain('assess-impact')
+    expect(peerGemma.sessionSystemPrompt).not.toContain('agree-priority')
   })
 
   it('renders a locale with no regional convention entry', () => {

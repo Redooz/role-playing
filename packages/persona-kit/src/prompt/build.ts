@@ -113,11 +113,11 @@ export function buildPersonaPrompt(options: BuildPersonaPromptOptions): BuiltPer
       `scenario "${options.scenario.id}" does not include persona "${options.persona.id}"`,
     )
   }
-  if (scenario.opening.personaId !== options.persona.id) {
-    throw new PromptVariantError(
-      `scenario "${options.scenario.id}" opens with persona "${scenario.opening.personaId}", not "${options.persona.id}"`,
-    )
-  }
+  // A non-opening persona has session instructions but no greeting pack. This
+  // changes no existing M2 render: every M2 scenario has one persona and that
+  // persona opens. The prompt version therefore stays put until an existing
+  // accepted render changes.
+  const opens = scenario.opening.personaId === options.persona.id
 
   let greetingPack: string
   let sessionPack: string
@@ -126,6 +126,7 @@ export function buildPersonaPrompt(options: BuildPersonaPromptOptions): BuiltPer
 
   if (style === 'gemma') {
     const packs = renderGemmaPacks({
+      personaId: options.persona.id,
       persona,
       scenario,
       role: options.persona.role,
@@ -146,7 +147,7 @@ export function buildPersonaPrompt(options: BuildPersonaPromptOptions): BuiltPer
       renderRole(persona, options.persona.role, options.persona.organization),
       renderScene(scenario),
       renderLanguageAndLocale(persona, scenario, options.scenario.cefrBand),
-      renderOpening(persona, scenario),
+      ...(opens ? [renderOpening(persona, scenario)] : []),
     ].join('\n\n')
 
     const examples = renderExamples(persona)
@@ -154,7 +155,7 @@ export function buildPersonaPrompt(options: BuildPersonaPromptOptions): BuiltPer
       renderGoals(persona),
       renderBoundaries(persona),
       renderStyle(persona),
-      renderScenarioDetails(scenario),
+      renderScenarioDetails(scenario, options.persona.id),
       ...(examples === '' ? [] : [examples]),
     ].join('\n\n')
 
