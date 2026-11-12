@@ -121,11 +121,20 @@ papered over:
 
 ### M3b D4 addendum (2026-11-11)
 
-D4 adds the `det-persona` live control arm in `routing-policy`. The full suite
-measured **96.06 / 96.35** globally and **100.00 / 100.00** for
-`routing-policy` over 377 mutants (47 of them in `live-policy.ts`). No existing
-floor changed and the baseline file was not re-recorded. D4 adds no meaningful
-survivors; the remaining survivors are the D3 equivalents already listed above.
+D4 adds the `det-persona` live control arm in `routing-policy` and teaches the
+prompt builder to render a non-opening persona. The full suite measured
+**96.08 / 96.36** globally, **100.00 / 100.00** for `routing-policy` (47 mutants
+in `live-policy.ts`), **100.00 / 100.00** for `scenario-kit` (17 mutants in
+`lookup.ts`) and **99.14 / 99.43** for `persona-kit` (floor 99.13 / 99.42). No
+existing floor changed and the baseline file was not re-recorded.
+
+The first D4 pass dropped `persona-kit` to 98.57 because the non-opening prompt
+branch had no exact assertion: Stryker could inject a replacement greeting
+section and the test only checked that the opening heading was absent. The test
+now asserts the non-opening greeting pack directly, so the two new survivors are
+killed. The two remaining `template-gemma.ts` survivors are the existing
+capitalisation equivalents recorded by M2, not new D4 gaps. `build.ts` and
+`template.ts` are back at 100.00.
 
 The new shadow runner and the `interruptionWarranted` judgment live in
 `packages/eval-harness`, which is outside the mutation-gated package set in

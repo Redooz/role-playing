@@ -1,5 +1,5 @@
 import { canonicalizeLocale } from '@rp/shared'
-import type { ScenarioSpec, ScenarioVariant } from './scenario.js'
+import type { ScenarioObjective, ScenarioSpec, ScenarioVariant } from './scenario.js'
 
 /**
  * Scenario lookup and validation entry points (M2 D2).
@@ -28,4 +28,20 @@ export function scenarioVariant(scenario: ScenarioSpec, locale: string): Scenari
   const variant = scenario.variants[canonical]
   if (variant === undefined) throw new ScenarioVariantMissingError(scenario.id, canonical)
   return variant
+}
+
+/** An objective without `personaIds` applies to every persona in the variant. */
+export function objectiveAppliesToPersona(
+  objective: ScenarioObjective,
+  personaId: string,
+): boolean {
+  return objective.personaIds === undefined || objective.personaIds.includes(personaId)
+}
+
+/** The objectives one persona may see. Order follows the variant data. */
+export function objectivesForPersona(
+  variant: ScenarioVariant,
+  personaId: string,
+): ScenarioObjective[] {
+  return variant.objectives.filter((objective) => objectiveAppliesToPersona(objective, personaId))
 }
