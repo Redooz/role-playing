@@ -573,3 +573,162 @@ describe('session task references', () => {
     expect(violations.map((violation) => violation.code)).toContain('SCHEMA_VIOLATION')
   })
 })
+
+describe('multi-persona task and speaker-label validation', () => {
+  function multiTask(overrides: Partial<TaskEntry> = {}): TaskEntry {
+    return taskEntry({
+      id: 'en-session-multi',
+      mode: 'session',
+      scenarioType: 'standup-scope-change',
+      content: { scenarioBrief: 'A scope change at stand-up.', turns: [] },
+      session: {
+        personaId: 'manager',
+        personaIds: ['manager', 'peer'],
+        personaVersion: '1.0.0',
+        scenarioId: 'standup-scope-change',
+        scenarioVersion: '1.0.0',
+        scriptedUserTurns: ['Sam, what is finished?', 'Katherine, what ships?'],
+      },
+      ...overrides,
+    })
+  }
+
+  function speakerGolden(overrides: Partial<GoldenEntry> = {}): GoldenEntry {
+    return goldenEntry({
+      id: 'golden-en-session-multi',
+      taskId: 'en-session-multi',
+      routingLabels: undefined,
+      dimensionScores: undefined,
+      speakerLabels: [
+        {
+          turnIndex: 0,
+          acceptablePersonaIds: ['peer'],
+          allowUserYield: false,
+          labelSource: 'agent',
+        },
+        {
+          turnIndex: 1,
+          acceptablePersonaIds: ['manager', 'peer'],
+          allowUserYield: false,
+          labelSource: 'agent',
+        },
+      ],
+      ...overrides,
+    })
+  }
+
+  it('accepts a covered multi-persona task and its speaker labels', async () => {
+    const root = await makeTree({
+      [taskPath('en', 'multi')]: multiTask(),
+      [goldenPath('en', 'multi')]: speakerGolden(),
+      [taskPath('fr', 'other')]: taskEntry({
+        id: 'fr-1',
+        lang: 'fr',
+        speakerId: 'fr-speaker',
+      }),
+    })
+    expect(await validateTaskTree(root)).toEqual([])
+  })
+
+  it('rejects a multi-persona session that lists an unknown persona', async () => {
+    const task = multiTask()
+    const root = await makeTree({
+      [taskPath('en', 'multi')]: {
+        ...task,
+        session: { ...task.session!, personaIds: ['manager', 'ghost'] },
+      },
+      [taskPath('fr', 'other')]: taskEntry({
+        id: 'fr-1',
+        lang: 'fr',
+        speakerId: 'fr-speaker',
+      }),
+    })
+    const violations = await validateTaskTree(root)
+    expect(violations.map((violation) => violation.code)).toContain('SESSION_REFERENCE_MISSING')
+  })
+
+  it('rejects a persona that the scenario does not include', async () => {
+    const task = multiTask()
+    const root = await makeTree({
+      [taskPath('en', 'multi')]: {
+        ...task,
+        session: { ...task.session!, scenarioId: 'request-deadline-extension' },
+      },
+      [taskPath('fr', 'other')]: taskEntry({
+        id: 'fr-1',
+        lang: 'fr',
+        speakerId: 'fr-speaker',
+      }),
+    })
+    const violations = await validateTaskTree(root)
+    expect(violations.map((violation) => violation.code)).toContain('SESSION_PERSONA_MISMATCH')
+  })
+
+  it('rejects speaker labels on a non-session task or with the wrong count', async () => {
+    const replay = taskEntry({ id: 'en-session-multi' })
+    const root = await makeTree({
+      [taskPath('en', 'multi')]: replay,
+      [goldenPath('en', 'multi')]: speakerGolden(),
+      [taskPath('fr', 'other')]: taskEntry({
+        id: 'fr-1',
+        lang: 'fr',
+        speakerId: 'fr-speaker',
+      }),
+    })
+    expect((await validateTaskTree(root)).map((violation) => violation.code)).toContain(
+      'SPEAKER_LABEL_INVALID',
+    )
+
+    const root2 = await makeTree({
+      [taskPath('en', 'multi')]: multiTask(),
+      [goldenPath('en', 'multi')]: speakerGolden({
+        speakerLabels: [
+          {
+            turnIndex: 0,
+            acceptablePersonaIds: ['peer'],
+            allowUserYield: false,
+            labelSource: 'agent',
+          },
+        ],
+      }),
+      [taskPath('fr', 'other')]: taskEntry({
+        id: 'fr-1',
+        lang: 'fr',
+        speakerId: 'fr-speaker',
+      }),
+    })
+    expect((await validateTaskTree(root2)).map((violation) => violation.code)).toContain(
+      'SPEAKER_LABEL_INVALID',
+    )
+  })
+
+  it('rejects an acceptable persona that is not eligible in the task', async () => {
+    const root = await makeTree({
+      [taskPath('en', 'multi')]: multiTask(),
+      [goldenPath('en', 'multi')]: speakerGolden({
+        speakerLabels: [
+          {
+            turnIndex: 0,
+            acceptablePersonaIds: ['client'],
+            allowUserYield: false,
+            labelSource: 'agent',
+          },
+          {
+            turnIndex: 1,
+            acceptablePersonaIds: ['manager'],
+            allowUserYield: false,
+            labelSource: 'agent',
+          },
+        ],
+      }),
+      [taskPath('fr', 'other')]: taskEntry({
+        id: 'fr-1',
+        lang: 'fr',
+        speakerId: 'fr-speaker',
+      }),
+    })
+    expect((await validateTaskTree(root)).map((violation) => violation.code)).toContain(
+      'SPEAKER_LABEL_INVALID',
+    )
+  })
+})

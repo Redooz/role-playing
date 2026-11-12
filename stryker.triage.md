@@ -376,3 +376,27 @@ mutants are killed, so there is no equivalent mutant to record.
 - The `session-core` and `shared` package floors are recorded at their measured
   values (91.96 and 93.27 total) and are not lowered from the previous baseline;
   they are the honest ceiling under the declared schema/static-data exclusion.
+
+### M3b D5 addendum (2026-11-11)
+
+D5 adds the multi-persona CLI, the live session runner, the persona-scoped
+routing context, the `personaIds` header field and the task/golden schema work.
+The full suite measured **96.28 / 96.49** globally, **97.36 / 97.84** for
+`apps/cli`, **93.06 / 93.30** for `session-core`, **99.14 / 99.43** for
+`persona-kit` and **100.00 / 100.00** for `routing-policy` and `scenario-kit`.
+Every existing floor held and the baseline file was not re-recorded.
+
+The first D5 pass dropped `apps/cli` to 88.53 because the composition test never
+executed the injected `buildContext`, `seedSource` or `arbiter.reduce`, and the
+replay path had no multi-persona fixture. The fixes are tests, not exemptions:
+the composition mock now runs the build context against a manager/peer history,
+a three-persona request is rejected before a driver exists, the replay fixture
+covers `turn.granted`, unknown grants and a labeled cancellation, and the
+session-log test covers multiple `personaIds` plus empty and blank ids. The
+remaining `apps/cli` survivors are the existing equivalent branches
+(`persona.response.started` has no body, `default` cases, and a pending-set
+cleanup whose only observable effect is a leaked promise reference).
+
+The shadow runner, live session runner and Jev question remain in
+`packages/eval-harness`, outside the AGENTS mutation-gated set. D7 records that
+scope gap; no floor is lowered to hide it.

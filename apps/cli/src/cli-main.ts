@@ -36,11 +36,18 @@ export interface CliProvider {
   readonly label: string
 }
 
+export interface CliPersona {
+  readonly personaId: string
+  readonly personaName: string
+}
+
 export interface CliSelection {
   readonly personaId: string
   readonly personaName: string
   readonly scenarioId: string
   readonly locale: string
+  /** Present only in multi-persona mode; the first entry is the opening persona. */
+  readonly personas?: readonly CliPersona[]
 }
 
 export interface RunCliOptions {
@@ -68,23 +75,42 @@ const HELP_LINES = [
 export async function runCli(options: RunCliOptions): Promise<void> {
   const { input, io, driver, provider } = options
   const readFileImpl = options.readFile ?? ((path: string) => readFile(path, 'utf8'))
+  const multiPersona = (options.selection?.personas?.length ?? 0) > 1
 
   io.out(`provider: ${provider.kind} (${provider.label})`)
   io.out(`session: ${driver.sessionId}`)
   if (options.selection !== undefined) {
-    io.out(
-      `persona: ${options.selection.personaName} (${options.selection.personaId}), scenario: ${options.selection.scenarioId}, locale: ${options.selection.locale}`,
-    )
+    if (multiPersona) {
+      io.out(
+        `personas: ${(options.selection.personas ?? [])
+          .map((persona) => `${persona.personaId} (${persona.personaName})`)
+          .join(
+            ', ',
+          )}, scenario: ${options.selection.scenarioId}, locale: ${options.selection.locale}`,
+      )
+    } else {
+      io.out(
+        `persona: ${options.selection.personaName} (${options.selection.personaId}), scenario: ${options.selection.scenarioId}, locale: ${options.selection.locale}`,
+      )
+    }
   }
   if (options.logPath !== undefined) io.out(`log: ${options.logPath}`)
   io.out('type /help for commands')
 
   let lineOpen = false
   let logFailed = false
+  const grantPersonas = new Map<string, string>()
 
-  const startPersona = (): void => {
+  const speakerPrefix = (grantId: string): string => {
+    if (!multiPersona) return 'persona> '
+    const personaId = grantPersonas.get(grantId)
+    if (personaId === undefined) return '[unknown] '
+    return `[${personaId}] `
+  }
+
+  const startPersona = (grantId: string): void => {
     if (lineOpen) return
-    io.write('persona> ')
+    io.write(speakerPrefix(grantId))
     lineOpen = true
   }
 
@@ -93,15 +119,18 @@ export async function runCli(options: RunCliOptions): Promise<void> {
       case 'user.utterance.committed':
         io.out(`you> ${event.payload.text}`)
         break
+      case 'turn.granted':
+        grantPersonas.set(event.payload.grant.grantId, event.payload.grant.personaId)
+        break
       case 'persona.response.started':
         break
       case 'persona.response.chunk':
-        startPersona()
+        startPersona(event.payload.grantId)
         io.write(event.payload.text)
         break
       case 'persona.response.committed':
         if (event.payload.text.length === 0) {
-          io.out('persona> [empty response]')
+          io.out(`${speakerPrefix(event.payload.grantId)}[empty response]`)
           lineOpen = false
           break
         }
@@ -111,7 +140,11 @@ export async function runCli(options: RunCliOptions): Promise<void> {
       case 'persona.response.cancelled': {
         if (lineOpen) io.write('\n')
         lineOpen = false
-        io.out(cancelledLabel(event))
+        io.out(
+          multiPersona
+            ? `${speakerPrefix(event.payload.grantId)}${cancelledLabel(event)}`
+            : cancelledLabel(event),
+        )
         break
       }
       case 'session.completed':
@@ -212,6 +245,7 @@ async function printReplay(
   readFileImpl: (path: string) => Promise<string>,
 ): Promise<void> {
   const replayed = replaySessionLog(await readFileImpl(path))
+  const multiPersona = (replayed.header.personaIds?.length ?? 0) > 1
 
   io.out(
     `session ${replayed.header.sessionId} (${replayed.header.startedAt}, provider ${replayed.header.provider}, lang ${replayed.header.lang})`,
@@ -220,11 +254,19 @@ async function printReplay(
   // Chunks are the only evidence of a reply that crashed before a terminal
   // event; keep them per grant and print what survived at the end.
   const partials = new Map<string, string>()
+  const grantPersonas = new Map<string, string>()
+  const prefix = (grantId: string): string => {
+    if (!multiPersona) return 'persona> '
+    return `[${grantPersonas.get(grantId) ?? 'unknown'}] `
+  }
 
   for (const event of replayed.events) {
     switch (event.type) {
       case 'user.utterance.committed':
         io.out(`you> ${event.payload.text}`)
+        break
+      case 'turn.granted':
+        grantPersonas.set(event.payload.grant.grantId, event.payload.grant.personaId)
         break
       case 'persona.response.chunk':
         partials.set(
@@ -234,13 +276,13 @@ async function printReplay(
         break
       case 'persona.response.committed':
         partials.delete(event.payload.grantId)
-        io.out(`persona> ${event.payload.text}`)
+        io.out(`${prefix(event.payload.grantId)}${event.payload.text}`)
         break
       case 'persona.response.cancelled': {
         partials.delete(event.payload.grantId)
         const partial = event.payload.partialText ?? ''
         io.out(
-          `persona> ${partial}${partial === '' ? '' : ' '}[cancelled: ${event.payload.reason}]`,
+          `${prefix(event.payload.grantId)}${partial}${partial === '' ? '' : ' '}[cancelled: ${event.payload.reason}]`,
         )
         break
       }
@@ -257,8 +299,8 @@ async function printReplay(
   }
 
   if (replayed.unterminated) {
-    for (const text of partials.values()) {
-      if (text.length > 0) io.out(`persona> ${text} [unfinished]`)
+    for (const [grantId, text] of partials) {
+      if (text.length > 0) io.out(`${prefix(grantId)}${text} [unfinished]`)
     }
     io.out('[unterminated: the log has no session.completed record]')
   }

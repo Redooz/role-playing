@@ -63,6 +63,8 @@ export const sessionLogHeaderSchema = z.strictObject({
   taskId: z.string().min(1).optional(),
   /** M2 session identity. Optional so an M1 log still parses. */
   personaId: z.string().min(1).optional(),
+  /** M3b multi-persona session identity, in driver order. */
+  personaIds: z.array(z.string().min(1)).min(1).optional(),
   personaVersion: z.string().min(1).optional(),
   scenarioId: z.string().min(1).optional(),
   scenarioVersion: z.string().min(1).optional(),

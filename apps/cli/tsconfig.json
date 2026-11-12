@@ -8,6 +8,10 @@
   "references": [
     { "path": "../../packages/shared" },
     { "path": "../../packages/session-core" },
-    { "path": "../../packages/pipeline" }
+    { "path": "../../packages/pipeline" },
+    { "path": "../../packages/persona-kit" },
+    { "path": "../../packages/scenario-kit" },
+    { "path": "../../packages/routing-policy" },
+    { "path": "../../packages/turn-arbiter" }
   ]
 }

@@ -8,8 +8,15 @@ import {
   createLiveKitInferenceTextModel,
   createPersonaTextModel,
 } from '@rp/pipeline'
-import { buildPersonaPrompt, personaById, personaVariant } from '@rp/persona-kit'
+import {
+  buildPersonaPrompt,
+  buildSessionRoutingContext,
+  personaById,
+  personaVariant,
+} from '@rp/persona-kit'
+import { createDetPersonaLivePolicy } from '@rp/routing-policy'
 import { scenarioById } from '@rp/scenario-kit'
+import { INITIAL_ARBITER_STATE, parseTurnArbiterConfig, reduce } from '@rp/turn-arbiter'
 import {
   TRANSCRIPT_SCHEMA_VERSION,
   createTextSessionDriver,
@@ -22,6 +29,7 @@ import {
   LocaleTagError,
   SystemClock,
   canonicalizeLocale,
+  createSeededRandom,
   localeMatchesLanguage,
   type Clock,
 } from '@rp/shared'
@@ -37,7 +45,7 @@ import { createFileSessionLog, type SessionLog } from './session-log.adapter.js'
  * transport-agnostic.
  */
 
-const USAGE = `role-play - single-agent text session (M2)
+const USAGE = `role-play - text session (M2/M3b)
 
 Usage:
   npm run chat -- [options]
@@ -47,6 +55,7 @@ Options:
   --lang <en|fr>            base session language (default: en)
   --locale <bcp47>          locale variant such as en-GB or fr-CA (default: the base lang)
   --persona <id>            manager, peer or client (canned default: manager)
+  --personas <ids>          two comma-separated personas, e.g. manager,peer
   --scenario <id>           scenario id (canned default: request-deadline-extension)
   --log-dir <dir>           where session logs are written (default: sessions)
   --session-id <id>         override the per-process session id (tests only)
@@ -55,8 +64,8 @@ Options:
   --help                    show this help
 
 Live mode requires LIVEKIT_API_KEY and LIVEKIT_API_SECRET in the environment
-(npm loads .env), and an explicit --persona and --scenario. The credentials are
-never printed. The model is fixed to google/gemma-4-31b-it.`
+(npm loads .env), and an explicit --persona or --personas plus --scenario. The
+credentials are never printed. The model is fixed to google/gemma-4-31b-it.`
 
 /**
  * A session id becomes a file name, so only path-safe characters are allowed.
@@ -79,10 +88,20 @@ function printable(value: string): string {
   return JSON.stringify(bounded)
 }
 
+/** Reject a resolved path that is the base directory or escapes it. */
+export function assertPathInside(baseDir: string, path: string): void {
+  const base = resolve(baseDir)
+  const target = resolve(path)
+  const relativePath = relative(base, target)
+  if (relativePath === '' || relativePath.startsWith('..') || isAbsolute(relativePath)) {
+    throw new Error(`refusing to write a session log outside "${base}"`)
+  }
+}
+
 /**
  * Resolve the log file for a session id and reject any path that escapes the
- * log directory. The id validation already makes traversal impossible; this is
- * the defence-in-depth check on the resolved path.
+ * log directory. The id pattern already makes traversal impossible; this is a
+ * defence-in-depth check for the exported helper.
  */
 export function resolveSessionLogPath(logDir: string, sessionId: string): string {
   if (!isValidSessionId(sessionId)) {
@@ -91,11 +110,7 @@ export function resolveSessionLogPath(logDir: string, sessionId: string): string
 
   const base = resolve(logDir)
   const path = resolve(base, `${sessionId}.jsonl`)
-  const relativePath = relative(base, path)
-  if (relativePath === '' || relativePath.startsWith('..') || isAbsolute(relativePath)) {
-    throw new Error(`refusing to write a session log outside "${base}"`)
-  }
-
+  assertPathInside(base, path)
   return path
 }
 
@@ -111,6 +126,7 @@ export async function main(argv: readonly string[]): Promise<number> {
     lang?: string
     locale?: string
     persona?: string
+    personas?: string
     scenario?: string
     'log-dir'?: string
     'session-id'?: string
@@ -123,10 +139,11 @@ export async function main(argv: readonly string[]): Promise<number> {
     values = parseArgs({
       args: [...argv],
       options: {
-        provider: { type: 'string', default: 'canned' },
-        lang: { type: 'string', default: 'en' },
+        provider: { type: 'string' },
+        lang: { type: 'string' },
         locale: { type: 'string' },
         persona: { type: 'string' },
+        personas: { type: 'string' },
         scenario: { type: 'string' },
         'log-dir': { type: 'string', default: 'sessions' },
         'session-id': { type: 'string' },
@@ -174,11 +191,33 @@ export async function main(argv: readonly string[]): Promise<number> {
     return 2
   }
 
-  const personaId = values.persona ?? (providerMode === 'canned' ? 'manager' : undefined)
-  if (personaId === undefined) {
-    io.err('error: live mode requires --persona <manager|peer|client>')
-    return 2
+  let personaIds: string[]
+  if (values.personas !== undefined) {
+    if (values.persona !== undefined) {
+      io.err('error: use either --persona or --personas, not both')
+      return 2
+    }
+    personaIds = values.personas
+      .split(',')
+      .map((id) => id.trim())
+      .filter((id) => id !== '')
+    if (personaIds.length !== 2) {
+      io.err('error: --personas needs exactly two comma-separated persona ids')
+      return 2
+    }
+    if (new Set(personaIds).size !== personaIds.length) {
+      io.err('error: --personas must not repeat a persona id')
+      return 2
+    }
+  } else {
+    const personaId = values.persona ?? (providerMode === 'canned' ? 'manager' : undefined)
+    if (personaId === undefined) {
+      io.err('error: live mode requires --persona <manager|peer|client> or --personas <ids>')
+      return 2
+    }
+    personaIds = [personaId]
   }
+
   const scenarioId =
     values.scenario ?? (providerMode === 'canned' ? 'request-deadline-extension' : undefined)
   if (scenarioId === undefined) {
@@ -186,15 +225,16 @@ export async function main(argv: readonly string[]): Promise<number> {
     return 2
   }
 
-  let persona: ReturnType<typeof personaById>
+  let personaSpecs: ReturnType<typeof personaById>[]
   let scenario: ReturnType<typeof scenarioById>
   try {
-    persona = personaById(personaId)
+    personaSpecs = personaIds.map((personaId) => personaById(personaId))
     scenario = scenarioById(scenarioId)
   } catch (error) {
     io.err(`error: ${error instanceof Error ? error.message : String(error)}`)
     return 2
   }
+  const persona = personaSpecs[0]!
 
   const promptDate = values['prompt-date'] ?? new Date().toISOString().slice(0, 10)
   if (!/^\d{4}-\d{2}-\d{2}$/.test(promptDate)) {
@@ -202,19 +242,22 @@ export async function main(argv: readonly string[]): Promise<number> {
     return 2
   }
 
-  let prompt: ReturnType<typeof buildPersonaPrompt>
+  let prompts: ReturnType<typeof buildPersonaPrompt>[]
   try {
-    prompt = buildPersonaPrompt({
-      persona,
-      scenario,
-      locale,
-      currentDate: promptDate,
-      style: 'gemma',
-    })
+    prompts = personaSpecs.map((personaSpec) =>
+      buildPersonaPrompt({
+        persona: personaSpec,
+        scenario,
+        locale,
+        currentDate: promptDate,
+        style: 'gemma',
+      }),
+    )
   } catch (error) {
     io.err(`error: ${error instanceof Error ? error.message : String(error)}`)
     return 2
   }
+  const prompt = prompts[0]!
 
   if (values.task !== undefined && values.task.trim() === '') {
     io.err('error: --task must not be empty')
@@ -222,14 +265,13 @@ export async function main(argv: readonly string[]): Promise<number> {
   }
 
   const sessionIdOverride = values['session-id']
-  if (sessionIdOverride !== undefined && !isValidSessionId(sessionIdOverride)) {
+  const sessionId = sessionIdOverride ?? randomUUID()
+  if (!isValidSessionId(sessionId)) {
     io.err(
-      `error: --session-id must match ${SESSION_ID_PATTERN.source}, got ${printable(sessionIdOverride)}`,
+      `error: --session-id must match ${SESSION_ID_PATTERN.source}, got ${printable(sessionId)}`,
     )
     return 2
   }
-
-  const sessionId = sessionIdOverride ?? randomUUID()
   // parseArgs supplies the default, so the value is always present.
   const logDir = resolve(values['log-dir'] as string)
 
@@ -244,7 +286,7 @@ export async function main(argv: readonly string[]): Promise<number> {
   let provider: CliProvider
   let clock: Clock
   let clockMode: 'simulated' | 'wall'
-  let model: TextModelPort
+  const models: TextModelPort[] = []
 
   if (providerMode === 'live') {
     const apiKey = process.env['LIVEKIT_API_KEY']
@@ -260,36 +302,83 @@ export async function main(argv: readonly string[]): Promise<number> {
       )
       return 2
     }
-    model = createPersonaTextModel(
-      createLiveKitInferenceTextModel({
-        apiKey,
-        apiSecret,
-        model: LIVEKIT_GEMMA_MODEL,
-        baseUrl: nonEmptyEnv('LIVEKIT_INFERENCE_URL') ?? LIVEKIT_INFERENCE_DEFAULT_BASE_URL,
-      }),
-    )
-    provider = { kind: 'live', label: model.label }
+    for (const _persona of personaSpecs) {
+      models.push(
+        createPersonaTextModel(
+          createLiveKitInferenceTextModel({
+            apiKey,
+            apiSecret,
+            model: LIVEKIT_GEMMA_MODEL,
+            baseUrl: nonEmptyEnv('LIVEKIT_INFERENCE_URL') ?? LIVEKIT_INFERENCE_DEFAULT_BASE_URL,
+          }),
+        ),
+      )
+    }
+    provider = { kind: 'live', label: models[0]!.label }
     clock = new SystemClock()
     clockMode = 'wall'
   } else {
-    model = createPersonaTextModel(createCannedDemoModel())
-    provider = { kind: 'canned', label: model.label }
+    for (const _persona of personaSpecs) {
+      models.push(createPersonaTextModel(createCannedDemoModel()))
+    }
+    provider = { kind: 'canned', label: models[0]!.label }
     clock = new FakeClock(0)
     clockMode = 'simulated'
   }
 
-  const driver = createTextSessionDriver({
-    sessionId,
-    lang: lang as SessionLanguage,
-    locale,
-    clockMode,
-    clock,
-    model,
-    instructions: prompt.systemMessages.session,
-    greetingInstructions: prompt.systemMessages.greeting,
-    personaId: persona.id,
-    ...(values.task === undefined ? {} : { taskId: values.task }),
-  })
+  const taskOptions = values.task === undefined ? {} : { taskId: values.task }
+  const multiPersona = personaSpecs.length > 1
+  const arbiterConfig = parseTurnArbiterConfig()
+  const random = createSeededRandom(0)
+
+  const driver = multiPersona
+    ? createTextSessionDriver({
+        sessionId,
+        lang: lang as SessionLanguage,
+        locale,
+        clockMode,
+        clock,
+        personas: personaSpecs.map((personaSpec, index) => ({
+          personaId: personaSpec.id,
+          model: models[index]!,
+          instructions: prompts[index]!.systemMessages.session,
+          greetingInstructions: prompts[index]!.systemMessages.greeting,
+        })),
+        arbiter: {
+          initialState: INITIAL_ARBITER_STATE,
+          reduce: (state, input) => reduce(state, input, arbiterConfig),
+        },
+        policy: createDetPersonaLivePolicy(),
+        buildContext: ({ turnId, messages }) =>
+          buildSessionRoutingContext({
+            turnId,
+            personas: personaSpecs,
+            scenario,
+            locale,
+            messages: messages
+              .filter((message) => message.role === 'user' || message.role === 'assistant')
+              .map((message) => ({
+                role: message.role === 'user' ? ('user' as const) : ('assistant' as const),
+                content: message.content,
+                ...(message.personaId === undefined ? {} : { personaId: message.personaId }),
+              })),
+          }),
+        seedSource: () => random.int(2_147_483_647),
+        requestWindowMs: arbiterConfig.requestWindowMs,
+        ...taskOptions,
+      })
+    : createTextSessionDriver({
+        sessionId,
+        lang: lang as SessionLanguage,
+        locale,
+        clockMode,
+        clock,
+        model: models[0]!,
+        instructions: prompt.systemMessages.session,
+        greetingInstructions: prompt.systemMessages.greeting,
+        personaId: persona.id,
+        ...taskOptions,
+      })
 
   const header: SessionLogHeader = {
     type: 'session.header',
@@ -298,14 +387,15 @@ export async function main(argv: readonly string[]): Promise<number> {
     startedAt: new Date().toISOString(),
     clockMode,
     lang: lang as SessionLanguage,
-    provider: model.label,
+    provider: models[0]!.label,
     personaId: persona.id,
+    ...(multiPersona ? { personaIds: personaSpecs.map((personaSpec) => personaSpec.id) } : {}),
     personaVersion: persona.version,
     scenarioId: scenario.id,
     scenarioVersion: scenario.version,
     locale,
     promptVersion: prompt.promptVersion,
-    ...(values.task === undefined ? {} : { taskId: values.task }),
+    ...taskOptions,
   }
 
   let log: SessionLog
@@ -320,7 +410,7 @@ export async function main(argv: readonly string[]): Promise<number> {
     io.err(
       `error: could not create the session log: ${error instanceof Error ? error.message : String(error)}`,
     )
-    await disposeModel(model, io)
+    await disposeModels(models, io)
     return 2
   }
 
@@ -344,6 +434,14 @@ export async function main(argv: readonly string[]): Promise<number> {
         personaName: personaVariant(persona, locale).displayName,
         scenarioId: scenario.id,
         locale,
+        ...(multiPersona
+          ? {
+              personas: personaSpecs.map((personaSpec) => ({
+                personaId: personaSpec.id,
+                personaName: personaVariant(personaSpec, locale).displayName,
+              })),
+            }
+          : {}),
       },
     })
     return 0
@@ -352,25 +450,28 @@ export async function main(argv: readonly string[]): Promise<number> {
     return 1
   } finally {
     rl.close()
-    await disposeModel(model, io)
+    await disposeModels(models, io)
   }
 }
 
 function nonEmptyEnv(name: string): string | undefined {
   const value = process.env[name]?.trim()
-  return value === undefined || value === '' ? undefined : value
+  if (!value) return undefined
+  return value
 }
 
 /**
- * The composition root creates the model, so it releases it. A cleanup failure
- * is reported but never turns a finished session into a crash.
+ * The composition root creates the models, so it releases them. A cleanup
+ * failure is reported but never turns a finished session into a crash.
  */
-async function disposeModel(model: TextModelPort, io: CliIo): Promise<void> {
-  try {
-    await model.dispose?.()
-  } catch (error) {
-    io.err(
-      `error: could not release the model: ${error instanceof Error ? error.message : String(error)}`,
-    )
+async function disposeModels(models: readonly TextModelPort[], io: CliIo): Promise<void> {
+  for (const model of models) {
+    try {
+      await model.dispose?.()
+    } catch (error) {
+      io.err(
+        `error: could not release the model: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
   }
 }

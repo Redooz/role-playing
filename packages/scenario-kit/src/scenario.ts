@@ -32,6 +32,12 @@ export const objectiveSchema = z.strictObject({
    * variant, so M2 scenarios stay valid without a data migration.
    */
   personaIds: z.array(z.string().min(1)).min(1).optional(),
+  /**
+   * Concrete lexical cues used when a scenario objective becomes a routing
+   * objective. Omitted means the routing-context builder derives cues from the
+   * id and description; existing M2 data stays valid.
+   */
+  keywords: z.array(z.string().min(1)).min(1).optional(),
 })
 
 export type ScenarioObjective = z.infer<typeof objectiveSchema>
@@ -179,6 +185,27 @@ export const scenarioVariantSchema = z
           path: ['objectives'],
           message: `persona "${personaId}" has no objective`,
         })
+      }
+    }
+
+    if (variant.personaIds.length > 1) {
+      for (const [index, objective] of variant.objectives.entries()) {
+        if (objective.personaIds !== undefined && objective.personaIds.length !== 1) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['objectives', index, 'personaIds'],
+            message: 'a scoped objective in a multi-persona variant must name exactly one persona',
+          })
+        }
+      }
+      for (const personaId of personaIds) {
+        if (!variant.objectives.some((objective) => objective.personaIds?.includes(personaId))) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['objectives'],
+            message: `multi-persona variant needs a scoped objective for persona "${personaId}"`,
+          })
+        }
       }
     }
 

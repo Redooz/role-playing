@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
-import { isValidSessionId, main, resolveSessionLogPath } from './main.js'
+import { assertPathInside, isValidSessionId, main, resolveSessionLogPath } from './main.js'
 
 const LOG_DIR = resolve('/tmp/role-playing-logs')
 
@@ -27,6 +27,14 @@ describe('session id validation', () => {
   it('refuses to resolve a path outside the log directory', () => {
     expect(() => resolveSessionLogPath(LOG_DIR, '../authorized_keys')).toThrow(/invalid session id/)
     expect(() => resolveSessionLogPath(LOG_DIR, 'a/b')).toThrow(/invalid session id/)
+  })
+
+  it('checks the resolved path against the log directory', () => {
+    expect(() => assertPathInside(LOG_DIR, resolve(LOG_DIR, 'session-1.jsonl'))).not.toThrow()
+    expect(() => assertPathInside(LOG_DIR, resolve(LOG_DIR))).toThrow(/outside/)
+    expect(() => assertPathInside(LOG_DIR, resolve(LOG_DIR, '..', 'elsewhere.jsonl'))).toThrow(
+      /outside/,
+    )
   })
 })
 
@@ -87,6 +95,25 @@ describe('main session id argument', () => {
     try {
       await expect(main(args)).resolves.toBe(2)
       expect(err).toHaveBeenCalled()
+    } finally {
+      err.mockRestore()
+    }
+  })
+
+  it.each([
+    [['--persona', 'manager', '--personas', 'manager,peer'], 'either --persona or --personas'],
+    [['--personas', 'manager'], 'exactly two'],
+    [['--personas', 'manager,peer,client'], 'exactly two'],
+    [['--personas', 'manager,manager'], 'must not repeat'],
+    [
+      ['--personas', 'manager,peer', '--scenario', 'request-deadline-extension'],
+      'does not include persona',
+    ],
+  ])('rejects invalid multi-persona selection %j with exit code 2', async (args, message) => {
+    const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+    try {
+      await expect(main(args)).resolves.toBe(2)
+      expect(err.mock.calls.map((call) => String(call[0])).join('')).toContain(message)
     } finally {
       err.mockRestore()
     }

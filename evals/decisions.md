@@ -320,3 +320,13 @@ contradiction is gone.
 | Date | Change | Run ID | Verdict | Notes                               |
 | ---- | ------ | ------ | ------- | ----------------------------------- |
 | —    | —      | —      | —       | no behaviour changes exist yet (M0) |
+
+## M3b implementation
+
+| Date       | Gate                                | Run ID                   | Verdict                    | Evidence                                                                                                                                                                                                                                                   |
+| ---------- | ----------------------------------- | ------------------------ | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-11-11 | M3b D5 speaker-label agreement      | `m3b-d5-label-agreement` | provisional (below target) | 24 `standup-scope-change` tasks, 4 user turns each, two independent agent passes: 36/48 exact English and 36/48 exact French (0.750), below the pre-registered 0.80. A third pass adjudicated all 24 disagreements; labels stay `draft` / `agent`.         |
+| 2026-11-11 | M3b D5 multi-persona CLI and runner | `npm run test:unit`      | accepted (implementation)  | `npm run chat -- --provider canned --personas manager,peer --scenario standup-scope-change` prints `[manager]` and `[peer]` labels and writes one log with `personaIds`; the live runner records 6 shadow records for 2 user turns with an injected judge. |
+
+The label row is a finding, not acceptance of the 0.80 target. D6 must carry it
+with the capability run and must not call the agent labels stable.
