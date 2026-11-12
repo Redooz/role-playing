@@ -300,6 +300,37 @@ describe('text session driver', () => {
     await runToEnd(harness)
   })
 
+  it('requires a single-persona model', () => {
+    expect(() =>
+      createTextSessionDriver({
+        sessionId: 'session-1',
+        lang: 'en',
+        clock: new FakeClock(0),
+      }),
+    ).toThrow(/requires a model/)
+  })
+
+  it('fails the event queue past the configured bound', async () => {
+    const driver = createTextSessionDriver({
+      sessionId: 'session-1',
+      lang: 'en',
+      clockMode: 'simulated',
+      clock: new FakeClock(0),
+      model: scriptedModel({ chunks: ['Hello'] }),
+      maxQueuedEvents: 1,
+    })
+
+    await driver.start()
+
+    await expect(
+      (async () => {
+        for await (const _event of driver.events) {
+          // The bound is exceeded before the consumer starts.
+        }
+      })(),
+    ).rejects.toThrow(/not keeping up/)
+  })
+
   it('keeps the greeting as the first assistant turn and then sends the learner reply', async () => {
     const model = scriptedModel({ chunks: ['Hello'] })
     const harness = openSession(model)
