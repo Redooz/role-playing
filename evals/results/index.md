@@ -43,6 +43,12 @@ it still handle every task it used to?). **Grader** is `code`,
 | 2026-11-09 | `m3a-routing-timing` | M3a routing timing spike | capability | code (wall-clock bench) | accepted (recorded) | 12 calibration-only uncached decisions, 0 failures, $0.00085; complete-decision deadline frozen at 2,500 ms; Noul thresholds unchanged; explicit relaxation from the 100–150 ms starter bound |
 | 2026-11-09 | `m3a-routing-comparison` | M3a four-arm holdout comparison | capability | code | complete, no policy adopted | 4 arms × 60 holdout tasks, 240 decisions, 0 incomplete, $0.0085; det-central baseline 1.000/1.000; jev-central 0.733/0.733; det-persona 1.000/1.000; jev-persona 1.000/1.000 with 93.3%/96.7% unsettled fallback; no arm met MDE 0.20; no winner selected |
 | 2026-11-09 | `m1-mutation` (M3a scope) | mutation baseline extension | capability | code | accepted (baseline) | global **95.60/95.97**; routing-policy **100.00/100.00**; all existing floors hold and were not lowered |
+| 2026-11-12 | `m3b-baseline-en-r3` | M3b fixed-rotation baseline (English holdout) | regression | code | reference reading | 18/18 trials, 0 failures; acceptable speaker rate 0.750; `pass^1`/`pass^3` 1.0 |
+| 2026-11-12 | `m3b-det-persona-en-r3` | M3b det-persona capability (English holdout) | capability | code | rejected | 18/18 trials, 0 failures; 0.667 vs 0.750, delta −0.083, MDE 0.20; invariants and `pass^3` hold; no adoption |
+| 2026-11-12 | `m3b-baseline-fr-r3` | M3b fixed-rotation baseline (French holdout) | regression | code | reference reading | 18/18 trials, 0 failures; acceptable speaker rate 0.583; `pass^1`/`pass^3` 1.0 |
+| 2026-11-12 | `m3b-det-persona-fr-r3` | M3b det-persona capability (French holdout) | capability | code | inconclusive | 18/18 trials, 0 failures; 0.667 vs 0.583, delta +0.083, below MDE 0.20; invariants and `pass^3` hold; no adoption |
+| 2026-11-12 | `m3b-shadow` | M3b shadow comparison | capability | code | recorded, no adoption | 144 records; agreement jev-persona 0.667, det-central 1.000, jev-central 0.625; $0.0056 shadow cost |
+| 2026-11-12 | `m3b-timing` | M3b reducer timing spike | capability | code (wall-clock bench) | recorded | 500 iterations; grant p95 0.060 ms, interject p95 0.014 ms, 32 partials p95 0.081 ms; config frozen |
 
 Langfuse experiment links are local to the self-hosted instance:
 `http://127.0.0.1:3000/project/8cdf72afddb90bd4e129b3c7/experiments/results?baseline=<execution-id>`.

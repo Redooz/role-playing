@@ -332,6 +332,19 @@ export const promptRegistrationSchema = z.strictObject({
 
 export type PromptRegistration = z.infer<typeof promptRegistrationSchema>
 
+/**
+ * M3b multi-persona policy registration.
+ *
+ * The baseline arm and the live control arm are different manifests over the
+ * same tasks and holdout. The policy is registered before execution, never
+ * selected after seeing a result.
+ */
+export const multiPersonaRegistrationSchema = z.strictObject({
+  policy: z.enum(['det-persona', 'fixed-rotation']),
+})
+
+export type MultiPersonaRegistration = z.infer<typeof multiPersonaRegistrationSchema>
+
 export const runManifestSchema = z
   .strictObject({
     schemaVersion: z.literal(MANIFEST_SCHEMA_VERSION),
@@ -347,6 +360,8 @@ export const runManifestSchema = z
     provider: providerRegistrationSchema,
     /** Required for session tasks, optional for replay-only suites. */
     prompt: promptRegistrationSchema.optional(),
+    /** Required when a session task lists more than one persona. */
+    multiPersona: multiPersonaRegistrationSchema.optional(),
     baseline: baselineReferenceSchema.optional(),
   })
   .superRefine((manifest, ctx) => {

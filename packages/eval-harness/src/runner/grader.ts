@@ -2,7 +2,7 @@ import type { Lang } from '../tasks/schema.js'
 import type { TranscriptRecord, Violation } from '@rp/session-core'
 import type { TrialSpeechMetrics } from './speech.js'
 import type { GraderKind, RunManifest } from './manifest.js'
-import type { TaskEntry } from '../tasks/schema.js'
+import type { GoldenEntry, TaskEntry } from '../tasks/schema.js'
 
 /**
  * Grader port (M0 D3 seam for the Jev grader).
@@ -34,6 +34,8 @@ export interface TrialRecord {
   readonly speech?: TrialSpeechMetrics
   /** The loaded task, so a semantic grader can build its questions. */
   readonly task?: TaskEntry
+  /** The matching golden entry for speaker labels, when one exists. */
+  readonly golden?: GoldenEntry
   readonly error?: string
   readonly providerOutage: boolean
 }

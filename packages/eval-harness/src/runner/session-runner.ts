@@ -15,7 +15,11 @@ import {
   type BuiltPersonaPrompt,
   type PromptStyle,
 } from '@rp/persona-kit'
-import { createDetPersonaLivePolicy, type RoutingContext } from '@rp/routing-policy'
+import {
+  createDetPersonaLivePolicy,
+  createFixedRotationLivePolicy,
+  type RoutingContext,
+} from '@rp/routing-policy'
 import { scenarioById } from '@rp/scenario-kit'
 import { INITIAL_ARBITER_STATE, parseTurnArbiterConfig, reduce } from '@rp/turn-arbiter'
 import {
@@ -87,6 +91,7 @@ export interface SessionPersonaPrompt extends SessionPromptContext {
 }
 
 export type SessionPromptMode = 'persona' | 'generic'
+export type SessionPolicyId = 'det-persona' | 'fixed-rotation'
 
 function resolvePersonaPrompt(
   task: TaskEntry,
@@ -224,6 +229,8 @@ export interface RunSessionTaskOptions {
   readonly promptMode?: SessionPromptMode
   /** Prompt family; defaults to the pinned Groq Harmony style. */
   readonly promptStyle?: PromptStyle
+  /** Live control arm or the fixed-rotation baseline. Defaults to det-persona. */
+  readonly policy?: SessionPolicyId
   /** Eval-only shadow arms; never changes a session event. */
   readonly shadow?: SessionShadowOptions
   readonly signal?: AbortSignal
@@ -256,6 +263,7 @@ function createMultiPersonaDriver(options: {
   readonly models: readonly TextModelPort[]
   readonly clock: Clock
   readonly locale: string
+  readonly policy?: SessionPolicyId
   readonly onContext?: (context: RoutingContext) => void
 }): ReturnType<typeof createTextSessionDriver> {
   const session = options.task.session
@@ -283,7 +291,10 @@ function createMultiPersonaDriver(options: {
       initialState: INITIAL_ARBITER_STATE,
       reduce: (state, input) => reduce(state, input, config),
     },
-    policy: createDetPersonaLivePolicy(),
+    policy:
+      options.policy === 'fixed-rotation'
+        ? createFixedRotationLivePolicy(personas.map((persona) => persona.personaId))
+        : createDetPersonaLivePolicy(),
     buildContext: ({ turnId, messages }) => {
       const context = buildSessionRoutingContext({
         turnId,
@@ -316,9 +327,12 @@ export async function runSessionTask(options: RunSessionTaskOptions): Promise<Se
     options.promptStyle ?? 'harmony',
   )
   const locale = prompts[0]!.locale
-  if (options.shadow !== undefined && prompts.length === 1) {
+  if (
+    (options.shadow !== undefined || options.policy === 'fixed-rotation') &&
+    prompts.length === 1
+  ) {
     throw new SessionTaskError(
-      `task ${task.id} has one persona; shadow arms require a multi-persona task`,
+      `task ${task.id} has one persona; a multi-persona policy or shadow requires two`,
     )
   }
   const contexts: RoutingContext[] = []
@@ -356,6 +370,7 @@ export async function runSessionTask(options: RunSessionTaskOptions): Promise<Se
           models,
           clock,
           locale,
+          policy: options.policy ?? 'det-persona',
           onContext: (context) => contexts.push(context),
         })
 
