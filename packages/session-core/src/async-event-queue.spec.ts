@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AsyncEventQueue } from './driver.js'
+import { AsyncEventQueue } from './event-queue.js'
 
 describe('AsyncEventQueue', () => {
   it('delivers queued items before reporting done', async () => {
@@ -25,6 +25,14 @@ describe('AsyncEventQueue', () => {
     const queue = new AsyncEventQueue<number>()
     queue.close()
     queue.push(1)
+
+    await expect(queue.next()).resolves.toEqual({ value: undefined, done: true })
+  })
+
+  it('ignores a failure after close', async () => {
+    const queue = new AsyncEventQueue<number>()
+    queue.close()
+    queue.fail(new Error('too late'))
 
     await expect(queue.next()).resolves.toEqual({ value: undefined, done: true })
   })

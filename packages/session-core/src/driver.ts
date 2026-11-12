@@ -1,4 +1,12 @@
 import type { Clock } from '@rp/shared'
+import type {
+  PersonaSession,
+  PersonaTurnPolicy,
+  SessionArbiterPort,
+  TurnContextInput,
+} from './arbiter-port.js'
+import { AsyncEventQueue, DEFAULT_MAX_QUEUED_EVENTS } from './event-queue.js'
+import { SessionClosedError, SessionDriverError } from './errors.js'
 import {
   type ClockMode,
   type EventPayloadFor,
@@ -7,7 +15,12 @@ import {
   type SessionLanguage,
   type TextModelUsage,
 } from './events.js'
+import { MultiPersonaSessionDriver } from './multi-persona-driver.js'
 import type { TextModelChunk, TextModelMessage, TextModelPort } from './model-port.js'
+import { MAX_ITERATOR_CLOSE_MS, describeModelError, settleWithin } from './stream-utils.js'
+
+export { SessionClosedError, SessionDriverError } from './errors.js'
+export { AsyncEventQueue } from './event-queue.js'
 
 /**
  * Single-agent text session driver (M1 D1).
@@ -27,21 +40,7 @@ import type { TextModelChunk, TextModelMessage, TextModelPort } from './model-po
  * module-level randomness and makes no random choice in M1.
  */
 
-export class SessionDriverError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = 'SessionDriverError'
-  }
-}
-
-export class SessionClosedError extends SessionDriverError {
-  constructor() {
-    super('the session is closed; send() is no longer accepted')
-    this.name = 'SessionClosedError'
-  }
-}
-
-export interface CreateTextSessionDriverOptions {
+export interface CreateTextSessionDriverOptions<State = unknown, Context = unknown> {
   /** Minted once per process; never reused across restarts (M1 D3). */
   readonly sessionId: string
   readonly lang: SessionLanguage
@@ -66,7 +65,11 @@ export interface CreateTextSessionDriverOptions {
   /** `wall` for a live session, `simulated` in tests and replay. */
   readonly clockMode?: ClockMode
   readonly clock: Clock
-  readonly model: TextModelPort
+  /**
+   * Single-persona model. Required when `personas` is absent; multi-persona
+   * sessions supply one model per `PersonaSession` instead.
+   */
+  readonly model?: TextModelPort
   /** Defaults to `persona-1`; M1 has exactly one speaker. */
   readonly personaId?: string
   /** Implicit grant lifetime. Defaults to 60 seconds of injected clock time. */
@@ -83,6 +86,29 @@ export interface CreateTextSessionDriverOptions {
    * clear error instead of unbounded memory growth.
    */
   readonly maxQueuedEvents?: number
+  /**
+   * M3b: one entry per persona. When present the multi-persona driver runs and
+   * `arbiter`, `policy` and `buildContext` are required. Absent keeps the
+   * single-persona path exactly as it was.
+   */
+  readonly personas?: readonly PersonaSession[]
+  /** Injected pure reducer. Required with `personas`; see `arbiter-port.ts`. */
+  readonly arbiter?: SessionArbiterPort<State, Context>
+  /** Per-persona turn policy. Required with `personas`. */
+  readonly policy?: PersonaTurnPolicy<Context>
+  /** Builds the opaque routing context for one turn. Required with `personas`. */
+  readonly buildContext?: (input: TurnContextInput) => Context
+  /**
+   * Tie-break seed for one turn. Injected so a trial's RNG stream stays
+   * reproducible; the reducer never sees a random source.
+   */
+  readonly seedSource?: () => number
+  /**
+   * Bounded request window. It also bounds each policy decision and is the
+   * deadline the driver uses to close an unfinished window, so it must match the
+   * arbiter's `requestWindowMs`. Defaults to 1,500 ms.
+   */
+  readonly requestWindowMs?: number
 }
 
 export interface SessionDriver {
@@ -105,115 +131,7 @@ export interface SessionDriver {
 
 const DEFAULT_GRANT_TTL_MS = 60_000
 const DEFAULT_MAX_HISTORY_MESSAGES = 200
-/** How long a cancelled stream may take to close before the driver moves on. */
-const MAX_ITERATOR_CLOSE_MS = 1_000
-/** Bound on undelivered events before the queue fails instead of growing forever. */
-const DEFAULT_MAX_QUEUED_EVENTS = 100_000
-
-/** Resolve when `promise` settles or after `ms`, whichever happens first. */
-async function settleWithin(promise: Promise<unknown>, ms: number): Promise<void> {
-  let timer: NodeJS.Timeout | undefined
-  const timeout = new Promise<void>((resolve) => {
-    timer = setTimeout(resolve, ms)
-  })
-
-  try {
-    await Promise.race([promise, timeout])
-  } finally {
-    if (timer !== undefined) clearTimeout(timer)
-  }
-}
-
-/** A bounded, single-line cause for a failed model call; never a raw provider body. */
-function describeModelError(error: unknown): string {
-  const name = error instanceof Error ? error.name : 'Error'
-  const message = error instanceof Error ? error.message : String(error)
-  const text = `${name}: ${message}`.replace(/\s+/g, ' ').trim()
-  return text.length > 200 ? `${text.slice(0, 197)}...` : text
-}
 const DEFAULT_PERSONA_ID = 'persona-1'
-
-/**
- * Async event queue: `emit` never blocks, and a consumer sees each event as soon
- * as it is appended. Closing ends the iterator; a stored error rejects it.
- *
- * The queue is bounded so a consumer that stops draining (a slow log write) can
- * fail the session instead of growing memory for its whole length. The limit is
- * deliberately high: a normal session never reaches it.
- */
-export class AsyncEventQueue<T> implements AsyncIterableIterator<T> {
-  readonly #items: T[] = []
-  readonly #waiters: Array<{
-    resolve: (result: IteratorResult<T>) => void
-    reject: (error: unknown) => void
-  }> = []
-  readonly #maxItems: number | undefined
-  #closed = false
-  #failure: unknown
-
-  constructor(maxItems?: number) {
-    if (maxItems !== undefined && (!Number.isInteger(maxItems) || maxItems < 1)) {
-      throw new SessionDriverError('maxQueuedEvents must be a positive integer')
-    }
-    this.#maxItems = maxItems
-  }
-
-  push(item: T): void {
-    if (this.#closed) return
-    const waiter = this.#waiters.shift()
-    if (waiter !== undefined) {
-      waiter.resolve({ value: item, done: false })
-      return
-    }
-    if (this.#maxItems !== undefined && this.#items.length >= this.#maxItems) {
-      this.fail(
-        new SessionDriverError(
-          `event queue exceeded ${this.#maxItems} undelivered events; the consumer is not keeping up`,
-        ),
-      )
-      return
-    }
-    this.#items.push(item)
-  }
-
-  close(): void {
-    if (this.#closed) return
-    this.#closed = true
-    for (const waiter of this.#waiters.splice(0)) {
-      waiter.resolve({ value: undefined, done: true })
-    }
-  }
-
-  fail(error: unknown): void {
-    if (this.#closed) return
-    this.#failure = error
-    this.#closed = true
-    for (const waiter of this.#waiters.splice(0)) {
-      waiter.reject(error)
-    }
-  }
-
-  next(): Promise<IteratorResult<T>> {
-    const item = this.#items.shift()
-    if (item !== undefined) return Promise.resolve({ value: item, done: false })
-    if (this.#closed) {
-      if (this.#failure !== undefined) return Promise.reject(this.#failure)
-      return Promise.resolve({ value: undefined, done: true })
-    }
-    return new Promise((resolve, reject) => {
-      this.#waiters.push({ resolve, reject })
-    })
-  }
-
-  return(): Promise<IteratorResult<T>> {
-    this.close()
-    return Promise.resolve({ value: undefined, done: true })
-  }
-
-  [Symbol.asyncIterator](): AsyncIterableIterator<T> {
-    return this
-  }
-}
 
 interface ActiveTurn {
   readonly turnId: string
@@ -226,12 +144,19 @@ interface ActiveTurn {
 
 type TurnOutcome = 'committed' | 'interrupted' | 'timeout' | 'provider_failure'
 
-/** Create one single-agent text session. */
-export function createTextSessionDriver(options: CreateTextSessionDriverOptions): SessionDriver {
-  return new TextSessionDriver(options)
+/**
+ * Create one text session. With `personas` the multi-persona driver runs; with
+ * `model`/`personaId` the single-agent path is unchanged.
+ */
+export function createTextSessionDriver<State = unknown, Context = unknown>(
+  options: CreateTextSessionDriverOptions<State, Context>,
+): SessionDriver {
+  return options.personas === undefined
+    ? new TextSessionDriver(options)
+    : new MultiPersonaSessionDriver(options)
 }
 
-class TextSessionDriver implements SessionDriver {
+class TextSessionDriver<State = unknown, Context = unknown> implements SessionDriver {
   readonly sessionId: string
   readonly events: AsyncIterable<SessionEvent>
 
@@ -254,7 +179,10 @@ class TextSessionDriver implements SessionDriver {
   /** True once a greeting has committed; trimming must never drop it. */
   #greetingCommitted = false
 
-  constructor(options: CreateTextSessionDriverOptions) {
+  constructor(options: CreateTextSessionDriverOptions<State, Context>) {
+    if (options.model === undefined) {
+      throw new SessionDriverError('the single-persona path requires a model')
+    }
     this.sessionId = options.sessionId
     this.#clock = options.clock
     this.#model = options.model
@@ -359,9 +287,7 @@ class TextSessionDriver implements SessionDriver {
     // The greeting is the first assistant turn and is part of the session's
     // identity; trimming starts after it so a long conversation cannot drop it.
     const protectedCount = this.#greetingCommitted ? 1 : 0
-    const removable = this.#messages.length - protectedCount
-    if (removable <= 0) return
-    this.#messages.splice(protectedCount, Math.min(overflow, removable))
+    this.#messages.splice(protectedCount, overflow)
 
     // Keep the retained context starting with a user turn after the greeting.
     // Chat-completions APIs accept an assistant-first history, but a
