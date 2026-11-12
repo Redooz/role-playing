@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
-import { isValidSessionId, main, resolveSessionLogPath } from './main.js'
+import { assertPathInside, isValidSessionId, main, resolveSessionLogPath } from './main.js'
 
 const LOG_DIR = resolve('/tmp/role-playing-logs')
 
@@ -27,6 +27,14 @@ describe('session id validation', () => {
   it('refuses to resolve a path outside the log directory', () => {
     expect(() => resolveSessionLogPath(LOG_DIR, '../authorized_keys')).toThrow(/invalid session id/)
     expect(() => resolveSessionLogPath(LOG_DIR, 'a/b')).toThrow(/invalid session id/)
+  })
+
+  it('checks the resolved path against the log directory', () => {
+    expect(() => assertPathInside(LOG_DIR, resolve(LOG_DIR, 'session-1.jsonl'))).not.toThrow()
+    expect(() => assertPathInside(LOG_DIR, resolve(LOG_DIR))).toThrow(/outside/)
+    expect(() => assertPathInside(LOG_DIR, resolve(LOG_DIR, '..', 'elsewhere.jsonl'))).toThrow(
+      /outside/,
+    )
   })
 })
 

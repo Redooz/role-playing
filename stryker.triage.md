@@ -381,7 +381,7 @@ mutants are killed, so there is no equivalent mutant to record.
 
 D5 adds the multi-persona CLI, the live session runner, the persona-scoped
 routing context, the `personaIds` header field and the task/golden schema work.
-The full suite measured **96.36 / 96.52** globally, **97.94 / 98.11** for
+The full suite measured **96.28 / 96.49** globally, **97.36 / 97.84** for
 `apps/cli`, **93.06 / 93.30** for `session-core`, **99.14 / 99.43** for
 `persona-kit` and **100.00 / 100.00** for `routing-policy` and `scenario-kit`.
 Every existing floor held and the baseline file was not re-recorded.

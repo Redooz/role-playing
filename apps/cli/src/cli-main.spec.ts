@@ -116,11 +116,15 @@ const header: SessionLogHeader = {
   provider: 'canned/demo',
 }
 
-function logText(events: readonly SessionEvent[]): string {
+function logText(events: readonly SessionEvent[], logHeader: SessionLogHeader = header): string {
   const records = events.map((event, seq) =>
-    buildSessionLogRecord({ header, event, seq, tSim: seq, tWall: 0 }),
+    buildSessionLogRecord({ header: logHeader, event, seq, tSim: seq, tWall: 0 }),
   )
-  return `${[sessionLogHeaderLine(header), ...records.map(sessionLogRecordLine)].join('\n')}\n`
+  return `${[sessionLogHeaderLine(logHeader), ...records.map(sessionLogRecordLine)].join('\n')}\n`
+}
+
+function multiLogText(events: readonly SessionEvent[]): string {
+  return logText(events, { ...header, personaIds: ['manager', 'peer'] })
 }
 
 describe('text session CLI', () => {
@@ -1204,7 +1208,7 @@ describe('speaker label edge cases', () => {
 
   it('replays a multi-persona log with speaker labels', async () => {
     const io = captureIo()
-    const saved = logText([
+    const saved = multiLogText([
       {
         type: 'session.started',
         payload: { sessionId: 'session-1', clockMode: 'simulated', lang: 'en' },
@@ -1268,5 +1272,59 @@ describe('speaker label edge cases', () => {
     expect(io.text()).toContain('[manager] Hello')
     expect(io.text()).toContain('[peer] Hi [cancelled: interrupted]')
     expect(io.text()).toContain('[unknown] Who? [cancelled: revoked]')
+  })
+})
+
+describe('replay labels from the saved header', () => {
+  it('shows multi-persona labels even when the live selection is single-persona', async () => {
+    const io = captureIo()
+    const saved = multiLogText([
+      {
+        type: 'session.started',
+        payload: { sessionId: 'session-1', clockMode: 'simulated', lang: 'en' },
+      },
+      {
+        type: 'turn.granted',
+        payload: {
+          grant: {
+            turnId: 'turn-1',
+            grantId: 'grant-1',
+            personaId: 'manager',
+            expiresAt: '2026-11-07T10:01:00.000Z',
+          },
+        },
+      },
+      { type: 'persona.response.committed', payload: { grantId: 'grant-1', text: 'Hello' } },
+      {
+        type: 'turn.granted',
+        payload: {
+          grant: {
+            turnId: 'turn-2',
+            grantId: 'grant-2',
+            personaId: 'peer',
+            expiresAt: '2026-11-07T10:02:00.000Z',
+          },
+        },
+      },
+      { type: 'persona.response.committed', payload: { grantId: 'grant-2', text: 'Hi' } },
+      { type: 'session.completed', payload: {} },
+    ])
+
+    await runCli({
+      input: linesOf('/replay /tmp/multi.jsonl'),
+      io: io.io,
+      driver: driverWith(scriptedModel(['unused'])),
+      provider: { kind: 'canned', label: 'canned/demo' },
+      readFile: async () => saved,
+      selection: {
+        personaId: 'manager',
+        personaName: 'Katherine Brooks',
+        scenarioId: 'request-deadline-extension',
+        locale: 'en',
+      },
+    })
+
+    expect(io.text()).toContain('[manager] Hello')
+    expect(io.text()).toContain('[peer] Hi')
   })
 })
