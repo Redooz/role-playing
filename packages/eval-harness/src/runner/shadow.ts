@@ -73,26 +73,37 @@ export const shadowRecordSchema = z.strictObject({
 
 export type ShadowRecord = z.infer<typeof shadowRecordSchema>
 
-export const shadowArmSummarySchema = z.strictObject({
-  arm: shadowArmIdSchema,
-  records: z.int().nonnegative(),
-  completed: z.int().nonnegative(),
-  incomplete: z.int().nonnegative(),
-  speak: z.int().nonnegative(),
-  yield: z.int().nonnegative(),
-  agreements: z.int().nonnegative(),
-  disagreements: z.int().nonnegative(),
-  agreementRate: z.number().min(0).max(1).nullable(),
-  timeoutFallbacks: z.int().nonnegative(),
-  unsettledFallbacks: z.int().nonnegative(),
-  latencyMs: z
-    .strictObject({
-      p50: z.number().finite().nonnegative(),
-      p95: z.number().finite().nonnegative(),
-    })
-    .nullable(),
-  usage: shadowUsageSchema.nullable(),
-})
+export const shadowArmSummarySchema = z
+  .strictObject({
+    arm: shadowArmIdSchema,
+    records: z.int().nonnegative(),
+    completed: z.int().nonnegative(),
+    incomplete: z.int().nonnegative(),
+    speak: z.int().nonnegative(),
+    yield: z.int().nonnegative(),
+    agreements: z.int().nonnegative(),
+    disagreements: z.int().nonnegative(),
+    agreementRate: z.number().min(0).max(1).nullable(),
+    timeoutFallbacks: z.int().nonnegative(),
+    unsettledFallbacks: z.int().nonnegative(),
+    latencyMs: z
+      .strictObject({
+        p50: z.number().finite().nonnegative(),
+        p95: z.number().finite().nonnegative(),
+      })
+      .nullable(),
+    usage: shadowUsageSchema.nullable(),
+  })
+  .superRefine((arm, ctx) => {
+    const judged = arm.agreements + arm.disagreements
+    if (arm.completed - arm.timeoutFallbacks !== judged) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['agreementRate'],
+        message: 'only completed non-timeout records may enter the agreement denominator',
+      })
+    }
+  })
 
 export const shadowSummarySchema = z
   .strictObject({
@@ -225,14 +236,20 @@ function recordFor(
     taskId: input.taskId,
     lang: input.context.lang,
     arm,
-    policyVersion: decision.policyVersion,
+    policyVersion: policyVersionFor(arm),
     decision,
     outcome,
     fallbackCause: fallbackCauseOf(decision),
     unsettled: decision.unsettledPersonas.length > 0 || fallbackCauseOf(decision) === 'unsettled',
     latencyMs: result.policyLatencyMs,
     usage: usageFromObservation(result.observation),
-    agreement: sameOutcome(outcomeOf(input.liveDecision), outcome),
+    // A timeout is a failed model call with a deterministic fallback. Keep the
+    // decision for audit but never count it as agreement with the live control.
+    // An unsettled answer is a model decision and stays comparable.
+    agreement:
+      result.observation.kind === 'timeout'
+        ? null
+        : sameOutcome(outcomeOf(input.liveDecision), outcome),
     observation: result.observation,
     ...(result.observation.kind === 'timeout'
       ? { error: 'shadow policy timed out; deterministic fallback recorded for audit only' }

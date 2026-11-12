@@ -18,6 +18,7 @@ import {
 } from './routing.js'
 import {
   runShadowArms,
+  shadowArmSummarySchema,
   summarizeShadowRecords,
   writeShadowRecords,
   writeShadowSummary,
@@ -278,14 +279,23 @@ describe('runShadowArms', () => {
     )
     const central = result.records.find((record) => record.arm === 'jev-central')
     expect(central).toMatchObject({
+      policyVersion: JEV_CENTRAL_POLICY_VERSION,
       decision: expect.anything(),
       outcome: { kind: 'speak', personaId: 'peer' },
       fallbackCause: 'timeout',
-      agreement: true,
+      agreement: null,
       usage: null,
       observation: { kind: 'timeout' },
     })
     expect(central?.error).toContain('timed out')
+
+    const summary = result.summary.arms.find((arm) => arm.arm === 'jev-central')
+    expect(summary).toMatchObject({
+      completed: 1,
+      incomplete: 0,
+      timeoutFallbacks: 1,
+      agreementRate: null,
+    })
   })
 
   it('keeps an unknown cost null instead of zero', async () => {
@@ -392,6 +402,19 @@ describe('shadow summary', () => {
 
     expect(() => summarizeShadowRecords('task-2', 'en', [record])).toThrow(/belongs to task-1/u)
     expect(() => summarizeShadowRecords('task-1', 'fr', [record])).toThrow(/belongs to task-1/u)
+  })
+
+  it('keeps a timeout out of the agreement denominator', async () => {
+    const result = await runShadowArms(
+      { taskId: 'task-1', context, liveDecision, seed: 1, deadlineMs: 5 },
+      fakeJudge({ centralSelected: 'client', delayMs: 25 }),
+    )
+    const arm = result.summary.arms.find((entry) => entry.arm === 'jev-central')!
+    expect(arm.timeoutFallbacks).toBe(1)
+    expect(arm.agreements + arm.disagreements).toBe(arm.completed - arm.timeoutFallbacks)
+    expect(() => shadowArmSummarySchema.parse({ ...arm, agreements: arm.agreements + 1 })).toThrow(
+      /agreement denominator/u,
+    )
   })
 })
 

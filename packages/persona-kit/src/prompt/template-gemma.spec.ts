@@ -15,6 +15,7 @@ function render(
   input: Partial<Parameters<typeof renderGemmaPacks>[0]> = {},
 ) {
   return renderGemmaPacks({
+    personaId: 'manager',
     persona,
     scenario: variant,
     role: 'Engineering manager',
