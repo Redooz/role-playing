@@ -103,6 +103,9 @@ export class MultiPersonaSessionDriver<
     if (options.buildContext === undefined) {
       throw new SessionDriverError('personas require a buildContext function')
     }
+    if (options.seedSource === undefined) {
+      throw new SessionDriverError('personas require a seed source')
+    }
     const personas = options.personas ?? []
     if (personas.length === 0) throw new SessionDriverError('personas must not be empty')
     const personaById = new Map<string, PersonaSession>()
@@ -125,7 +128,7 @@ export class MultiPersonaSessionDriver<
     this.#openingPersonaId = personas[0]!.personaId
     this.#policy = options.policy
     this.#buildContext = options.buildContext
-    this.#seedSource = options.seedSource ?? (() => Math.random())
+    this.#seedSource = options.seedSource
     this.#requestWindowMs = options.requestWindowMs ?? DEFAULT_REQUEST_WINDOW_MS
     this.#history = new ConversationHistory(options.maxHistoryMessages ?? 200)
     if (!Number.isInteger(this.#requestWindowMs) || this.#requestWindowMs < 1) {
@@ -258,16 +261,17 @@ export class MultiPersonaSessionDriver<
     this.#turnContext = context
     const seed = this.#seedSource()
     const eligible = this.#personas.map((persona) => persona.personaId)
+    const openedAtMs = this.#clock.now()
 
     await this.#bridge.reduce({
       kind: 'user_committed',
       turnId: params.turnId,
-      nowMs: this.#clock.now(),
+      nowMs: openedAtMs,
       seed,
       context,
       eligiblePersonaIds: eligible,
     })
-    await this.#collectSpeakDecisions(params.turnId, context, eligible)
+    await this.#collectSpeakDecisions(params.turnId, openedAtMs, context, eligible)
 
     while (!this.#closed) {
       const start = this.#bridge.takePendingStart()
@@ -286,10 +290,15 @@ export class MultiPersonaSessionDriver<
 
   async #collectSpeakDecisions(
     turnId: string,
+    openedAtMs: number,
     context: Context,
     personaIds: readonly string[],
   ): Promise<void> {
-    const windowEndsAtMs = this.#clock.now() + this.#requestWindowMs
+    const windowEndsAtMs = openedAtMs + this.#requestWindowMs
+    // A policy that times out on the wall clock necessarily reports at or after
+    // the window deadline; the driver's own timer proves it happened inside the
+    // bound, so record it at the last instant the arbiter still accepts.
+    const failureNowMs = () => Math.min(this.#clock.now(), windowEndsAtMs - 1)
 
     await Promise.all(
       personaIds.map(async (personaId) => {
@@ -306,7 +315,7 @@ export class MultiPersonaSessionDriver<
             turnId,
             personaId,
             cause: outcome.kind,
-            nowMs: this.#clock.now(),
+            nowMs: failureNowMs(),
           })
           return
         }
@@ -331,7 +340,7 @@ export class MultiPersonaSessionDriver<
             turnId,
             personaId,
             cause: 'error',
-            nowMs: this.#clock.now(),
+            nowMs: failureNowMs(),
           })
           return
         }
@@ -340,8 +349,15 @@ export class MultiPersonaSessionDriver<
       }),
     )
 
-    // The bounded window must resolve even when an input was late or malformed.
-    await this.#bridge.reduce({ kind: 'tick', nowMs: Math.max(this.#clock.now(), windowEndsAtMs) })
+    // A grant means this turn's window already decided. Forcing a future tick
+    // then would act on the fresh grant's interject window (closing it before it
+    // opens, or expiring the grant when requestWindowMs >= grantTtlMs).
+    if (this.#bridge.grantTurnId !== turnId) {
+      await this.#bridge.reduce({
+        kind: 'tick',
+        nowMs: Math.max(this.#clock.now(), windowEndsAtMs),
+      })
+    }
   }
 
   async #collectInterjections(request: GenerationRequest): Promise<void> {

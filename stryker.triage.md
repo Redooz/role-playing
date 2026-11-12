@@ -77,20 +77,20 @@ killed.
 ### M3b D3 addendum (2026-11-11)
 
 `session-core` gained the multi-persona driver and its seams. The measured
-result is **96.01 / 96.30** globally and **93.01 / 93.25** for `session-core`
+result is **96.02 / 96.31** globally and **93.06 / 93.29** for `session-core`
 (floor 91.96 / 92.24). No existing floor changed and the baseline file was not
 re-recorded.
 
-| Scope                            | Total / covered     | Killed | Timeout | Survived | No coverage | Errors |
-| -------------------------------- | ------------------- | ------ | ------- | -------- | ----------- | ------ |
-| **Global**                       | **96.01 / 96.30**   | 3705   | 17      | 114      | 6           | 33     |
-| `packages/session-core`          | **93.01 / 93.25**   | 1481   | 15      | 114      | 6           | 17     |
-| `arbiter-bridge.ts`              | 100.00 / 100.00     | 36     | 0       | 0        | 0           | 0      |
-| `conversation-history.ts`        | 100.00 / 100.00     | 28     | 2       | 0        | 0           | 0      |
-| `grant-stream.ts`                | 89.40 / 89.40       | 134    | 1       | 16       | 0           | 0      |
-| `multi-persona-driver.ts`        | 93.41 / 93.69       | 311    | 1       | 21       | 1           | 0      |
-| `policy-decisions.ts`            | 96.23 / 96.23       | 51     | 0       | 2        | 0           | 0      |
-| `stream-utils.ts`                | 100.00 / 100.00     | 19     | 0       | 0        | 0           | 0      |
+| Scope                     | Total / covered   | Killed | Timeout | Survived | No coverage | Errors |
+| ------------------------- | ----------------- | ------ | ------- | -------- | ----------- | ------ |
+| **Global**                | **96.01 / 96.30** | 3705   | 17      | 114      | 6           | 33     |
+| `packages/session-core`   | **93.01 / 93.25** | 1481   | 15      | 114      | 6           | 17     |
+| `arbiter-bridge.ts`       | 100.00 / 100.00   | 36     | 0       | 0        | 0           | 0      |
+| `conversation-history.ts` | 100.00 / 100.00   | 28     | 2       | 0        | 0           | 0      |
+| `grant-stream.ts`         | 89.40 / 89.40     | 134    | 1       | 16       | 0           | 0      |
+| `multi-persona-driver.ts` | 93.41 / 93.69     | 311    | 1       | 21       | 1           | 0      |
+| `policy-decisions.ts`     | 96.23 / 96.23     | 51     | 0       | 2        | 0           | 0      |
+| `stream-utils.ts`         | 100.00 / 100.00   | 19     | 0       | 0        | 0           | 0      |
 
 The first D3 pass scored 90.07 globally and 78.39 for `session-core`. The gap
 was coverage, not equivalence: the new modules had no direct suites, so most of
