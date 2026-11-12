@@ -99,8 +99,9 @@ export interface CreateTextSessionDriverOptions<State = unknown, Context = unkno
   /** Builds the opaque routing context for one turn. Required with `personas`. */
   readonly buildContext?: (input: TurnContextInput) => Context
   /**
-   * Tie-break seed for one turn. Injected so a trial's RNG stream stays
-   * reproducible; the reducer never sees a random source.
+   * Tie-break seed for one turn. Required with `personas`: the trial injects a
+   * seeded RNG stream so a run is reproducible, and the reducer never reads a
+   * random source itself.
    */
   readonly seedSource?: () => number
   /**

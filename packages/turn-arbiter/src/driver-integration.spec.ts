@@ -8,7 +8,7 @@ import {
   type TextModelPort,
   type TurnRequest,
 } from '@rp/session-core'
-import { FakeClock } from '@rp/shared'
+import { FakeClock, type Clock } from '@rp/shared'
 import {
   deterministicJudgments,
   derivePersonaDecision,
@@ -123,7 +123,8 @@ interface Harness {
 function open(
   models: readonly [string, TextModelPort][],
   policy: PersonaTurnPolicy<RoutingContext>,
-  clock = new FakeClock(0),
+  clock: Clock = new FakeClock(0),
+  arbiterConfig = config,
 ): { driver: ReturnType<typeof createTextSessionDriver>; harness: Harness } {
   const driver = createTextSessionDriver({
     sessionId: 'integration-1',
@@ -133,12 +134,12 @@ function open(
     personas: models.map(([personaId, model]) => ({ personaId, model })),
     arbiter: {
       initialState: INITIAL_ARBITER_STATE,
-      reduce: (state, input) => reduce(state, input, config),
+      reduce: (state, input) => reduce(state, input, arbiterConfig),
     },
     policy,
     buildContext: (input) => buildContext(input.turnId, input.messages),
     seedSource: () => 11,
-    requestWindowMs: config.requestWindowMs,
+    requestWindowMs: arbiterConfig.requestWindowMs,
   })
 
   const events: SessionEvent[] = []
@@ -254,6 +255,100 @@ describe('turn arbiter behind the multi-persona driver', () => {
         (event) =>
           event.type === 'persona.response.cancelled' &&
           (event.payload as { reason: string }).reason === 'provider_failure',
+      ),
+    ).toBe(true)
+    expect(guardTurnEvents(events).ok).toBe(true)
+  })
+
+  it('reports a policy that misses the window as policy_timeout', async () => {
+    const narrow = parseTurnArbiterConfig({ requestWindowMs: 10 })
+    const clock = new FakeClock(0)
+    const policy: PersonaTurnPolicy<RoutingContext> = {
+      decide(input) {
+        if (input.personaId === 'peer') return { kind: 'decline' }
+        return new Promise(() => undefined)
+      },
+    }
+    const { driver, harness } = open(
+      [
+        ['manager', scriptedModel(['never'])],
+        ['peer', scriptedModel(['peer'])],
+      ],
+      policy,
+      clock,
+      narrow,
+    )
+
+    // The policy timer resolves on the wall clock; move the session clock past
+    // the window first so the failure reports at or after the deadline.
+    const advance = setTimeout(() => clock.advance(100), 2)
+    await driver.send('Sam?')
+    clearTimeout(advance)
+    const events = await finish(driver, harness)
+
+    expect(events.at(-2)?.type).toBe('turn.user_yielded')
+    expect(events.at(-2)?.payload).toEqual({ reason: 'policy_timeout' })
+  })
+
+  it('keeps the interject window open when the request window outlasts the hold', async () => {
+    const wide = parseTurnArbiterConfig({ requestWindowMs: 2_000 })
+    const clock = new FakeClock(0)
+    const manager = scriptedModel(['hold on, ', 'this is context, ', 'and more.'], {
+      beforeChunk(index) {
+        if (index === 1) clock.advance(900)
+        if (index === 2) clock.advance(900)
+      },
+    })
+    const peer = scriptedModel(['one clarification.'])
+    const policy: PersonaTurnPolicy<RoutingContext> = {
+      decide(input) {
+        if (input.action === 'interject') {
+          if (input.personaId !== 'peer') return { kind: 'decline' }
+          return {
+            kind: 'request',
+            request: {
+              turnId: input.turnId,
+              personaId: 'peer',
+              action: 'interject',
+              urgency: 0.9,
+              confidence: 0.9,
+              addressedByUser: false,
+              objectiveRelevance: 0.8,
+              targetGrantId: input.targetGrantId,
+            },
+          }
+        }
+        const request = {
+          turnId: input.turnId,
+          personaId: input.personaId,
+          action: 'speak' as const,
+          urgency: input.personaId === 'manager' ? 0.5 : 0.1,
+          confidence: 0.8,
+          addressedByUser: input.personaId === 'manager',
+          objectiveRelevance: input.personaId === 'manager' ? 0.5 : 0.1,
+        }
+        return { kind: 'request', request }
+      },
+    }
+    const { driver, harness } = open(
+      [
+        ['manager', manager],
+        ['peer', peer],
+      ],
+      policy,
+      clock,
+      wide,
+    )
+
+    await driver.send('Sam, walk us through it.')
+    const events = await finish(driver, harness)
+
+    expect(grantedPersonas(events)).toEqual(['manager', 'peer'])
+    expect(
+      events.some(
+        (event) =>
+          event.type === 'turn.revoked' &&
+          (event.payload as { reason: string }).reason === 'interrupted',
       ),
     ).toBe(true)
     expect(guardTurnEvents(events).ok).toBe(true)

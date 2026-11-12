@@ -447,6 +447,7 @@ describe('multi-persona session driver', () => {
       arbiter: scriptedArbiter(),
       policy: { decide: () => ({ kind: 'decline' as const }) },
       buildContext: () => ({ turnId: 't' }),
+      seedSource: () => 7,
     }
     expect(() =>
       createTextSessionDriver({
@@ -875,6 +876,7 @@ describe('multi-persona session driver', () => {
       arbiter: scriptedArbiter(),
       policy: { decide: () => ({ kind: 'decline' as const }) },
       buildContext: () => ({ turnId: 't' }),
+      seedSource: () => 7,
     }
     expect(() => createTextSessionDriver({ ...base, requestWindowMs: 0 })).toThrow(
       /requestWindowMs/,
@@ -1229,6 +1231,7 @@ describe('multi-persona session driver', () => {
     const policy = { decide: () => ({ kind: 'decline' as const }) }
     const arbiter = scriptedArbiter()
     const buildContext = () => ({ turnId: 't' })
+    const seedSource = () => 7
 
     expect(() => createTextSessionDriver({ ...base })).toThrow(/require an arbiter and a policy/)
     expect(() => createTextSessionDriver({ ...base, policy, buildContext })).toThrow(
@@ -1238,15 +1241,43 @@ describe('multi-persona session driver', () => {
       /require an arbiter and a policy/,
     )
     expect(() =>
-      createTextSessionDriver({ ...base, personas: [], arbiter, policy, buildContext }),
+      createTextSessionDriver({ ...base, personas: [], arbiter, policy, buildContext, seedSource }),
     ).toThrow(/personas must not be empty/)
+    expect(() => createTextSessionDriver({ ...base, arbiter, policy, buildContext })).toThrow(
+      /require a seed source/,
+    )
     expect(() =>
-      createTextSessionDriver({ ...base, arbiter, policy, buildContext, requestWindowMs: 1 }),
+      createTextSessionDriver({
+        ...base,
+        arbiter,
+        policy,
+        buildContext,
+        seedSource,
+        requestWindowMs: 1,
+      }),
     ).not.toThrow()
   })
 
-  it('injects a numeric seed when no source is given', async () => {
+  it('requires a seed source rather than defaulting to Math.random', () => {
+    expect(() =>
+      createTextSessionDriver({
+        sessionId: 'multi-1',
+        lang: 'en',
+        clock: new FakeClock(0),
+        personas: [
+          { personaId: 'manager', model: scriptedModel(['hello']) },
+          { personaId: 'peer', model: scriptedModel(['hi']) },
+        ],
+        arbiter: scriptedArbiter(),
+        policy: { decide: () => ({ kind: 'decline' }) },
+        buildContext: () => ({ turnId: 't' }),
+      }),
+    ).toThrow(/require a seed source/)
+  })
+
+  it('uses the injected seed and the documented defaults', async () => {
     const inputs: SessionArbiterInput<TestContext>[] = []
+    const seedSource = vi.fn(() => 42)
     const driver = createTextSessionDriver({
       sessionId: 'multi-1',
       lang: 'en',
@@ -1263,13 +1294,15 @@ describe('multi-persona session driver', () => {
         },
       },
       buildContext: () => ({ turnId: 't' }),
+      seedSource,
     })
 
     await driver.send('hello')
     await driver.close()
 
+    expect(seedSource).toHaveBeenCalledTimes(1)
     const committed = inputs.find((input) => input.kind === 'user_committed')
-    expect(typeof (committed as { seed: number }).seed).toBe('number')
+    expect((committed as { seed: number }).seed).toBe(42)
     const events: SessionEvent[] = []
     for await (const event of driver.events) events.push(event)
     expect(events[0]?.payload).toStrictEqual({
@@ -1291,6 +1324,7 @@ describe('multi-persona session driver', () => {
       arbiter: scriptedArbiter(arbiterInputs),
       policy: { decide: () => ({ kind: 'decline' }) },
       buildContext: () => ({ turnId: 't' }),
+      seedSource: () => 7,
     })
 
     await driver.start()
@@ -1345,6 +1379,7 @@ describe('multi-persona session driver', () => {
       arbiter: scriptedArbiter(),
       policy: { decide: () => ({ kind: 'decline' }) },
       buildContext: () => ({ turnId: 't' }),
+      seedSource: () => 7,
       maxQueuedEvents: 1,
     })
 
@@ -1456,6 +1491,59 @@ describe('multi-persona session driver', () => {
     })
 
     await expect(driver.send('go')).rejects.toThrow(/unknown persona/)
+  })
+
+  it('does not send a future-dated tick after the turn already granted', async () => {
+    const inputs: SessionArbiterInput<TestContext>[] = []
+    const { driver } = openMulti({
+      models: [
+        ['manager', scriptedModel(['hello'])],
+        ['peer', scriptedModel(['hi'])],
+      ],
+      policy: {
+        decide(input) {
+          if (input.personaId === 'peer') return { kind: 'decline' }
+          return { kind: 'request', request: speakRequest(input.turnId, 'manager') }
+        },
+      },
+      arbiterInputs: inputs,
+    })
+
+    await driver.send('go')
+    await driver.close()
+
+    expect(inputs.some((input) => input.kind === 'tick' && input.nowMs >= 1_500)).toBe(false)
+  })
+
+  it('records a policy failure inside the request window even at the deadline', async () => {
+    const clock = new FakeClock(0)
+    const inputs: SessionArbiterInput<TestContext>[] = []
+    const { driver } = openMulti(
+      {
+        models: [
+          ['manager', scriptedModel(['never'])],
+          ['peer', scriptedModel(['peer'])],
+        ],
+        requestWindowMs: 10,
+        policy: {
+          decide(input) {
+            if (input.personaId === 'peer') return { kind: 'decline' }
+            return new Promise(() => undefined)
+          },
+        },
+        arbiterInputs: inputs,
+      },
+      clock,
+    )
+
+    const advance = setTimeout(() => clock.advance(100), 2)
+    await driver.send('go')
+    clearTimeout(advance)
+    await driver.close()
+
+    const failed = inputs.find((input) => input.kind === 'policy_failed')
+    expect(failed).toMatchObject({ cause: 'timeout' })
+    expect((failed as { nowMs: number }).nowMs).toBe(9)
   })
 
   it('closes an all-declined window at the request window deadline', async () => {
@@ -1683,6 +1771,7 @@ describe('multi-persona session driver', () => {
         messagesSeen.push([...input.messages])
         return { turnId: input.turnId }
       },
+      seedSource: () => 7,
       maxHistoryMessages: 2,
     })
 
@@ -1824,6 +1913,7 @@ describe('multi-persona session driver', () => {
           arbiter: scriptedArbiter(),
           policy: { decide: () => ({ kind: 'decline' }) },
           buildContext: () => ({ turnId: 't' }),
+          seedSource: () => 7,
         }),
     ).toThrow(/personas must not be empty/)
   })
