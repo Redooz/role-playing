@@ -7,11 +7,14 @@ AI characters talk with one user in real time. Every change that affects
 behaviour must be checked by evals before it is accepted.
 
 **M0** (eval foundation), **M0.1** (self-hosted Langfuse review layer), **M1**
-(single-agent text), **M2** (personas and scenarios) and **M3a** (routing replay)
-are complete and merged. M3a added offline routing contracts, a 120-task labelled
-routing suite, exact replay and a four-arm comparison; no routing policy was
-adopted. **M3b** (multi-agent text) is next: its plan is still a draft and no
-arbiter code exists yet. The default persona model is LiveKit Gemma
+(single-agent text), **M2** (personas and scenarios), **M3a** (routing replay) and
+**M3b** (multi-agent text) are complete. M3a added offline routing contracts, a
+120-task labelled routing suite, exact replay and a four-arm comparison; no
+routing policy was adopted. M3b added the pure turn arbiter, a two-persona text
+driver, the `det-persona` control arm, the `standup-scope-change` scenario,
+12 tasks per base language and one shadow comparison. The M3b capability target
+was not met: English regressed and French stayed below the MDE. **No routing
+policy is adopted.** The default persona model is LiveKit Gemma
 `google/gemma-4-31b-it`; semantic grading needs OpenRouter, and the Gemma live
 gate needs `LIVEKIT_API_KEY`/`LIVEKIT_API_SECRET`. There is no audio path yet.
 Do not invent commands, folders or build steps that do not exist.
@@ -28,7 +31,7 @@ Do not invent commands, folders or build steps that do not exist.
   - M1 Plan: Single-Agent Text — `41183d257ddf81ba8e0ffccae64d3e0e`
   - M2 Plan: Personas and Scenarios — `41283d257ddf8186a092fdf50b9bae4b`
   - M3a Plan: Routing Replay — `41383d25-7ddf-8140-9066-f73406f10a77`
-  - M3b Plan: Multi-Agent Text — `41583d257ddf811ca1f4d547d9e45968` (draft)
+  - M3b Plan: Multi-Agent Text — `41583d257ddf811ca1f4d547d9e45968`
 - Local plan copies live in `docs/plans/`. Refresh one with
   `ntn pages get <page-id> > docs/plans/<file>.md`; search with
   `ntn api /v1/search -d '{"query":"..."}'`.
@@ -60,6 +63,9 @@ npx vitest run --project unit packages/session-core
 npm run chat -- --provider canned
 npm run chat -- --provider live --lang fr --persona manager --scenario request-deadline-extension
 npm run chat -- --provider canned --locale en-GB   # locale variant probe
+npm run chat -- --provider canned --personas manager,peer --scenario standup-scope-change
+npm run eval:m3b-shadow   # eval-only shadow records + summary; no adoption
+npm run bench:m3b-timing  # reducer timing spike; not the PR gate
 
 npm run validate:tasks   # task/golden validator (gate G3)
 npm run label:export -- --lang en --run evals/results/m2-persona-scenarios-lk --run evals/results/m2-persona-baseline-lk
@@ -70,6 +76,10 @@ npm run eval -- run --manifest evals/manifests/m2-persona-scenarios-lk-v5.json  
 npm run eval -- run --manifest evals/manifests/m2-persona-baseline.json      # historical Groq baseline
 npm run eval -- run --manifest evals/manifests/m2-persona-scenarios.json     # historical Groq capability
 npm run eval -- run --manifest evals/manifests/m2-locale-variants.json       # historical Groq locale probe
+npm run eval -- run --manifest evals/manifests/m3b-baseline-en-r3.json        # fixed-rotation baseline, English
+npm run eval -- run --manifest evals/manifests/m3b-det-persona-en-r3.json     # det-persona capability, English
+npm run eval -- run --manifest evals/manifests/m3b-baseline-fr-r3.json        # fixed-rotation baseline, French
+npm run eval -- run --manifest evals/manifests/m3b-det-persona-fr-r3.json     # det-persona capability, French
 npm run eval -- compare --baseline evals/baselines/m0-canned-replay.json --run <run-dir>
 npm run eval -- export-run --run <run-dir>        # re-export a finished run; --no-scores for blind labels
 
@@ -105,11 +115,12 @@ validator and Jev-canary jobs. The canary is skipped when
   arms, central-answer validation and decision assembly. Pure functions, no
   provider imports.
 - `packages/turn-arbiter` — M3b pure reducer for request windows, grants,
-  interleaving and recovery. D1 adds the normal turn; interjection, partials,
-  replacement and the streak cap arrive in D2.
+  ranking, expiry, interjection, partials, the recovery matrix and the streak
+  cap. It has no clock, RNG, provider or session import.
 - `packages/eval-harness` — task workflow, Jev axial grader, replay and live
-  session runners, routing replay/comparison and matrix aggregation, `pass^k`,
-  verdicts, and the observation plan/grade sidecar.
+  session runners, routing replay/comparison and matrix aggregation, shadow
+  records, the turn-taking code grader, `pass^k`, verdicts, budgets, and the
+  observation plan/grade sidecar.
 - `tools/eval-harness-cli` — eval run/compare/validate/export CLI. It builds the
   live provider (Groq, OpenRouter or LiveKit Inference) and Jev grader from the
   environment. The only place that imports Langfuse or OpenTelemetry is
@@ -119,13 +130,14 @@ validator and Jev-canary jobs. The canary is skipped when
   scores, model names and candidate/baseline labels out of annotator bundles;
   the trace→run manifest stays operator-only.
 - `apps/cli` — composition root for the line CLI. `main.ts` reads env, selects
-  persona/scenario/locale, builds the prompt and starts the driver; `cli-main.ts`
-  is the REPL and holds no session state.
+  one persona or a two-persona set, scenario and locale, builds one prompt and
+  model per persona, and starts the driver; `cli-main.ts` is the REPL, prints
+  `[manager]`/`[peer]` labels in multi-persona mode, and holds no session state.
 - `evals/` — manifests, tasks, golden labels, rubrics, schemas, baselines and
   `decisions.md`; `results/` is git-ignored except the curated `index.md`.
 - `tools/agent-harness-bench` — overhead and latency benches (`*.bench.spec.ts`).
-- `tools/routing-bench` — M3a timing and comparison benches; outside the PR gate
-  and never a UI.
+- `tools/routing-bench` — M3a routing timing/comparison benches and the M3b
+  timing and shadow scripts; outside the PR gate and never a UI.
 - `infra/langfuse` — pinned self-hosted Langfuse stack; the server `.env` stays
   on the Docker host.
 - `infra/livekit-soak` — isolated LiveKit compatibility spike. It imports nothing
@@ -241,10 +253,15 @@ Use these words. Do not substitute fixture, repetition, scorer, or trace.
   `createPersonaTextModel`. The prompt asks for plain text, the streaming hook
   removes Markdown and emoji, and the `response.plain_text` invariant proves it.
   Empty-after-filtering is a policy violation, not an outage and not a pass.
-- **Current code is single-speaker.** M3a routing is offline and no policy is
-  adopted. M3b D3 adds a second persona; do not add multi-agent behaviour before
-  that layer. Personas are `manager`, `peer` and `client`; no audio, extraction
-  or production routing.
+- **Current code is two-speaker text.** M3b supports two personas in one text
+  session (`manager` and `peer`) with one grant at a time. M3a routing is offline
+  and **no routing policy is adopted**; `det-persona` is a control arm. Do not
+  add a third speaker, audio, extraction or production routing before the
+  relevant milestone. The client persona can still run single-persona.
+- **M3b evidence is a finding, not an adoption.** The English capability target
+  regressed and the French target stayed below the MDE. Report that result; do
+  not rerun until a favourable result appears, lower the MDE, or promote a
+  shadow arm.
 
 ## Trial isolation: current state
 
@@ -265,7 +282,9 @@ test uses a local server, and Groq/OpenRouter use injected `fetch`).
   `stryker.config.json` (session-core, pipeline, persona-kit prompt/lookup,
   scenario-kit lookup/helpers, routing-policy, turn-arbiter, shared
   locale/plain-text, apps/cli), then checks each package against
-  `evals/baselines/m1-mutation.json`.
+  `evals/baselines/m1-mutation.json`. `packages/eval-harness`, `tools/*` and the
+  M3b shadow/turn-taking modules are **not** in the gate; adding them needs a
+  measured package floor and is recorded as a D7 gap, not assumed.
   The global break threshold is 95. Timed-out mutants count as killed;
   runtime/compile errors are excluded. Never lower the floor or hand-edit the
   baseline. Record a new baseline only with `npm run mutation:record` after a

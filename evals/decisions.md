@@ -335,3 +335,12 @@ with the capability run and must not call the agent labels stable.
 | 2026-11-12 | M3b capability — English | `m3b-det-persona-en-r3` vs `m3b-baseline-en-r3` | **rejected** | 18/18 trials each, 0 failures, invariants and `pass^3` 1.0. `turn_taking.acceptable_speaker_rate` 0.667 vs 0.750, delta −0.083, MDE 0.20. No policy adopted. |
 | 2026-11-12 | M3b capability — French | `m3b-det-persona-fr-r3` vs `m3b-baseline-fr-r3` | **inconclusive** | 18/18 trials each, 0 failures, invariants and `pass^3` 1.0. Rate 0.667 vs 0.583, delta +0.083, below MDE 0.20. No policy adopted. |
 | 2026-11-12 | M3b shadow comparison | `m3b-shadow` | recorded, no adoption | 144 records over 6 holdout tasks per language. Agreement: `jev-persona` 0.667, `det-central` 1.000, `jev-central` 0.625; total shadow cost $0.0056. Shadow records never changed a session event. |
+
+| 2026-11-12 | M3b-G1 arbiter contract | `npm run test:unit`, `npm run mutation` | accepted | Pure reducer, structural ports, no clock/RNG/provider in the reducer; `turn-arbiter` 100/100 mutation. |
+| 2026-11-12 | M3b-G2 invariants under fuzzing | `npm run test:unit` | accepted | Seeded 1,000-input fuzz suite plus seven targeted families; zero violations. |
+| 2026-11-12 | M3b-G3 recovery matrix | `npm run test:unit` | accepted | All five recovery rows, bounded replacement and no grant spin. |
+| 2026-11-12 | M3b-G4 live multi-persona session | `npm run test:unit`, `npm run chat -- --personas manager,peer` | accepted | One grant at a time, stale output dropped, §3.2 guard clean, `[manager]`/`[peer]` labels, single-persona replay byte-identical. |
+| 2026-11-12 | M3b-G5 timing and budgets | `m3b-timing` | accepted | Reducer p95 grant 0.060 ms, interject 0.014 ms, 32 partials 0.081 ms; one frozen config and budget table. |
+| 2026-11-12 | M3b-G6 capability and shadow evidence | `m3b-det-persona-en-r3`, `m3b-det-persona-fr-r3`, `m3b-shadow` | evidence complete; target not met | 18/18 trials per arm/language, zero incompletes; English rejected, French inconclusive; 144 shadow records and a summary. No adoption. |
+| 2026-11-12 | M3b-G7 regression and mutation | `m0-canned-replay`, `m2-persona-replay-v2`, `npm run mutation` | accepted | Both canned replays accepted with deterministic rate 1; every mutation floor held. |
+| 2026-11-12 | M3b close-out | `m3b-close-out-2026-11-12` | complete, no policy adopted | D1–D7 shipped; capability target missed; label agreement 0.75; eval-harness mutation and combined-spend metering recorded as gaps. |
