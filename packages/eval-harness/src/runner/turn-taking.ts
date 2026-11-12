@@ -4,9 +4,12 @@ import { createDeterministicInvariantGrader, type Grader, type TrialRecord } fro
 /**
  * Code grader for M3b turn-taking.
  *
- * It compares the actual first speaker of each scripted user turn with the
- * golden acceptable-speaker set. Every count and ratio stays in ordinary code;
- * no model is called. A missing label set is a configuration gap, not a zero.
+ * It compares the granted speakers of each scripted user turn with the golden
+ * acceptable-speaker set. A turn is acceptable when at least one person who
+ * actually spoke is acceptable, so a replacement grant can still satisfy the
+ * label; a turn with no grant is judged against `allowUserYield`. Every count
+ * and ratio stays in ordinary code; no model is called. A missing label set is
+ * a configuration gap, not a zero.
  */
 export const TURN_TAKING_GRADER_ID = 'turn-taking-speakers'
 export const TURN_TAKING_GRADER_VERSION = '1.0.0'

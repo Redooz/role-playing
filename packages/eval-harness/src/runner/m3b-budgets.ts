@@ -14,7 +14,7 @@ export const M3B_BUDGETS = Object.freeze({
   arbiterConfigVersion: TURN_ARBITER_CONFIG_VERSION,
   turnArbiter: Object.freeze({ ...DEFAULT_TURN_ARBITER_CONFIG }),
   live: Object.freeze({
-    /** Three rounds over 12 holdout tasks per base language, for pass^3. */
+    /** Three rounds over 12 tasks per base language (6 holdout), for pass^3. */
     rounds: 3,
     tasksPerLanguage: 12,
     holdoutPerLanguage: 6,
@@ -24,7 +24,11 @@ export const M3B_BUDGETS = Object.freeze({
     maxTrialMs: 180_000,
     /** Shadow decisions use the M3a deadline; it is not a live turn deadline. */
     shadowDeadlineMs: SHADOW_DEADLINE_MS,
-    /** Total live spend cap for the M3b capability and shadow runs. */
+    /**
+     * Total live spend cap for M3b. The shadow script checks only its own
+     * records; the eval runner does not meter capability cost, so the combined
+     * total is recorded as unmeasured rather than guessed.
+     */
     costCapUsd: 5,
   }),
 })
