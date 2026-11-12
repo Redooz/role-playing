@@ -196,3 +196,18 @@ describe('run manifest (gate G2)', () => {
     expect(manifestHash(first)).toMatch(/^[0-9a-f]{64}$/)
   })
 })
+
+describe('multi-persona registration', () => {
+  it('accepts both registered live arms and rejects an unknown one', () => {
+    const raw = loadExample()
+    raw['multiPersona'] = { policy: 'fixed-rotation' }
+    expect(validateManifest(raw).ok).toBe(true)
+    raw['multiPersona'] = { policy: 'det-persona' }
+    expect(validateManifest(raw).ok).toBe(true)
+    raw['multiPersona'] = { policy: 'jev-persona' }
+    const result = validateManifest(raw)
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.issues.map((issue) => issue.path)).toContain('multiPersona.policy')
+  })
+})

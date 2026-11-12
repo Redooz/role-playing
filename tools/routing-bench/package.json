@@ -12,6 +12,9 @@
   "dependencies": {
     "@rp/agent-harness-bench": "*",
     "@rp/eval-harness": "*",
-    "@rp/routing-policy": "*"
+    "@rp/pipeline": "*",
+    "@rp/routing-policy": "*",
+    "@rp/shared": "*",
+    "@rp/turn-arbiter": "*"
   }
 }

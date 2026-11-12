@@ -330,3 +330,8 @@ contradiction is gone.
 
 The label row is a finding, not acceptance of the 0.80 target. D6 must carry it
 with the capability run and must not call the agent labels stable.
+
+| 2026-11-12 | M3b D6 timing and budgets | `m3b-timing` | accepted (recorded) | 500 reducer iterations per transition, no provider call; grant p95 0.060 ms, interject p95 0.014 ms, 32 partials p95 0.081 ms. Frozen config matches the plan defaults; capability uses 3 rounds, 6 holdout tasks per language, MDE 0.20, shadow deadline 2,500 ms, $5 cap. |
+| 2026-11-12 | M3b capability — English | `m3b-det-persona-en-r3` vs `m3b-baseline-en-r3` | **rejected** | 18/18 trials each, 0 failures, invariants and `pass^3` 1.0. `turn_taking.acceptable_speaker_rate` 0.667 vs 0.750, delta −0.083, MDE 0.20. No policy adopted. |
+| 2026-11-12 | M3b capability — French | `m3b-det-persona-fr-r3` vs `m3b-baseline-fr-r3` | **inconclusive** | 18/18 trials each, 0 failures, invariants and `pass^3` 1.0. Rate 0.667 vs 0.583, delta +0.083, below MDE 0.20. No policy adopted. |
+| 2026-11-12 | M3b shadow comparison | `m3b-shadow` | recorded, no adoption | 144 records over 6 holdout tasks per language. Agreement: `jev-persona` 0.667, `det-central` 1.000, `jev-central` 0.625; total shadow cost $0.0056. Shadow records never changed a session event. |

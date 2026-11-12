@@ -11,6 +11,8 @@ import {
   compareRunResults,
   createJevAxisGrader,
   createJevClient,
+  createTurnTakingGrader,
+  TURN_TAKING_GRADER_ID,
   deriveExecutionId,
   executeRun,
   formatManifestIssue,
@@ -253,7 +255,12 @@ async function runCommand(
         })
       : undefined)
   const grader =
-    deps.grader ?? (manifest.grader.id === M2_JEV_GRADER_ID ? createJevGrader(env) : undefined)
+    deps.grader ??
+    (manifest.grader.id === M2_JEV_GRADER_ID
+      ? createJevGrader(env)
+      : manifest.grader.id === TURN_TAKING_GRADER_ID
+        ? createTurnTakingGrader()
+        : undefined)
 
   const execution = await executeRun({
     repoRoot,
