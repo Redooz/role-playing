@@ -19,6 +19,9 @@ import type {
  * reducer, not stored phases: no input boundary can observe them. The state is
  * a discriminated union so an impossible state (a window without a turn, a
  * grant phase without a grant) cannot be constructed.
+ *
+ * D2 adds interjection, partial sequencing, the recovery matrix and the streak
+ * cap. Session-wide counters live in one object so every phase carries them.
  */
 
 export type TurnArbiterPhase = 'idle' | 'window_open' | 'grant_active' | 'ended'
@@ -33,6 +36,8 @@ export interface ActiveTurn {
   readonly windowEndsAtMs: number
   readonly requests: readonly TurnRequest[]
   readonly declinedBy: readonly PersonaId[]
+  /** Personas whose policy call timed out or errored; never a decline. */
+  readonly failedBy: readonly PersonaId[]
 }
 
 /** The single current grant. */
@@ -40,29 +45,61 @@ export interface ActiveGrant {
   readonly grantId: string
   readonly personaId: PersonaId
   readonly expiresAtMs: number
+  /** First instant another persona may evaluate an interjection. */
+  readonly interjectableFromMs: number
+  /** End of the bounded interject opportunity; requests at or after it expire. */
+  readonly interjectWindowEndsAtMs: number
+  /** Highest accepted partial sequence; `-1` before the first partial. */
+  readonly lastPartialSequence: number
+  readonly interjects: readonly TurnRequest[]
+  /** Set once the opportunity has been resolved, so it cannot run twice. */
+  readonly interjectWindowClosed: boolean
+  /** Replacement grants already consumed by this grant. */
+  readonly replacementAttempts: number
+}
+
+/** One successful interjection, kept for the per-persona cooldown. */
+export interface InterjectionRecord {
+  readonly personaId: PersonaId
+  readonly atMs: number
+}
+
+/** Session-wide counters; they survive phase changes. */
+export interface ArbiterCounters {
+  /** Monotonic per session; keeps grant ids unique across turns. */
+  readonly grantsIssued: number
+  /** Consecutive grants issued without a new user utterance. */
+  readonly agentOnlyTurns: number
+  /** Consecutive provider failures; reset by a completed response. */
+  readonly consecutiveFailures: number
+  readonly interjections: readonly InterjectionRecord[]
 }
 
 export interface ArbiterIdleState {
   readonly phase: 'idle'
-  /** Monotonic per session; keeps grant ids unique across turns. */
-  readonly grantsIssued: number
+  readonly counters: ArbiterCounters
 }
 
 export interface ArbiterWindowState {
   readonly phase: 'window_open'
   readonly turn: ActiveTurn
-  readonly grantsIssued: number
+  readonly counters: ArbiterCounters
 }
 
 export interface ArbiterGrantState {
   readonly phase: 'grant_active'
   readonly grant: ActiveGrant
-  readonly grantsIssued: number
+  /**
+   * The turn the grant belongs to. Kept through the grant so a failed holder
+   * can be replaced by the best persona that already asked to speak.
+   */
+  readonly turn: ActiveTurn
+  readonly counters: ArbiterCounters
 }
 
 export interface ArbiterEndedState {
   readonly phase: 'ended'
-  readonly grantsIssued: number
+  readonly counters: ArbiterCounters
 }
 
 export type ArbiterState =
@@ -78,7 +115,10 @@ export interface UserCommittedInput {
   readonly eligiblePersonaIds: readonly PersonaId[]
 }
 
-/** A persona asks for the turn. Late, duplicate and invalid requests are dropped. */
+/**
+ * A persona asks for the turn. A `speak` request belongs to the open window;
+ * an `interject` request names the active grant and its bounded opportunity.
+ */
 export interface RequestInput {
   readonly kind: 'request'
   readonly request: TurnRequest
@@ -93,7 +133,38 @@ export interface DeclinedInput {
   readonly nowMs: number
 }
 
-/** Lets the reducer close the window or expire a grant without another input. */
+/**
+ * A persona's policy call timed out or errored; this is not a decline.
+ *
+ * `cause` is carried for the transport and its logs. The arbiter treats both
+ * causes the same way: the persona did not answer, so it cannot be counted as
+ * having declined.
+ */
+export interface PolicyFailedInput {
+  readonly kind: 'policy_failed'
+  readonly turnId: string
+  readonly personaId: PersonaId
+  readonly cause: 'timeout' | 'error'
+  readonly nowMs: number
+}
+
+/** A streamed fragment of the active grant's response. */
+export interface PartialInput {
+  readonly kind: 'partial'
+  readonly grantId: string
+  /** Speaker text carried by `persona.utterance.partial`; never stored. */
+  readonly text: string
+  readonly sequence: number
+  readonly nowMs: number
+}
+
+/** The learner spoke over the active grant or the open window. */
+export interface UserBargeInInput {
+  readonly kind: 'user_barge_in'
+  readonly nowMs: number
+}
+
+/** Lets the reducer close the window, resolve interjects or expire a grant. */
 export interface TickInput {
   readonly kind: 'tick'
   readonly nowMs: number
@@ -103,7 +174,7 @@ export interface TickInput {
 export interface ResponseEndedInput {
   readonly kind: 'response_ended'
   readonly grantId: string
-  readonly outcome: 'completed' | 'cancelled'
+  readonly outcome: 'completed' | 'cancelled' | 'failed'
   readonly nowMs: number
 }
 
@@ -114,7 +185,15 @@ export interface CloseInput {
 }
 
 export type ArbiterInput =
-  UserCommittedInput | RequestInput | DeclinedInput | TickInput | ResponseEndedInput | CloseInput
+  | UserCommittedInput
+  | RequestInput
+  | DeclinedInput
+  | PolicyFailedInput
+  | PartialInput
+  | UserBargeInInput
+  | TickInput
+  | ResponseEndedInput
+  | CloseInput
 
 export type EmitEventEffect = {
   readonly [Name in SessionEventName]: {

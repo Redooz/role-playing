@@ -5,5 +5,9 @@
     "outDir": "dist"
   },
   "include": ["src/**/*.ts"],
-  "references": [{ "path": "../session-core" }, { "path": "../routing-policy" }]
+  "references": [
+    { "path": "../shared" },
+    { "path": "../session-core" },
+    { "path": "../routing-policy" }
+  ]
 }

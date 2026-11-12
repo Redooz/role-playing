@@ -32,7 +32,11 @@ export const MAX_TIME_VALUE_MS = 8_640_000_000_000_000
  * comparison below also rejects them, so this helper stays total on its own.
  */
 export function isUsableClock(nowMs: number, config: TurnArbiterConfig): boolean {
-  const longestLifetime = Math.max(config.requestWindowMs, config.grantTtlMs)
+  const longestLifetime = Math.max(
+    config.requestWindowMs,
+    config.grantTtlMs,
+    config.minHoldMs + config.interjectExpiryMs,
+  )
   if (!Number.isFinite(longestLifetime)) return false
 
   return Math.abs(nowMs) <= MAX_TIME_VALUE_MS - longestLifetime
@@ -60,6 +64,27 @@ const declinedSchema = z.strictObject({
   nowMs: z.number(),
 })
 
+const policyFailedSchema = z.strictObject({
+  kind: z.literal('policy_failed'),
+  turnId: turnIdSchema,
+  personaId: personaIdSchema,
+  cause: z.enum(['timeout', 'error']),
+  nowMs: z.number(),
+})
+
+const partialSchema = z.strictObject({
+  kind: z.literal('partial'),
+  grantId: grantIdSchema,
+  text: z.string(),
+  sequence: z.int().nonnegative(),
+  nowMs: z.number(),
+})
+
+const userBargeInSchema = z.strictObject({
+  kind: z.literal('user_barge_in'),
+  nowMs: z.number(),
+})
+
 const tickSchema = z.strictObject({
   kind: z.literal('tick'),
   nowMs: z.number(),
@@ -68,7 +93,7 @@ const tickSchema = z.strictObject({
 const responseEndedSchema = z.strictObject({
   kind: z.literal('response_ended'),
   grantId: grantIdSchema,
-  outcome: z.enum(['completed', 'cancelled']),
+  outcome: z.enum(['completed', 'cancelled', 'failed']),
   nowMs: z.number(),
 })
 
@@ -81,6 +106,9 @@ const arbiterInputSchema = z.discriminatedUnion('kind', [
   userCommittedSchema,
   requestInputSchema,
   declinedSchema,
+  policyFailedSchema,
+  partialSchema,
+  userBargeInSchema,
   tickSchema,
   responseEndedSchema,
   closeSchema,
