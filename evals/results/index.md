@@ -49,6 +49,8 @@ it still handle every task it used to?). **Grader** is `code`,
 | 2026-11-12 | `m3b-det-persona-fr-r3` | M3b det-persona capability (French holdout) | capability | code | inconclusive | 18/18 trials, 0 failures; 0.667 vs 0.583, delta +0.083, below MDE 0.20; invariants and `pass^3` hold; no adoption |
 | 2026-11-12 | `m3b-shadow` | M3b shadow comparison | capability | code | recorded, no adoption | 144 records; agreement jev-persona 0.667, det-central 1.000, jev-central 0.625; $0.0056 shadow cost |
 | 2026-11-12 | `m3b-timing` | M3b reducer timing spike | capability | code (wall-clock bench) | recorded | 500 iterations; grant p95 0.060 ms, interject p95 0.014 ms, 32 partials p95 0.081 ms; config frozen |
+| 2026-11-12 | `m3b-d7-m0-canned-replay` | M0 replay regression after M3b | regression | code | accepted | 12 trials, deterministic rate 1, all invariants and guardrails hold |
+| 2026-11-12 | `m3b-d7-m2-persona-replay` | M2 canned session regression after M3b | regression | code | accepted | 12 trials, deterministic rate 1, plain text and guardrails hold; single-persona bytes unchanged |
 
 Langfuse experiment links are local to the self-hosted instance:
 `http://127.0.0.1:3000/project/8cdf72afddb90bd4e129b3c7/experiments/results?baseline=<execution-id>`.
