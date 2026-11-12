@@ -11,6 +11,9 @@ const state = vi.hoisted(() => ({
   createCanned: vi.fn(),
   closeInterface: vi.fn(),
   lastLogOptions: undefined as unknown,
+  lastContext: undefined as unknown,
+  lastSeed: undefined as unknown,
+  lastArbiterResult: undefined as unknown,
 }))
 
 vi.mock('node:readline/promises', () => ({
@@ -110,16 +113,42 @@ function configureMocks(): void {
     dispose: vi.fn(async () => undefined),
   }))
   state.createPersonaTextModel.mockImplementation((inner: unknown) => inner)
-  state.createDriver.mockImplementation((options: { sessionId: string }) => ({
-    sessionId: options.sessionId,
-    events: (async function* () {
-      yield* []
-    })(),
-    start: vi.fn(async () => undefined),
-    send: vi.fn(async () => undefined),
-    interrupt: vi.fn(async () => undefined),
-    close: vi.fn(async () => undefined),
-  }))
+  state.createDriver.mockImplementation((options: unknown) => {
+    const driverOptions = options as {
+      sessionId: string
+      buildContext?: (input: {
+        turnId: string
+        messages: { role: 'user' | 'assistant'; content: string; personaId?: string }[]
+      }) => unknown
+      seedSource?: () => number
+      arbiter?: {
+        initialState: unknown
+        reduce: (state: unknown, input: unknown) => unknown
+      }
+    }
+    state.lastContext = driverOptions.buildContext?.({
+      turnId: 'turn-1',
+      messages: [
+        { role: 'assistant', content: 'We changed the scope.', personaId: 'manager' },
+        { role: 'user', content: 'Sam, what is finished?' },
+      ],
+    })
+    state.lastSeed = driverOptions.seedSource?.()
+    state.lastArbiterResult = driverOptions.arbiter?.reduce(driverOptions.arbiter.initialState, {
+      kind: 'close',
+      nowMs: 0,
+    })
+    return {
+      sessionId: driverOptions.sessionId,
+      events: (async function* () {
+        yield* []
+      })(),
+      start: vi.fn(async () => undefined),
+      send: vi.fn(async () => undefined),
+      interrupt: vi.fn(async () => undefined),
+      close: vi.fn(async () => undefined),
+    }
+  })
   state.createFileSessionLog.mockImplementation(async (options: unknown) => {
     state.lastLogOptions = options
     return { path: (options as { path: string }).path, append: vi.fn(async () => undefined) }
@@ -191,6 +220,91 @@ describe('main composition root', () => {
       expect(state.createDriver).toHaveBeenCalledWith(
         expect.not.objectContaining({ taskId: expect.anything() }),
       )
+      expect(io.err()).toBe('')
+    } finally {
+      io.restore()
+    }
+  })
+
+  it('runs a canned two-persona session with one prompt and model per persona', async () => {
+    configureMocks()
+    const io = captureStreams()
+    try {
+      await expect(
+        main([
+          '--session-id',
+          'multi-1',
+          '--personas',
+          'manager,peer',
+          '--scenario',
+          'standup-scope-change',
+          '--prompt-date',
+          '2026-11-08',
+        ]),
+      ).resolves.toBe(0)
+      expect(state.createCanned).toHaveBeenCalledTimes(2)
+      expect(state.createDriver).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sessionId: 'multi-1',
+          personas: [
+            expect.objectContaining({ personaId: 'manager' }),
+            expect.objectContaining({ personaId: 'peer' }),
+          ],
+          arbiter: expect.objectContaining({ initialState: expect.anything() }),
+          policy: expect.anything(),
+          buildContext: expect.any(Function),
+          seedSource: expect.any(Function),
+        }),
+      )
+      expect(state.runCli).toHaveBeenCalledWith(
+        expect.objectContaining({
+          selection: expect.objectContaining({
+            personaId: 'manager',
+            personas: [
+              { personaId: 'manager', personaName: 'Katherine Brooks' },
+              { personaId: 'peer', personaName: 'Sam Carter' },
+            ],
+          }),
+        }),
+      )
+      const header = (state.lastLogOptions as { header: Record<string, unknown> }).header
+      expect(header['personaId']).toBe('manager')
+      expect(header['personaIds']).toEqual(['manager', 'peer'])
+      expect(state.lastContext).toMatchObject({
+        personas: [{ id: 'manager' }, { id: 'peer' }],
+        transcript: [
+          { speaker: { kind: 'persona', personaId: 'manager' }, text: 'We changed the scope.' },
+          { speaker: { kind: 'user' }, text: 'Sam, what is finished?' },
+        ],
+      })
+      expect(typeof state.lastSeed).toBe('number')
+      expect(state.lastArbiterResult).toMatchObject({
+        state: { phase: 'ended' },
+        effects: expect.any(Array),
+      })
+      expect(io.err()).toBe('')
+    } finally {
+      io.restore()
+    }
+  })
+
+  it('trims persona ids and drops empty entries in --personas', async () => {
+    configureMocks()
+    const io = captureStreams()
+    try {
+      await expect(
+        main([
+          '--session-id',
+          'multi-ws',
+          '--personas',
+          ' manager , , peer ',
+          '--scenario',
+          'standup-scope-change',
+          '--prompt-date',
+          '2026-11-08',
+        ]),
+      ).resolves.toBe(0)
+      expect(state.createCanned).toHaveBeenCalledTimes(2)
       expect(io.err()).toBe('')
     } finally {
       io.restore()

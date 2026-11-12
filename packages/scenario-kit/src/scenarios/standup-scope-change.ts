@@ -41,12 +41,14 @@ export const standupScopeChangeScenario = defineScenario({
           id: 'assess-impact',
           description: 'Ask the peer how much of the affected work is already done.',
           personaIds: ['peer'],
+          keywords: ['impact', 'notifications', 'finished', 'risk'],
           successCriteria: ['Asks about completed work', 'Asks what is at risk'],
         },
         {
           id: 'agree-priority',
           description: 'Agree with the manager what ships first.',
           personaIds: ['manager'],
+          keywords: ['priority', 'export', 'notifications', 'friday'],
           successCriteria: ['Confirms export ships on Friday', 'Confirms notifications wait'],
         },
         {
@@ -98,12 +100,14 @@ export const standupScopeChangeScenario = defineScenario({
           id: 'assess-impact',
           description: 'Ask the peer how much of the affected work is already done.',
           personaIds: ['peer'],
+          keywords: ['impact', 'notifications', 'sorted', 'risk'],
           successCriteria: ['Asks about completed work', 'Asks what is at risk'],
         },
         {
           id: 'agree-priority',
           description: 'Agree with the manager what ships first.',
           personaIds: ['manager'],
+          keywords: ['priority', 'export', 'notifications', 'friday'],
           successCriteria: ['Confirms export ships on Friday', 'Confirms notifications wait'],
         },
         {
@@ -156,12 +160,14 @@ export const standupScopeChangeScenario = defineScenario({
           id: 'assess-impact',
           description: 'Demander au collègue quelle part du travail est déjà faite.',
           personaIds: ['peer'],
+          keywords: ['impact', 'notifications', 'terminé', 'risque'],
           successCriteria: ['Interroge sur le travail terminé', 'Interroge sur les risques'],
         },
         {
           id: 'agree-priority',
           description: 'S’accorder avec la responsable sur ce qui part en premier.',
           personaIds: ['manager'],
+          keywords: ['priorité', 'export', 'notifications', 'vendredi'],
           successCriteria: [
             'Confirme que l’export part vendredi',
             'Confirme que les notifications attendent',
@@ -217,6 +223,7 @@ export const standupScopeChangeScenario = defineScenario({
           id: 'assess-impact',
           description: 'Demander au collègue quelle part de la job est déjà faite.',
           personaIds: ['peer'],
+          keywords: ['impact', 'notifications', 'faite', 'risque'],
           successCriteria: [
             'Pose une question sur la job terminée',
             'Pose une question sur les risques',
@@ -226,6 +233,7 @@ export const standupScopeChangeScenario = defineScenario({
           id: 'agree-priority',
           description: 'S’entendre avec la gestionnaire sur ce qui part en premier.',
           personaIds: ['manager'],
+          keywords: ['priorité', 'export', 'notifications', 'vendredi'],
           successCriteria: [
             'Confirme que l’export part vendredi',
             'Confirme que les notifications attendent',

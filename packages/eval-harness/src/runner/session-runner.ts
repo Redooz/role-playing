@@ -2,18 +2,22 @@ import {
   MemoryTranscriptSink,
   SpeechTextFilter,
   canonicalizeLocale,
+  createSeededRandom,
   hashValue,
   type Clock,
 } from '@rp/shared'
 import {
   buildPersonaPrompt,
+  buildSessionRoutingContext,
   personaById,
   PROMPT_TEMPLATE_VERSION,
   promptVersionForStyle,
   type BuiltPersonaPrompt,
   type PromptStyle,
 } from '@rp/persona-kit'
+import { createDetPersonaLivePolicy, type RoutingContext } from '@rp/routing-policy'
 import { scenarioById } from '@rp/scenario-kit'
+import { INITIAL_ARBITER_STATE, parseTurnArbiterConfig, reduce } from '@rp/turn-arbiter'
 import {
   TRANSCRIPT_SCHEMA_VERSION,
   createTextSessionDriver,
@@ -27,8 +31,16 @@ import {
   type TranscriptRecord,
 } from '@rp/session-core'
 import type { TaskEntry } from '../tasks/schema.js'
+import type { JevRoutingJudge } from '../jev/routing.js'
 import type { CannedEntry, CompletionProvider } from './canned-provider.js'
 import { ProviderUnavailableError } from './canned-provider.js'
+import { runDeterministicRoutingReplay } from './routing.js'
+import {
+  runShadowArms,
+  summarizeShadowRecords,
+  type ShadowRecord,
+  type ShadowSummary,
+} from './shadow.js'
 import { createCompletionProviderTextModel } from './text-model.adapter.js'
 import { chunkText } from './replay.js'
 
@@ -70,14 +82,18 @@ export interface SessionPromptContext {
   readonly locale: string
 }
 
+export interface SessionPersonaPrompt extends SessionPromptContext {
+  readonly personaId: string
+}
+
 export type SessionPromptMode = 'persona' | 'generic'
 
-/** Resolve persona, scenario, locale and render the versioned prompt. */
-export function resolveSessionPrompt(
+function resolvePersonaPrompt(
   task: TaskEntry,
+  personaId: string,
   currentDate: string,
-  mode: SessionPromptMode = 'persona',
-  style: PromptStyle = 'harmony',
+  mode: SessionPromptMode,
+  style: PromptStyle,
 ): SessionPromptContext {
   const session = task.session
   if (task.mode !== 'session' || session === undefined) {
@@ -89,7 +105,7 @@ export function resolveSessionPrompt(
     return { prompt: buildGenericPrompt(task.lang, locale, currentDate), locale }
   }
 
-  const persona = personaById(session.personaId)
+  const persona = personaById(personaId)
   const scenario = scenarioById(session.scenarioId)
   if (persona.version !== session.personaVersion) {
     throw new SessionTaskError(
@@ -104,6 +120,51 @@ export function resolveSessionPrompt(
 
   const prompt = buildPersonaPrompt({ persona, scenario, locale, currentDate, style })
   return { prompt, locale }
+}
+
+/** Resolve persona, scenario, locale and render the versioned prompt. */
+export function resolveSessionPrompt(
+  task: TaskEntry,
+  currentDate: string,
+  mode: SessionPromptMode = 'persona',
+  style: PromptStyle = 'harmony',
+): SessionPromptContext {
+  const session = task.session
+  if (task.mode !== 'session' || session === undefined) {
+    throw new SessionTaskError(`task ${task.id} is not a session task`)
+  }
+  return resolvePersonaPrompt(task, session.personaId, currentDate, mode, style)
+}
+
+/**
+ * Resolve one prompt per eligible persona in driver order.
+ *
+ * A single-persona task keeps the M2 path. A multi-persona task requires the
+ * persona prompt mode: the generic baseline has one identity and cannot speak as
+ * two characters.
+ */
+export function resolveSessionPrompts(
+  task: TaskEntry,
+  currentDate: string,
+  mode: SessionPromptMode = 'persona',
+  style: PromptStyle = 'harmony',
+): SessionPersonaPrompt[] {
+  const session = task.session
+  if (task.mode !== 'session' || session === undefined) {
+    throw new SessionTaskError(`task ${task.id} is not a session task`)
+  }
+
+  const personaIds = session.personaIds ?? [session.personaId]
+  if (personaIds.length > 1 && mode === 'generic') {
+    throw new SessionTaskError(
+      `task ${task.id} has ${personaIds.length} personas; the generic baseline supports one`,
+    )
+  }
+
+  return personaIds.map((personaId) => ({
+    personaId,
+    ...resolvePersonaPrompt(task, personaId, currentDate, mode, style),
+  }))
 }
 
 /**
@@ -144,6 +205,12 @@ function buildGenericPrompt(
   }
 }
 
+export interface SessionShadowOptions {
+  readonly judge: JevRoutingJudge
+  readonly seed: number
+  readonly deadlineMs?: number
+}
+
 export interface RunSessionTaskOptions {
   readonly runId: string
   readonly executionId: string
@@ -157,7 +224,15 @@ export interface RunSessionTaskOptions {
   readonly promptMode?: SessionPromptMode
   /** Prompt family; defaults to the pinned Groq Harmony style. */
   readonly promptStyle?: PromptStyle
+  /** Eval-only shadow arms; never changes a session event. */
+  readonly shadow?: SessionShadowOptions
   readonly signal?: AbortSignal
+}
+
+export interface SessionPersonaPromptHash {
+  readonly personaId: string
+  readonly promptVersion: string
+  readonly promptHash: string
 }
 
 export interface SessionRunResult {
@@ -165,38 +240,124 @@ export interface SessionRunResult {
   readonly jsonl: string
   readonly promptVersion: string
   readonly promptHash: string
+  /** One entry per persona; a single-persona task has exactly one. */
+  readonly personaPrompts: readonly SessionPersonaPromptHash[]
+  /** Eval-only shadow records; absent when shadow is disabled. */
+  readonly shadow?: {
+    readonly records: readonly ShadowRecord[]
+    readonly summary: ShadowSummary
+  }
+}
+
+/** Multi-persona driver wiring for the live runner. */
+function createMultiPersonaDriver(options: {
+  readonly task: TaskEntry
+  readonly prompts: readonly SessionPersonaPrompt[]
+  readonly models: readonly TextModelPort[]
+  readonly clock: Clock
+  readonly locale: string
+  readonly onContext?: (context: RoutingContext) => void
+}): ReturnType<typeof createTextSessionDriver> {
+  const session = options.task.session
+  if (session === undefined) throw new SessionTaskError(`task ${options.task.id} has no session`)
+  const config = parseTurnArbiterConfig()
+  const scenario = scenarioById(session.scenarioId)
+  const personas = options.prompts.map((entry, index) => ({
+    personaId: entry.personaId,
+    model: options.models[index]!,
+    instructions: entry.prompt.systemMessages.session,
+    greetingInstructions: entry.prompt.systemMessages.greeting,
+  }))
+  const personasById = options.prompts.map((entry) => personaById(entry.personaId))
+  const seed = Number.parseInt(hashValue({ taskId: options.task.id }).slice(0, 8), 16) >>> 0
+  const random = createSeededRandom(seed)
+
+  return createTextSessionDriver({
+    sessionId: options.task.id,
+    lang: options.task.lang,
+    locale: options.locale,
+    clockMode: 'simulated',
+    clock: options.clock,
+    personas,
+    arbiter: {
+      initialState: INITIAL_ARBITER_STATE,
+      reduce: (state, input) => reduce(state, input, config),
+    },
+    policy: createDetPersonaLivePolicy(),
+    buildContext: ({ turnId, messages }) => {
+      const context = buildSessionRoutingContext({
+        turnId,
+        personas: personasById,
+        scenario,
+        locale: options.locale,
+        messages: messages
+          .filter((message) => message.role === 'user' || message.role === 'assistant')
+          .map((message) => ({
+            role: message.role === 'user' ? ('user' as const) : ('assistant' as const),
+            content: message.content,
+            ...(message.personaId === undefined ? {} : { personaId: message.personaId }),
+          })),
+      })
+      options.onContext?.(context)
+      return context
+    },
+    seedSource: () => random.int(2_147_483_647),
+    requestWindowMs: config.requestWindowMs,
+  })
 }
 
 /** Execute one session task end to end and return its transcript. */
 export async function runSessionTask(options: RunSessionTaskOptions): Promise<SessionRunResult> {
   const { runId, executionId, task, clock, provider, wallNow, currentDate, signal } = options
-  const { prompt, locale } = resolveSessionPrompt(
+  const prompts = resolveSessionPrompts(
     task,
     currentDate,
     options.promptMode ?? 'persona',
     options.promptStyle ?? 'harmony',
   )
+  const locale = prompts[0]!.locale
+  if (options.shadow !== undefined && prompts.length === 1) {
+    throw new SessionTaskError(
+      `task ${task.id} has one persona; shadow arms require a multi-persona task`,
+    )
+  }
+  const contexts: RoutingContext[] = []
 
-  const model = withPlainText(
-    createCompletionProviderTextModel({
-      provider,
-      providerName: SESSION_PERSONA_PROVIDER,
-      model: SESSION_PERSONA_MODEL,
-      metadata: { taskId: task.id },
-    }),
+  const models = prompts.map((entry) =>
+    withPlainText(
+      createCompletionProviderTextModel({
+        provider,
+        providerName: SESSION_PERSONA_PROVIDER,
+        model: SESSION_PERSONA_MODEL,
+        metadata:
+          prompts.length === 1
+            ? { taskId: task.id }
+            : { taskId: task.id, personaId: entry.personaId },
+      }),
+    ),
   )
 
-  const driver = createTextSessionDriver({
-    sessionId: task.id,
-    lang: task.lang,
-    locale,
-    personaId: task.session?.personaId ?? undefined,
-    clockMode: 'simulated',
-    clock,
-    model,
-    instructions: prompt.systemMessages.session,
-    greetingInstructions: prompt.systemMessages.greeting,
-  })
+  const driver =
+    prompts.length === 1
+      ? createTextSessionDriver({
+          sessionId: task.id,
+          lang: task.lang,
+          locale,
+          personaId: task.session?.personaId ?? undefined,
+          clockMode: 'simulated',
+          clock,
+          model: models[0]!,
+          instructions: prompts[0]!.prompt.systemMessages.session,
+          greetingInstructions: prompts[0]!.prompt.systemMessages.greeting,
+        })
+      : createMultiPersonaDriver({
+          task,
+          prompts,
+          models,
+          clock,
+          locale,
+          onContext: (context) => contexts.push(context),
+        })
 
   const sink = new MemoryTranscriptSink<TranscriptRecord>()
   let seq = 0
@@ -222,12 +383,37 @@ export async function runSessionTask(options: RunSessionTaskOptions): Promise<Se
     for await (const event of driver.events) append(event.type, event.payload)
   })()
 
+  const shadowRecords: ShadowRecord[] = []
   try {
     throwIfAborted(signal)
     await driver.start()
     for (const turn of task.session?.scriptedUserTurns ?? []) {
       throwIfAborted(signal)
       await driver.send(turn)
+      if (options.shadow !== undefined) {
+        const context = contexts.at(-1)
+        if (context === undefined) {
+          throw new SessionTaskError(`task ${task.id} produced no routing context for shadow`)
+        }
+        const liveDecision = runDeterministicRoutingReplay(
+          context,
+          'persona_requests',
+          options.shadow.seed,
+        ).decision
+        const shadowRun = await runShadowArms(
+          {
+            taskId: task.id,
+            context,
+            liveDecision,
+            seed: options.shadow.seed,
+            ...(options.shadow.deadlineMs === undefined
+              ? {}
+              : { deadlineMs: options.shadow.deadlineMs }),
+          },
+          options.shadow.judge,
+        )
+        shadowRecords.push(...shadowRun.records)
+      }
     }
   } finally {
     await driver.close()
@@ -259,8 +445,24 @@ export async function runSessionTask(options: RunSessionTaskOptions): Promise<Se
   return {
     records,
     jsonl: normalizedTranscriptJsonl(records),
-    promptVersion: prompt.promptVersion,
-    promptHash: prompt.promptHash,
+    promptVersion: prompts[0]!.prompt.promptVersion,
+    promptHash:
+      prompts.length === 1
+        ? prompts[0]!.prompt.promptHash
+        : hashValue(prompts.map((entry) => entry.prompt.promptHash)),
+    personaPrompts: prompts.map((entry) => ({
+      personaId: entry.personaId,
+      promptVersion: entry.prompt.promptVersion,
+      promptHash: entry.prompt.promptHash,
+    })),
+    ...(options.shadow === undefined
+      ? {}
+      : {
+          shadow: {
+            records: shadowRecords,
+            summary: summarizeShadowRecords(task.id, task.lang, shadowRecords),
+          },
+        }),
   }
 }
 
@@ -279,6 +481,11 @@ export function buildSessionCannedEntries(
 ): CannedEntry[] {
   const session = task.session
   if (task.mode !== 'session' || session === undefined) return []
+  if ((session.personaIds?.length ?? 1) > 1) {
+    throw new SessionTaskError(
+      `canned session replay does not support multi-persona task ${task.id}; use the live runner`,
+    )
+  }
   const replies = session.recordedPersonaTurns
   if (replies === undefined) {
     throw new SessionTaskError(

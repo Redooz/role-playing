@@ -84,6 +84,16 @@ describe('session log', () => {
     expect(records[0]?.contentClass).toBe('contentFree')
   })
 
+  it('accepts multiple persona ids and rejects empty or blank ones', () => {
+    const multi: SessionLogHeader = { ...header, personaIds: ['manager', 'peer'] }
+    expect(parseSessionLog(textFor(recordsFor(), multi)).header.personaIds).toEqual([
+      'manager',
+      'peer',
+    ])
+    expect(() => parseSessionLog(textFor(recordsFor(), { ...header, personaIds: [] }))).toThrow()
+    expect(() => parseSessionLog(textFor(recordsFor(), { ...header, personaIds: [''] }))).toThrow()
+  })
+
   it('drops an incomplete final line, reports truncation, and fabricates nothing', () => {
     const records = recordsFor()
     const complete = textFor(records)

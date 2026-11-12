@@ -10,6 +10,7 @@
     { "path": "../session-core" },
     { "path": "../scenario-kit" },
     { "path": "../persona-kit" },
-    { "path": "../routing-policy" }
+    { "path": "../routing-policy" },
+    { "path": "../turn-arbiter" }
   ]
 }

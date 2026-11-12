@@ -1,0 +1,36 @@
+{
+  "id": "fr-b2-scope-fr-ca-hold-332",
+  "lang": "fr",
+  "locale": "fr-CA",
+  "mode": "session",
+  "domain": "workplace",
+  "scenarioType": "standup-scope-change",
+  "cefrBand": "B2",
+  "speakerId": "syn-fr-scope-fr-ca-hold-332",
+  "split": "holdout",
+  "provenance": {
+    "source": "synthetic"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "rubric": "m3b-turn-taking-rubric-v1",
+    "annotationGuideline": "m2-annotation-guideline-v2"
+  },
+  "content": {
+    "scenarioBrief": "The manager changes the release scope at stand-up; the learner clarifies impact and priority.",
+    "turns": []
+  },
+  "session": {
+    "personaId": "manager",
+    "personaIds": ["manager", "peer"],
+    "personaVersion": "1.0.0",
+    "scenarioId": "standup-scope-change",
+    "scenarioVersion": "1.0.0",
+    "scriptedUserTurns": [
+      "Quelqu’un peut résumer le changement de portée ?",
+      "Samir, est-ce que se dépêcher avec les notifications pose un risque ?",
+      "Catherine, tu veux que l’export parte en premier ?",
+      "Qu’est-ce que je dois faire avant la démo ?"
+    ]
+  }
+}

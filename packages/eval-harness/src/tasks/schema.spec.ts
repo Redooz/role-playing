@@ -417,3 +417,105 @@ describe('committed JSON schemas', () => {
     expect(committedFiles.sort()).toEqual(Object.keys(expected).sort())
   })
 })
+
+describe('multi-persona task and speaker labels', () => {
+  function multiSession(overrides: Partial<TaskEntry> = {}): TaskEntry {
+    return taskEntry({
+      mode: 'session',
+      content: { scenarioBrief: 'A scope change at stand-up.', turns: [] },
+      session: {
+        personaId: 'manager',
+        personaIds: ['manager', 'peer'],
+        personaVersion: '1.0.0',
+        scenarioId: 'standup-scope-change',
+        scenarioVersion: '1.0.0',
+        scriptedUserTurns: ['Sam, what is finished?', 'Katherine, what ships?'],
+      },
+      ...overrides,
+    })
+  }
+
+  function speakerGolden(overrides: Partial<GoldenEntry> = {}): GoldenEntry {
+    return goldenEntry({
+      routingLabels: undefined,
+      dimensionScores: undefined,
+      speakerLabels: [
+        {
+          turnIndex: 0,
+          acceptablePersonaIds: ['peer'],
+          allowUserYield: false,
+          labelSource: 'agent',
+        },
+        {
+          turnIndex: 1,
+          acceptablePersonaIds: ['manager'],
+          allowUserYield: false,
+          labelSource: 'agent',
+        },
+      ],
+      ...overrides,
+    })
+  }
+
+  it('accepts a session task with personaIds in driver order', () => {
+    expect(taskEntrySchema.safeParse(multiSession()).success).toBe(true)
+  })
+
+  it('rejects duplicate personas and an opening persona that is not first', () => {
+    const duplicates = multiSession()
+    const first = taskEntrySchema.safeParse({
+      ...duplicates,
+      session: { ...duplicates.session!, personaIds: ['manager', 'manager'] },
+    })
+    expect(first.success).toBe(false)
+
+    const wrongOpening = taskEntrySchema.safeParse({
+      ...duplicates,
+      session: { ...duplicates.session!, personaIds: ['peer', 'manager'] },
+    })
+    expect(wrongOpening.success).toBe(false)
+    expect(wrongOpening.error?.issues[0]?.message).toContain('opening personaId')
+  })
+
+  it('accepts speakerLabels without routing labels or dimension scores', () => {
+    const result = goldenEntrySchema.safeParse(speakerGolden())
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects speakerLabels mixed with routing labels or a non-consecutive turn set', () => {
+    const mixed = goldenEntrySchema.safeParse(
+      speakerGolden({
+        routingOutcome: {
+          intent: 'x',
+          acceptablePersonaIds: ['manager'],
+          allowUserYield: false,
+          labelSource: 'agent',
+        },
+      }),
+    )
+    expect(mixed.success).toBe(false)
+
+    const gap = goldenEntrySchema.safeParse(
+      speakerGolden({
+        speakerLabels: [
+          {
+            turnIndex: 1,
+            acceptablePersonaIds: ['peer'],
+            allowUserYield: false,
+            labelSource: 'agent',
+          },
+        ],
+      }),
+    )
+    expect(gap.success).toBe(false)
+    expect(gap.error?.issues[0]?.message).toContain('first user turn')
+  })
+
+  it('refuses a stable entry with agent speaker labels', () => {
+    const result = goldenEntrySchema.safeParse(speakerGolden({ status: 'stable' }))
+    expect(result.success).toBe(false)
+    expect(result.error?.issues.map((issue) => issue.message).join(' ')).toContain(
+      "agent speaker labels cannot be 'stable'",
+    )
+  })
+})

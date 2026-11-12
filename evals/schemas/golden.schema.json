@@ -90,6 +90,40 @@
       "required": ["intent", "acceptablePersonaIds", "allowUserYield", "labelSource"],
       "additionalProperties": false
     },
+    "speakerLabels": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "turnIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "acceptablePersonaIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "allowUserYield": {
+            "type": "boolean"
+          },
+          "labelSource": {
+            "type": "string",
+            "enum": ["agent", "human"]
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": ["turnIndex", "acceptablePersonaIds", "allowUserYield", "labelSource"],
+        "additionalProperties": false
+      }
+    },
     "dimensionScores": {
       "type": "object",
       "propertyNames": {

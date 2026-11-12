@@ -1,0 +1,36 @@
+{
+  "id": "en-b2-scope-en-gb-cal-211",
+  "lang": "en",
+  "locale": "en-GB",
+  "mode": "session",
+  "domain": "workplace",
+  "scenarioType": "standup-scope-change",
+  "cefrBand": "B2",
+  "speakerId": "syn-en-scope-en-gb-cal-211",
+  "split": "calibration",
+  "provenance": {
+    "source": "synthetic"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "rubric": "m3b-turn-taking-rubric-v1",
+    "annotationGuideline": "m2-annotation-guideline-v2"
+  },
+  "content": {
+    "scenarioBrief": "The manager changes the release scope at stand-up; the learner clarifies impact and priority.",
+    "turns": []
+  },
+  "session": {
+    "personaId": "manager",
+    "personaIds": ["manager", "peer"],
+    "personaVersion": "1.0.0",
+    "scenarioId": "standup-scope-change",
+    "scenarioVersion": "1.0.0",
+    "scriptedUserTurns": [
+      "Could you explain exactly what changes in Friday's release?",
+      "Sam, how much of the notification work is already sorted?",
+      "Katherine, do we still put export out on Friday?",
+      "What should I update on the board today?"
+    ]
+  }
+}

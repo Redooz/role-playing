@@ -7,6 +7,7 @@
 
 export * from './persona.js'
 export * from './lookup.js'
+export * from './routing-context.js'
 export * from './prompt/version.js'
 export { buildPersonaPrompt, PromptVariantError } from './prompt/build.js'
 export type {
