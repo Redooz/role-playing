@@ -61,7 +61,8 @@ interface ConversationTurn {
   readonly text: string
 }
 
-function conversationFor(context: RoutingContext): ConversationTurn[] {
+/** The public conversation shape shared by routing and turn-taking judgments. */
+export function conversationFor(context: RoutingContext): ConversationTurn[] {
   const names = new Map(context.personas.map((persona) => [persona.id, persona.displayName]))
   return context.transcript.map((turn) =>
     turn.speaker.kind === 'user'

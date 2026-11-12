@@ -8,17 +8,20 @@ export * from './scenario.js'
 export * from './lookup.js'
 export { deadlineExtensionScenario } from './scenarios/deadline-extension.js'
 export { standupClarifyScenario } from './scenarios/standup-clarify.js'
+export { standupScopeChangeScenario } from './scenarios/standup-scope-change.js'
 export { declineMeetingScenario } from './scenarios/decline-meeting.js'
 
 import { deadlineExtensionScenario } from './scenarios/deadline-extension.js'
 import { standupClarifyScenario } from './scenarios/standup-clarify.js'
+import { standupScopeChangeScenario } from './scenarios/standup-scope-change.js'
 import { declineMeetingScenario } from './scenarios/decline-meeting.js'
 import type { ScenarioSpec } from './scenario.js'
 
-/** Every scenario shipped by M2. */
+/** Every scenario shipped by M2 and M3b. */
 export const SCENARIOS: readonly ScenarioSpec[] = [
   deadlineExtensionScenario,
   standupClarifyScenario,
+  standupScopeChangeScenario,
   declineMeetingScenario,
 ]
 

@@ -119,7 +119,19 @@ papered over:
 - `policy-decisions.ts`: clearing a timer after the race settled has no
   observable effect.
 
-## What the added tests cover
+### M3b D4 addendum (2026-11-11)
+
+D4 adds the `det-persona` live control arm in `routing-policy`. The full suite
+measured **96.06 / 96.35** globally and **100.00 / 100.00** for
+`routing-policy` over 377 mutants (47 of them in `live-policy.ts`). No existing
+floor changed and the baseline file was not re-recorded. D4 adds no meaningful
+survivors; the remaining survivors are the D3 equivalents already listed above.
+
+The new shadow runner and the `interruptionWarranted` judgment live in
+`packages/eval-harness`, which is outside the mutation-gated package set in
+`AGENTS.md`. This layer records that as a scope gap for D7, when the live
+multi-persona runner joins the gate; it does not smuggle the whole eval harness
+into the mutation scope without its own measured floor.
 
 The pass is organised by survivor class, not by one large test:
 
