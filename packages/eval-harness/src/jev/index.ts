@@ -80,6 +80,19 @@ export type {
   JevSmokeRole,
 } from './smoke-suite.js'
 
+export {
+  buildInterruptionWarrantedJudgment,
+  createJevInterruptionJudge,
+  INTERRUPTION_WARRANTED_QUESTION_ID,
+  M3B_TURN_TAKING_RUBRIC_VERSION,
+} from './turn-taking.js'
+export type {
+  InterruptionJevResult,
+  InterruptionWarrantedInput,
+  InterruptionWarrantedObservation,
+  JevInterruptionJudge,
+} from './turn-taking.js'
+
 export type {
   JevAnswer,
   JevBatchFailure,

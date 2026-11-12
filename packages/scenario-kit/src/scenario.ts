@@ -27,6 +27,11 @@ export const objectiveSchema = z.strictObject({
   id: z.string().min(1),
   description: z.string().min(1),
   successCriteria: z.array(z.string().min(1)).min(1),
+  /**
+   * Personas this objective applies to. Omitted means every persona in the
+   * variant, so M2 scenarios stay valid without a data migration.
+   */
+  personaIds: z.array(z.string().min(1)).min(1).optional(),
 })
 
 export type ScenarioObjective = z.infer<typeof objectiveSchema>
@@ -123,6 +128,60 @@ export const scenarioVariantSchema = z
         message: `opening persona "${variant.opening.personaId}" is not listed in personaIds`,
       })
     }
+
+    const personaIds = new Set<string>()
+    for (const [index, personaId] of variant.personaIds.entries()) {
+      if (personaIds.has(personaId)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['personaIds', index],
+          message: `duplicate persona id "${personaId}"`,
+        })
+      }
+      personaIds.add(personaId)
+    }
+
+    const covered = new Set<string>()
+    for (const [index, objective] of variant.objectives.entries()) {
+      const scoped = objective.personaIds
+      if (scoped === undefined) {
+        // An unscoped objective applies to every persona in the variant.
+        for (const personaId of personaIds) covered.add(personaId)
+        continue
+      }
+
+      const seen = new Set<string>()
+      for (const [personaIndex, personaId] of scoped.entries()) {
+        if (seen.has(personaId)) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['objectives', index, 'personaIds', personaIndex],
+            message: `duplicate persona id "${personaId}"`,
+          })
+        }
+        seen.add(personaId)
+        if (!personaIds.has(personaId)) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['objectives', index, 'personaIds', personaIndex],
+            message: `objective persona "${personaId}" is not listed in personaIds`,
+          })
+          continue
+        }
+        covered.add(personaId)
+      }
+    }
+
+    for (const personaId of personaIds) {
+      if (!covered.has(personaId)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['objectives'],
+          message: `persona "${personaId}" has no objective`,
+        })
+      }
+    }
+
     if (variant.scriptedUser.lang !== variant.lang) {
       ctx.addIssue({
         code: 'custom',
