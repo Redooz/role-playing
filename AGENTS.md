@@ -290,6 +290,17 @@ test uses a local server, and Groq/OpenRouter use injected `fetch`).
   merging to the user once CI is green. If a change lands on `main` by mistake,
   move it to a branch and reset `main`; do not build on it.
 - Keep changes small and tied to one milestone.
+- **Give each module one job, and let a new job become a new module.** Before
+  appending to a large file, ask whether the addition changes the file's
+  responsibility; if you cannot describe that responsibility in one sentence
+  without listing separate concerns, the addition belongs in a sibling module
+  with its own `<module>.spec.ts`. Split by responsibility, not by layer:
+  `utils`, `types` or `handlers` dumps are not splits. A file past 300
+  non-comment lines is a prompt to look for the second job; 450 is the
+  `max-lines` stop in the mutation-gated packages. If you reach for
+  `eslint-disable`, split instead.
+- Reviewers: a diff whose bulk appends to one existing file usually added a job
+  that deserved a module. Ask for the split before approving.
 - **The agent never merges.** On M3b, use one stacked PR per deliverable
   (`feat/m3b-d<N>-<slug>`, via the `gh stack` extension), one automated review,
   then stop for explicit user approval before the next layer. Do not close or

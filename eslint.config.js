@@ -31,5 +31,24 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // Behaviour-bearing packages: the same surface the mutation floor protects.
+    // A module that outgrows this budget usually owns more than one transition
+    // family; split it rather than exempting it.
+    files: [
+      'packages/shared/src/**/*.ts',
+      'packages/session-core/src/**/*.ts',
+      'packages/pipeline/src/**/*.ts',
+      'packages/persona-kit/src/**/*.ts',
+      'packages/scenario-kit/src/**/*.ts',
+      'packages/routing-policy/src/**/*.ts',
+      'packages/turn-arbiter/src/**/*.ts',
+      'apps/cli/src/**/*.ts',
+    ],
+    ignores: ['**/*.spec.ts'],
+    rules: {
+      'max-lines': ['error', { max: 450, skipBlankLines: true, skipComments: true }],
+    },
+  },
   prettier,
 )
