@@ -400,3 +400,21 @@ cleanup whose only observable effect is a leaked promise reference).
 The shadow runner, live session runner and Jev question remain in
 `packages/eval-harness`, outside the AGENTS mutation-gated set. D7 records that
 scope gap; no floor is lowered to hide it.
+
+### M3b D6 addendum (2026-11-12)
+
+D6 adds the fixed-rotation baseline and the turn-taking grader. The full suite
+measured **96.32 / 96.53** globally, **97.36 / 97.84** for `apps/cli`,
+**93.06 / 93.30** for `session-core`, **99.14 / 99.43** for `persona-kit`, and
+**100.00 / 100.00** for `routing-policy`, `scenario-kit` and `turn-arbiter`.
+Every existing floor held and the baseline file was not re-recorded.
+
+The first D6 pass put `fixed-rotation.ts` at 87.80 with five survivors: the
+interject guard could be removed for the non-selected persona, the selected
+comparison could be inverted while still returning one request and one decline,
+and the two identity strings were untested. The code now exports
+`fixedRotationPersonaForTurn`, the test asserts the expected persona for each
+turn, both personas are tested for interjection, and both constants are pinned.
+`fixed-rotation.ts` is back at 100.00. The eval-only turn-taking grader, shadow
+runner and capability script live in `eval-harness` / `tools`, outside the
+mutation-gated set; D7 records that scope boundary.

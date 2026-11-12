@@ -349,6 +349,6 @@ describe('multi-persona shadow switch', () => {
         currentDate: DATE,
         shadow: { judge: shadowJudge(), seed: 7, deadlineMs: 1000 },
       }),
-    ).rejects.toThrow(/shadow arms require a multi-persona task/u)
+    ).rejects.toThrow(/requires two/u)
   })
 })

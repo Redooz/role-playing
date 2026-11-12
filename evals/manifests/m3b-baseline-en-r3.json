@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "3.0.0",
+  "run": {
+    "runId": "m3b-baseline-en-r3",
+    "suite": "m3b-turn-taking",
+    "purpose": "regression",
+    "description": "Fixed-rotation baseline over the M3b EN holdout tasks, three rounds for pass^3. Supplies the pre-registered comparison readings."
+  },
+  "tasks": {
+    "dataset": "synthetic-multi-persona-session",
+    "version": "m3b-v1",
+    "languages": ["en"],
+    "locales": ["en", "en-GB"],
+    "splits": ["holdout"]
+  },
+  "seeds": {
+    "master": 20261112,
+    "algorithm": "mulberry32"
+  },
+  "grader": {
+    "id": "turn-taking-speakers",
+    "kind": "code",
+    "version": "1.0.0"
+  },
+  "rubric": {
+    "version": "m3b-turn-taking-rubric-v1"
+  },
+  "limits": {
+    "rounds": 3,
+    "maxFailureRate": 0
+  },
+  "target": {
+    "metric": "turn_taking.acceptable_speaker_rate",
+    "direction": "increase",
+    "minimumDetectableEffect": 0
+  },
+  "guardrails": [
+    {
+      "metric": "run.failure_rate",
+      "direction": "decrease",
+      "tolerance": 0
+    },
+    {
+      "metric": "transcript.guard_violations",
+      "direction": "decrease",
+      "tolerance": 0
+    },
+    {
+      "metric": "response.plain_text_rate",
+      "direction": "increase",
+      "tolerance": 0
+    }
+  ],
+  "invariants": [
+    "transcript.schema_valid",
+    "transcript.guard_clean",
+    "transcript.seq_monotonic",
+    "transcript.content_class",
+    "response.plain_text"
+  ],
+  "provider": {
+    "mode": "live",
+    "label": "livekit/google/gemma-4-31b-it",
+    "allowLive": true
+  },
+  "prompt": {
+    "version": "m2-prompt-gemma-v2",
+    "mode": "persona",
+    "style": "gemma",
+    "currentDate": "2026-11-12"
+  },
+  "multiPersona": {
+    "policy": "fixed-rotation"
+  }
+}

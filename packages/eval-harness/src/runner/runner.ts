@@ -13,6 +13,7 @@ import {
   type Violation,
 } from '@rp/session-core'
 import { taskEntrySchema, type TaskEntry, type Lang } from '../tasks/schema.js'
+import { goldenIndexByTask, loadGoldenEntries } from '../tasks/golden.js'
 import {
   CannedProviderMissError,
   ProviderUnavailableError,
@@ -231,6 +232,12 @@ export async function executeRun(options: ExecuteRunOptions): Promise<Evaluation
 
   const tasks = await loadSelectedTasks(options.repoRoot, manifest.tasks)
   assertSessionPrompt(manifest, tasks)
+  const goldens = goldenIndexByTask(
+    await loadGoldenEntries(options.repoRoot, {
+      version: manifest.tasks.version,
+      languages: manifest.tasks.languages,
+    }),
+  )
   const providerFactory = options.providerFactory ?? createProviderFactory(manifest, tasks)
 
   const rng = createSeededRandom(manifest.seeds.master)
@@ -283,6 +290,9 @@ export async function executeRun(options: ExecuteRunOptions): Promise<Evaluation
                   currentDate,
                   promptMode: manifest.prompt?.mode ?? 'persona',
                   promptStyle: manifest.prompt?.style ?? 'harmony',
+                  ...(manifest.multiPersona === undefined
+                    ? {}
+                    : { policy: manifest.multiPersona.policy }),
                   signal,
                 })
               }
@@ -336,6 +346,9 @@ export async function executeRun(options: ExecuteRunOptions): Promise<Evaluation
           providerOutage: false,
           speech: speechMetricsFromRecords(replayed.records),
           task: trial.task,
+          ...(goldens.get(`${task.lang}:${task.id}`) === undefined
+            ? {}
+            : { golden: goldens.get(`${task.lang}:${task.id}`)! }),
         })
 
         transcripts.push({
@@ -485,6 +498,11 @@ function assertSessionPrompt(manifest: RunManifest, tasks: readonly LoadedTask[]
   for (const { task } of sessionTasks) {
     if (task.session === undefined) {
       throw new HarnessConfigError(`session task ${task.id} has no session block`)
+    }
+    if ((task.session.personaIds?.length ?? 1) > 1 && manifest.multiPersona === undefined) {
+      throw new HarnessConfigError(
+        `multi-persona session task ${task.id} requires a registered multiPersona policy`,
+      )
     }
   }
 }
