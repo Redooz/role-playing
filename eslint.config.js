@@ -43,7 +43,9 @@ export default tseslint.config(
       'packages/scenario-kit/src/**/*.ts',
       'packages/routing-policy/src/**/*.ts',
       'packages/turn-arbiter/src/**/*.ts',
+      'packages/eval-harness/src/**/*.ts',
       'apps/cli/src/**/*.ts',
+      'tools/*/src/**/*.ts',
     ],
     ignores: ['**/*.spec.ts'],
     rules: {

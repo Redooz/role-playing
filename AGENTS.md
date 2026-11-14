@@ -293,15 +293,16 @@ test uses a local server, and Groq/OpenRouter use injected `fetch`).
 - `npm run mutation` scores the behaviour-bearing files listed in
   `stryker.config.json` (session-core, pipeline, persona-kit prompt/lookup,
   scenario-kit lookup/helpers, routing-policy, turn-arbiter, shared
-  locale/plain-text, apps/cli), then checks each package against
-  `evals/baselines/m1-mutation.json`. `packages/eval-harness`, `tools/*`
-  (including the M3b shadow runner) and the turn-taking code grader are **not**
-  in the gate; adding them needs a measured package floor and is recorded as a
-  D7 gap, not assumed. The `turn-arbiter` reducer itself **is** scored.
-  The global break threshold is 95. Timed-out mutants count as killed;
-  runtime/compile errors are excluded. Never lower the floor or hand-edit the
-  baseline. Record a new baseline only with `npm run mutation:record` after a
-  clean `npm run mutation`.
+  locale/plain-text, apps/cli, `packages/eval-harness` and every `tools/*/src`
+  module), then checks each package against `evals/baselines/m1-mutation.json`.
+  `packages/eval-harness` brings the turn-taking code grader into the gate; the
+  annotation kit's `.mjs` scripts stay out except `routing-labels.mjs`, which has
+  a unit spec. Test-only `*.fixtures.ts` modules are outside the scope. The
+  `turn-arbiter` reducer itself **is** scored. The global break threshold is 95.
+  Timed-out mutants count as killed; runtime/compile errors are excluded. Never
+  lower the floor or hand-edit the baseline. Record a new baseline only with
+  `npm run mutation:record` after a clean `npm run mutation`; a package with
+  mutants but no recorded floor fails the gate.
 - A run writes `manifest.json`, `manifest.sha256`, `result.json`, `transcripts/`,
   `grades.jsonl` and `langfuse.json`. `grades.jsonl` is the raw per-trial grade
   copy; `export-run` re-exports a finished run without re-running the model.

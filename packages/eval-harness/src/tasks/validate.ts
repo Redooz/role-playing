@@ -1,19 +1,31 @@
 import type { Dirent } from 'node:fs'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import { baseLanguageOfLocale } from '@rp/shared'
-import { PERSONAS_BY_ID, personaVariant } from '@rp/persona-kit'
-import { SCENARIOS_BY_ID, scenarioVariant, type ScenarioVariant } from '@rp/scenario-kit'
+import { goldenEntrySchema, taskEntrySchema, type Split } from './schema.js'
+import { parseGoldenLocation, parseTaskLocation, relativeToEvals } from './layout.js'
 import {
-  taskEntrySchema,
-  goldenEntrySchema,
-  hasMeasuredAgreement,
-  LANGS,
-  type GoldenEntry,
-  type Lang,
-  type Split,
-  type TaskEntry,
-} from './schema.js'
+  checkGoldenAgreement,
+  checkGoldenTaskLink,
+  registerTaskForGolden,
+  taskLinkKey,
+} from './golden-link.js'
+import {
+  checkRequiredMetadata,
+  checkRoutingReferences,
+  checkSessionReferences,
+} from './task-references.js'
+import {
+  collectDuplicateIds,
+  collectSplitLeakage,
+  registerId,
+  registerSpeaker,
+  type IdIndex,
+  type SpeakerIndex,
+} from './tree-index.js'
+import { pushSchemaViolations, type TaskViolation } from './violations.js'
+
+export { formatViolation } from './violations.js'
+export type { TaskViolation, ViolationCode } from './violations.js'
 
 /**
  * Filesystem validator for the task/golden tree (M0 D5, gate G3).
@@ -43,61 +55,6 @@ import {
  * Missing `evals/tasks` or `evals/golden` subtrees are treated as empty; only
  * a missing `evals/` root is itself a violation.
  */
-
-/** Stable violation codes. The eval-harness CLI and CI output depend on these strings. */
-export type ViolationCode =
-  | 'EVALS_DIR_MISSING'
-  | 'UNREADABLE_DIRECTORY'
-  | 'UNREADABLE_FILE'
-  | 'INVALID_JSON'
-  | 'INVALID_LAYOUT'
-  | 'SCHEMA_VIOLATION'
-  | 'MISSING_PROVENANCE'
-  | 'MISSING_CONSENT_SCOPE'
-  | 'MISSING_ANNOTATION_VERSIONS'
-  | 'LANG_PATH_MISMATCH'
-  | 'LOCALE_PATH_MISMATCH'
-  | 'DUPLICATE_ID'
-  | 'SPLIT_LEAKAGE'
-  | 'GOLDEN_AGREEMENT_MISSING'
-  | 'GOLDEN_TASK_MISSING'
-  | 'GOLDEN_TASK_SPLIT_MISMATCH'
-  | 'GOLDEN_LOCALE_MISMATCH'
-  | 'SESSION_REFERENCE_MISSING'
-  | 'SESSION_VERSION_MISMATCH'
-  | 'SESSION_LOCALE_MISSING'
-  | 'SESSION_PERSONA_MISMATCH'
-  | 'ROUTING_PERSONA_UNKNOWN'
-  | 'ROUTING_LABEL_INVALID'
-  | 'ROUTING_LABEL_MISSING'
-  | 'SPEAKER_LABEL_INVALID'
-
-export interface TaskViolation {
-  /** Path relative to `rootDir`, always with `/` separators. */
-  path: string
-  code: ViolationCode
-  message: string
-}
-
-interface TaskLocation {
-  dataset: string
-  version: string
-  lang: Lang
-  scope: string
-}
-
-interface GoldenLocation {
-  version: string
-  lang: Lang
-  scope: string
-}
-
-interface ReadResult {
-  value?: unknown
-  violation?: TaskViolation
-}
-
-/** Validates every task and golden entry under `rootDir/evals`. Never throws for data problems. */
 export async function validateTaskTree(rootDir: string): Promise<TaskViolation[]> {
   const root = resolve(rootDir)
   const evalsDir = join(root, 'evals')
@@ -116,8 +73,8 @@ export async function validateTaskTree(rootDir: string): Promise<TaskViolation[]
   const taskFiles = await collectJsonFiles(join(evalsDir, 'tasks'), 'evals/tasks', violations)
   const goldenFiles = await collectJsonFiles(join(evalsDir, 'golden'), 'evals/golden', violations)
 
-  const ids = new Map<string, { id: string; scope: string; paths: string[] }>()
-  const speakers = new Map<string, Map<string, { path: string; split: Split }[]>>()
+  const ids: IdIndex = new Map()
+  const speakers: SpeakerIndex = new Map()
   const tasksByLangVersion = new Map<
     string,
     {
@@ -196,18 +153,7 @@ export async function validateTaskTree(rootDir: string): Promise<TaskViolation[]
 
     // Report the stable-without-agreement rule under its own code, then suppress
     // the duplicate schema issue for the same field so CI output stays readable.
-    const agreementMissing =
-      isRecord(raw.value) &&
-      raw.value['status'] === 'stable' &&
-      !hasMeasuredAgreement(raw.value['annotatorAgreement'])
-    if (agreementMissing) {
-      violations.push({
-        path,
-        code: 'GOLDEN_AGREEMENT_MISSING',
-        message:
-          "status 'stable' requires annotatorAgreement measured with at least 2 distinct annotators, a metric, and a value",
-      })
-    }
+    const agreementMissing = checkGoldenAgreement(raw.value, path, violations)
 
     const parsed = goldenEntrySchema.safeParse(raw.value)
     if (!parsed.success) {
@@ -260,31 +206,8 @@ export async function validateTaskTree(rootDir: string): Promise<TaskViolation[]
     }
   }
 
-  for (const [, group] of ids) {
-    if (group.paths.length < 2) continue
-    const [first, ...duplicates] = group.paths
-    for (const path of duplicates) {
-      violations.push({
-        path,
-        code: 'DUPLICATE_ID',
-        message: `id "${group.id}" is already used by ${first} within ${group.scope}`,
-      })
-    }
-  }
-
-  for (const [scope, bySpeaker] of speakers) {
-    for (const [speakerId, records] of bySpeaker) {
-      const splits = new Set(records.map((record) => record.split))
-      if (splits.size < 2) continue
-      for (const record of records) {
-        violations.push({
-          path: record.path,
-          code: 'SPLIT_LEAKAGE',
-          message: `speakerId "${speakerId}" appears in both calibration and holdout within ${scope}`,
-        })
-      }
-    }
-  }
+  violations.push(...collectDuplicateIds(ids))
+  violations.push(...collectSplitLeakage(speakers))
 
   return violations.sort(
     (a, b) =>
@@ -292,11 +215,6 @@ export async function validateTaskTree(rootDir: string): Promise<TaskViolation[]
       a.code.localeCompare(b.code) ||
       a.message.localeCompare(b.message),
   )
-}
-
-/** Convenience for CLI output; not used by the validator itself. */
-export function formatViolation(violation: TaskViolation): string {
-  return `${violation.path}: [${violation.code}] ${violation.message}`
 }
 
 async function isDirectory(path: string): Promise<boolean> {
@@ -342,6 +260,11 @@ async function collectJsonFiles(
   return files.sort()
 }
 
+interface ReadResult {
+  value?: unknown
+  violation?: TaskViolation
+}
+
 async function readJsonFile(root: string, displayPath: string): Promise<ReadResult> {
   let text: string
   try {
@@ -367,382 +290,6 @@ async function readJsonFile(root: string, displayPath: string): Promise<ReadResu
       },
     }
   }
-}
-
-function checkRequiredMetadata(raw: unknown, path: string, violations: TaskViolation[]): void {
-  if (!isRecord(raw)) return
-
-  if (raw['provenance'] === undefined) {
-    violations.push({
-      path,
-      code: 'MISSING_PROVENANCE',
-      message: 'provenance is required (M0 default: { "source": "synthetic" })',
-    })
-  }
-
-  const consentScope = raw['consentScope']
-  if (typeof consentScope !== 'string' || consentScope.length === 0) {
-    violations.push({
-      path,
-      code: 'MISSING_CONSENT_SCOPE',
-      message: 'consentScope must be a non-empty string',
-    })
-  }
-
-  const annotationVersions = raw['annotationVersions']
-  if (!isRecord(annotationVersions) || Object.keys(annotationVersions).length === 0) {
-    violations.push({
-      path,
-      code: 'MISSING_ANNOTATION_VERSIONS',
-      message: 'annotationVersions must be a non-empty record of name → version',
-    })
-  }
-}
-
-function pushSchemaViolations(
-  violations: TaskViolation[],
-  path: string,
-  issues: readonly { path: readonly PropertyKey[]; message: string }[],
-): void {
-  for (const issue of issues) {
-    const field = renderFieldPath(issue.path)
-    violations.push({
-      path,
-      code: 'SCHEMA_VIOLATION',
-      message: `${field}: ${issue.message}`,
-    })
-  }
-}
-
-function renderFieldPath(path: readonly PropertyKey[]): string {
-  let rendered = ''
-  for (const segment of path) {
-    if (typeof segment === 'number') {
-      rendered += `[${segment}]`
-    } else if (rendered === '') {
-      rendered = String(segment)
-    } else {
-      rendered += `.${String(segment)}`
-    }
-  }
-  return rendered === '' ? '<root>' : rendered
-}
-
-function registerId(
-  ids: Map<string, { id: string; scope: string; paths: string[] }>,
-  key: string,
-  id: string,
-  scope: string,
-  path: string,
-): void {
-  const existing = ids.get(key)
-  if (existing === undefined) {
-    ids.set(key, { id, scope, paths: [path] })
-  } else {
-    existing.paths.push(path)
-  }
-}
-
-function taskLinkKey(lang: Lang, version: string, locale: string, taskId: string): string {
-  return `${lang}\u0000${version}\u0000${locale}\u0000${taskId}`
-}
-
-interface TaskLinkRecord {
-  readonly split: Split
-  readonly path: string
-  readonly routing?: { readonly eligiblePersonaIds: readonly string[] }
-  readonly session?: { readonly personaIds: readonly string[]; readonly turns: number }
-}
-
-function registerTaskForGolden(
-  tasks: Map<string, TaskLinkRecord[]>,
-  location: TaskLocation,
-  entry: TaskEntry,
-  path: string,
-): void {
-  const key = taskLinkKey(entry.lang, location.version, entry.locale ?? entry.lang, entry.id)
-  const record: TaskLinkRecord = {
-    split: entry.split,
-    path,
-    ...(entry.routing === undefined
-      ? {}
-      : {
-          routing: {
-            eligiblePersonaIds: entry.routing.context.personas.map((persona) => persona.id),
-          },
-        }),
-    ...(entry.session === undefined
-      ? {}
-      : {
-          session: {
-            personaIds: entry.session.personaIds ?? [entry.session.personaId],
-            turns: entry.session.scriptedUserTurns.length,
-          },
-        }),
-  }
-  const records = tasks.get(key)
-  if (records === undefined) {
-    tasks.set(key, [record])
-  } else {
-    records.push(record)
-  }
-}
-
-/** A golden link must resolve to a task in the same language/version/locale and split. */
-function checkGoldenTaskLink(
-  entry: GoldenEntry,
-  location: GoldenLocation,
-  path: string,
-  tasks: Map<string, TaskLinkRecord[]>,
-  violations: TaskViolation[],
-): void {
-  if (entry.locale !== undefined && baseLanguageOfLocale(entry.locale) !== location.lang) {
-    violations.push({
-      path,
-      code: 'GOLDEN_LOCALE_MISMATCH',
-      message: `entry locale "${entry.locale}" does not match path language "${location.lang}"`,
-    })
-  }
-
-  if (entry.routingOutcome !== undefined && entry.taskId === undefined) {
-    violations.push({
-      path,
-      code: 'ROUTING_LABEL_INVALID',
-      message: 'a routingOutcome label must name the routing taskId it labels',
-    })
-  }
-  if (entry.speakerLabels !== undefined && entry.taskId === undefined) {
-    violations.push({
-      path,
-      code: 'SPEAKER_LABEL_INVALID',
-      message: 'a speakerLabels entry must name the session taskId it labels',
-    })
-  }
-
-  if (entry.taskId === undefined) return
-
-  const locale = entry.locale ?? location.lang
-  const records = tasks.get(taskLinkKey(location.lang, location.version, locale, entry.taskId))
-  if (records === undefined || records.length === 0) {
-    violations.push({
-      path,
-      code: 'GOLDEN_TASK_MISSING',
-      message: `taskId "${entry.taskId}" does not resolve to a task with lang "${location.lang}", locale "${locale}" and version "${location.version}"`,
-    })
-    return
-  }
-
-  if (!records.some((record) => record.split === entry.split)) {
-    const splits = [...new Set(records.map((record) => record.split))].join(', ')
-    violations.push({
-      path,
-      code: 'GOLDEN_TASK_SPLIT_MISMATCH',
-      message: `golden entry split "${entry.split}" does not match task "${entry.taskId}" split (${splits})`,
-    })
-  }
-
-  if (entry.speakerLabels !== undefined) {
-    const record = records.find((candidate) => candidate.split === entry.split)
-    if (record?.session === undefined) {
-      violations.push({
-        path,
-        code: 'SPEAKER_LABEL_INVALID',
-        message: `speakerLabels point at task "${entry.taskId}", which is not a session task`,
-      })
-    } else {
-      const { personaIds, turns } = record.session
-      if (entry.speakerLabels.length !== turns) {
-        violations.push({
-          path,
-          code: 'SPEAKER_LABEL_INVALID',
-          message: `speakerLabels cover ${entry.speakerLabels.length} turn(s), but task "${entry.taskId}" has ${turns} scripted user turn(s)`,
-        })
-      }
-      const eligible = new Set(personaIds)
-      for (const label of entry.speakerLabels) {
-        if (label.turnIndex >= turns) {
-          violations.push({
-            path,
-            code: 'SPEAKER_LABEL_INVALID',
-            message: `speakerLabels turnIndex ${label.turnIndex} is outside task "${entry.taskId}"`,
-          })
-        }
-        for (const personaId of label.acceptablePersonaIds) {
-          if (!eligible.has(personaId)) {
-            violations.push({
-              path,
-              code: 'SPEAKER_LABEL_INVALID',
-              message: `acceptable persona "${personaId}" is not eligible in session task "${entry.taskId}"`,
-            })
-          }
-        }
-      }
-    }
-  }
-
-  if (entry.routingOutcome === undefined) return
-  const record = records.find((candidate) => candidate.split === entry.split)
-  if (record?.routing === undefined) {
-    violations.push({
-      path,
-      code: 'ROUTING_LABEL_INVALID',
-      message: `routingOutcome label points at task "${entry.taskId}", which is not a routing task`,
-    })
-    return
-  }
-
-  const eligible = new Set(record.routing.eligiblePersonaIds)
-  for (const personaId of entry.routingOutcome.acceptablePersonaIds) {
-    if (!eligible.has(personaId)) {
-      violations.push({
-        path,
-        code: 'ROUTING_LABEL_INVALID',
-        message: `acceptable persona "${personaId}" is not eligible in task "${entry.taskId}"`,
-      })
-    }
-  }
-}
-
-function checkRoutingReferences(entry: TaskEntry, path: string, violations: TaskViolation[]): void {
-  const routing = entry.routing
-  if (entry.mode !== 'routing' || routing === undefined) return
-
-  for (const persona of routing.context.personas) {
-    if (!PERSONAS_BY_ID.has(persona.id)) {
-      violations.push({
-        path,
-        code: 'ROUTING_PERSONA_UNKNOWN',
-        message: `routing persona "${persona.id}" does not resolve to a registered persona`,
-      })
-    }
-  }
-}
-
-function checkSessionReferences(entry: TaskEntry, path: string, violations: TaskViolation[]): void {
-  const session = entry.session
-  if (entry.mode !== 'session' || session === undefined) return
-
-  const locale = entry.locale ?? entry.lang
-  const personaIds = session.personaIds ?? [session.personaId]
-  for (const personaId of personaIds) {
-    const persona = PERSONAS_BY_ID.get(personaId)
-    if (persona === undefined) {
-      violations.push({
-        path,
-        code: 'SESSION_REFERENCE_MISSING',
-        message: `personaId "${personaId}" does not resolve to a registered persona`,
-      })
-      continue
-    }
-    if (persona.version !== session.personaVersion) {
-      violations.push({
-        path,
-        code: 'SESSION_VERSION_MISMATCH',
-        message: `persona "${persona.id}" is version "${persona.version}", not "${session.personaVersion}"`,
-      })
-    }
-    try {
-      personaVariant(persona, locale)
-    } catch {
-      violations.push({
-        path,
-        code: 'SESSION_LOCALE_MISSING',
-        message: `persona "${persona.id}" has no variant for locale "${locale}"`,
-      })
-    }
-  }
-
-  const scenario = SCENARIOS_BY_ID.get(session.scenarioId)
-  if (scenario === undefined) {
-    violations.push({
-      path,
-      code: 'SESSION_REFERENCE_MISSING',
-      message: `scenarioId "${session.scenarioId}" does not resolve to a registered scenario`,
-    })
-    return
-  }
-
-  if (scenario.version !== session.scenarioVersion) {
-    violations.push({
-      path,
-      code: 'SESSION_VERSION_MISMATCH',
-      message: `scenario "${scenario.id}" is version "${scenario.version}", not "${session.scenarioVersion}"`,
-    })
-  }
-
-  let variant: ScenarioVariant
-  try {
-    variant = scenarioVariant(scenario, locale)
-  } catch {
-    violations.push({
-      path,
-      code: 'SESSION_LOCALE_MISSING',
-      message: `scenario "${scenario.id}" has no variant for locale "${locale}"`,
-    })
-    return
-  }
-
-  for (const personaId of personaIds) {
-    if (!variant.personaIds.includes(personaId)) {
-      violations.push({
-        path,
-        code: 'SESSION_PERSONA_MISMATCH',
-        message: `scenario "${scenario.id}" does not include persona "${personaId}"`,
-      })
-    }
-  }
-}
-
-function registerSpeaker(
-  speakers: Map<string, Map<string, { path: string; split: Split }[]>>,
-  scope: string,
-  speakerId: string,
-  path: string,
-  split: Split,
-): void {
-  let bySpeaker = speakers.get(scope)
-  if (bySpeaker === undefined) {
-    bySpeaker = new Map()
-    speakers.set(scope, bySpeaker)
-  }
-  const records = bySpeaker.get(speakerId)
-  if (records === undefined) {
-    bySpeaker.set(speakerId, [{ path, split }])
-  } else {
-    records.push({ path, split })
-  }
-}
-
-function parseTaskLocation(pathInEvals: string): TaskLocation | undefined {
-  const [kind, dataset, version, lang, ...rest] = pathInEvals.split('/')
-  if (kind !== 'tasks') return undefined
-  if (dataset === undefined || dataset === '') return undefined
-  if (version === undefined || version === '') return undefined
-  if (lang === undefined || !isLang(lang)) return undefined
-  if (rest.length === 0) return undefined
-  return { dataset, version, lang, scope: `${dataset}/${version}/${lang}` }
-}
-
-function parseGoldenLocation(pathInEvals: string): GoldenLocation | undefined {
-  const [kind, lang, version, ...rest] = pathInEvals.split('/')
-  if (kind !== 'golden') return undefined
-  if (lang === undefined || !isLang(lang)) return undefined
-  if (version === undefined || version === '') return undefined
-  if (rest.length === 0) return undefined
-  return { version, lang, scope: `${lang}/${version}` }
-}
-
-/** `evals/tasks/...` -> `tasks/...`; layout parsing is relative to `evals/`. */
-function relativeToEvals(displayPath: string): string {
-  return displayPath.split('/').slice(1).join('/')
-}
-
-function isLang(value: string): value is Lang {
-  return (LANGS as readonly string[]).includes(value)
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function isMissingPathError(error: unknown): boolean {
