@@ -1,27 +1,6 @@
-import {
-  MemoryTranscriptSink,
-  SpeechTextFilter,
-  canonicalizeLocale,
-  createSeededRandom,
-  hashValue,
-  type Clock,
-} from '@rp/shared'
-import {
-  buildPersonaPrompt,
-  buildSessionRoutingContext,
-  personaById,
-  PROMPT_TEMPLATE_VERSION,
-  promptVersionForStyle,
-  type BuiltPersonaPrompt,
-  type PromptStyle,
-} from '@rp/persona-kit'
-import {
-  createDetPersonaLivePolicy,
-  createFixedRotationLivePolicy,
-  type RoutingContext,
-} from '@rp/routing-policy'
-import { scenarioById } from '@rp/scenario-kit'
-import { INITIAL_ARBITER_STATE, parseTurnArbiterConfig, reduce } from '@rp/turn-arbiter'
+import { MemoryTranscriptSink, hashValue, type Clock } from '@rp/shared'
+import type { PromptStyle } from '@rp/persona-kit'
+import type { RoutingContext } from '@rp/routing-policy'
 import {
   TRANSCRIPT_SCHEMA_VERSION,
   createTextSessionDriver,
@@ -29,9 +8,6 @@ import {
   normalizedTranscriptJsonl,
   type EventPayloadFor,
   type SessionEventName,
-  type TextModelChunk,
-  type TextModelPort,
-  type TextModelRequest,
   type TranscriptRecord,
 } from '@rp/session-core'
 import type { TaskEntry } from '../tasks/schema.js'
@@ -47,6 +23,26 @@ import {
 } from './shadow.js'
 import { createCompletionProviderTextModel } from './text-model.adapter.js'
 import { chunkText } from './replay.js'
+import {
+  SessionTaskError,
+  resolveSessionPrompt,
+  resolveSessionPrompts,
+  type SessionPromptMode,
+} from './session-prompt.js'
+import { createMultiPersonaDriver, withPlainText, type SessionPolicyId } from './session-driver.js'
+
+export {
+  GENERIC_PROMPT_TEMPLATE_VERSION,
+  SESSION_PROMPT_TEMPLATE_VERSION,
+  SESSION_PROMPT_TEMPLATE_VERSIONS,
+  SessionTaskError,
+  resolveSessionPrompt,
+  resolveSessionPrompts,
+  type SessionPersonaPrompt,
+  type SessionPromptContext,
+  type SessionPromptMode,
+} from './session-prompt.js'
+export type { SessionPolicyId } from './session-driver.js'
 
 /**
  * Live session runner (M2 D7).
@@ -70,143 +66,6 @@ export class PlainTextPolicyError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'PlainTextPolicyError'
-  }
-}
-
-/** A session task is missing its prompt date, persona, scenario or script. */
-export class SessionTaskError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = 'SessionTaskError'
-  }
-}
-
-export interface SessionPromptContext {
-  readonly prompt: BuiltPersonaPrompt
-  readonly locale: string
-}
-
-export interface SessionPersonaPrompt extends SessionPromptContext {
-  readonly personaId: string
-}
-
-export type SessionPromptMode = 'persona' | 'generic'
-export type SessionPolicyId = 'det-persona' | 'fixed-rotation'
-
-function resolvePersonaPrompt(
-  task: TaskEntry,
-  personaId: string,
-  currentDate: string,
-  mode: SessionPromptMode,
-  style: PromptStyle,
-): SessionPromptContext {
-  const session = task.session
-  if (task.mode !== 'session' || session === undefined) {
-    throw new SessionTaskError(`task ${task.id} is not a session task`)
-  }
-
-  const locale = canonicalizeLocale(task.locale ?? task.lang)
-  if (mode === 'generic') {
-    return { prompt: buildGenericPrompt(task.lang, locale, currentDate), locale }
-  }
-
-  const persona = personaById(personaId)
-  const scenario = scenarioById(session.scenarioId)
-  if (persona.version !== session.personaVersion) {
-    throw new SessionTaskError(
-      `persona ${persona.id} is version ${persona.version}, not ${session.personaVersion}`,
-    )
-  }
-  if (scenario.version !== session.scenarioVersion) {
-    throw new SessionTaskError(
-      `scenario ${scenario.id} is version ${scenario.version}, not ${session.scenarioVersion}`,
-    )
-  }
-
-  const prompt = buildPersonaPrompt({ persona, scenario, locale, currentDate, style })
-  return { prompt, locale }
-}
-
-/** Resolve persona, scenario, locale and render the versioned prompt. */
-export function resolveSessionPrompt(
-  task: TaskEntry,
-  currentDate: string,
-  mode: SessionPromptMode = 'persona',
-  style: PromptStyle = 'harmony',
-): SessionPromptContext {
-  const session = task.session
-  if (task.mode !== 'session' || session === undefined) {
-    throw new SessionTaskError(`task ${task.id} is not a session task`)
-  }
-  return resolvePersonaPrompt(task, session.personaId, currentDate, mode, style)
-}
-
-/**
- * Resolve one prompt per eligible persona in driver order.
- *
- * A single-persona task keeps the M2 path. A multi-persona task requires the
- * persona prompt mode: the generic baseline has one identity and cannot speak as
- * two characters.
- */
-export function resolveSessionPrompts(
-  task: TaskEntry,
-  currentDate: string,
-  mode: SessionPromptMode = 'persona',
-  style: PromptStyle = 'harmony',
-): SessionPersonaPrompt[] {
-  const session = task.session
-  if (task.mode !== 'session' || session === undefined) {
-    throw new SessionTaskError(`task ${task.id} is not a session task`)
-  }
-
-  const personaIds = session.personaIds ?? [session.personaId]
-  if (personaIds.length > 1 && mode === 'generic') {
-    throw new SessionTaskError(
-      `task ${task.id} has ${personaIds.length} personas; the generic baseline supports one`,
-    )
-  }
-
-  return personaIds.map((personaId) => ({
-    personaId,
-    ...resolvePersonaPrompt(task, personaId, currentDate, mode, style),
-  }))
-}
-
-/**
- * M1-style generic baseline prompt. It has no persona identity, scenario facts
- * or two-bucket split, so the capability run compares the candidate against the
- * behaviour M1 actually had.
- */
-export const GENERIC_PROMPT_TEMPLATE_VERSION = 'm2-generic-baseline-v1'
-
-function buildGenericPrompt(
-  lang: 'en' | 'fr',
-  locale: string,
-  currentDate: string,
-): BuiltPersonaPrompt {
-  const instruction = [
-    '# Instructions',
-    'You are a helpful assistant in a workplace role-play.',
-    `Reply in ${lang === 'fr' ? 'French' : 'English'} (locale ${locale}).`,
-    'Speak in plain text only, with no Markdown or emoji.',
-    'Keep each reply short and ask at most one question.',
-  ].join('\n')
-
-  const promptVersion = GENERIC_PROMPT_TEMPLATE_VERSION
-  const promptHash = hashValue({ mode: 'generic', lang, locale, currentDate, instruction })
-  return {
-    promptVersion,
-    promptHash,
-    locale,
-    style: 'harmony',
-    greetingPack: instruction,
-    sessionPack: instruction,
-    greetingSystemPrompt: instruction,
-    sessionSystemPrompt: instruction,
-    systemMessages: {
-      greeting: [{ role: 'system', content: instruction }],
-      session: [{ role: 'system', content: instruction }],
-    },
   }
 }
 
@@ -254,67 +113,6 @@ export interface SessionRunResult {
     readonly records: readonly ShadowRecord[]
     readonly summary: ShadowSummary
   }
-}
-
-/** Multi-persona driver wiring for the live runner. */
-function createMultiPersonaDriver(options: {
-  readonly task: TaskEntry
-  readonly prompts: readonly SessionPersonaPrompt[]
-  readonly models: readonly TextModelPort[]
-  readonly clock: Clock
-  readonly locale: string
-  readonly policy?: SessionPolicyId
-  readonly onContext?: (context: RoutingContext) => void
-}): ReturnType<typeof createTextSessionDriver> {
-  const session = options.task.session
-  if (session === undefined) throw new SessionTaskError(`task ${options.task.id} has no session`)
-  const config = parseTurnArbiterConfig()
-  const scenario = scenarioById(session.scenarioId)
-  const personas = options.prompts.map((entry, index) => ({
-    personaId: entry.personaId,
-    model: options.models[index]!,
-    instructions: entry.prompt.systemMessages.session,
-    greetingInstructions: entry.prompt.systemMessages.greeting,
-  }))
-  const personasById = options.prompts.map((entry) => personaById(entry.personaId))
-  const seed = Number.parseInt(hashValue({ taskId: options.task.id }).slice(0, 8), 16) >>> 0
-  const random = createSeededRandom(seed)
-
-  return createTextSessionDriver({
-    sessionId: options.task.id,
-    lang: options.task.lang,
-    locale: options.locale,
-    clockMode: 'simulated',
-    clock: options.clock,
-    personas,
-    arbiter: {
-      initialState: INITIAL_ARBITER_STATE,
-      reduce: (state, input) => reduce(state, input, config),
-    },
-    policy:
-      options.policy === 'fixed-rotation'
-        ? createFixedRotationLivePolicy(personas.map((persona) => persona.personaId))
-        : createDetPersonaLivePolicy(),
-    buildContext: ({ turnId, messages }) => {
-      const context = buildSessionRoutingContext({
-        turnId,
-        personas: personasById,
-        scenario,
-        locale: options.locale,
-        messages: messages
-          .filter((message) => message.role === 'user' || message.role === 'assistant')
-          .map((message) => ({
-            role: message.role === 'user' ? ('user' as const) : ('assistant' as const),
-            content: message.content,
-            ...(message.personaId === undefined ? {} : { personaId: message.personaId }),
-          })),
-      })
-      options.onContext?.(context)
-      return context
-    },
-    seedSource: () => random.int(2_147_483_647),
-    requestWindowMs: config.requestWindowMs,
-  })
 }
 
 /** Execute one session task end to end and return its transcript. */
@@ -561,52 +359,6 @@ function completionRequest(
   }
 }
 
-/** Apply the shared plain-text filter between a model and the driver. */
-function withPlainText(inner: TextModelPort): TextModelPort {
-  return {
-    kind: inner.kind,
-    label: inner.label,
-    complete(
-      request: TextModelRequest,
-      options?: { readonly signal?: AbortSignal },
-    ): AsyncIterable<TextModelChunk> {
-      return filterChunks(inner.complete(request, options))
-    },
-    dispose() {
-      return inner.dispose?.()
-    },
-  }
-}
-
-async function* filterChunks(chunks: AsyncIterable<TextModelChunk>): AsyncIterable<TextModelChunk> {
-  const filter = new SpeechTextFilter()
-  for await (const chunk of chunks) {
-    if (chunk.text.length > 0) {
-      const text = filter.push(chunk.text)
-      if (text.length > 0) yield { text, done: false }
-    }
-    if (chunk.done) {
-      const tail = filter.flush()
-      if (tail.length > 0) yield { text: tail, done: false }
-      yield {
-        text: '',
-        done: true,
-        ...(chunk.usage === undefined ? {} : { usage: chunk.usage }),
-      }
-      return
-    }
-  }
-}
-
 function throwIfAborted(signal: AbortSignal | undefined): void {
   if (signal?.aborted === true) throw new Error('session run was aborted')
-}
-
-/** The template version a session manifest must agree with. */
-export const SESSION_PROMPT_TEMPLATE_VERSION = PROMPT_TEMPLATE_VERSION
-
-/** The template version for each prompt family. */
-export const SESSION_PROMPT_TEMPLATE_VERSIONS: Readonly<Record<PromptStyle, string>> = {
-  harmony: PROMPT_TEMPLATE_VERSION,
-  gemma: promptVersionForStyle('gemma'),
 }

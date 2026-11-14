@@ -23,9 +23,15 @@
     "!packages/turn-arbiter/src/fixtures.ts",
     "packages/shared/src/locale.ts",
     "packages/shared/src/plain-text.ts",
+    "packages/eval-harness/src/**/*.ts",
+    "!packages/eval-harness/src/**/*.spec.ts",
+    "!packages/eval-harness/src/**/*.fixtures.ts",
     "apps/cli/src/cli-main.ts",
     "apps/cli/src/main.ts",
-    "apps/cli/src/session-log.adapter.ts"
+    "apps/cli/src/session-log.adapter.ts",
+    "tools/*/src/**/*.ts",
+    "!tools/*/src/**/*.spec.ts",
+    "tools/annotation-kit/routing-labels.mjs"
   ],
   "coverageAnalysis": "perTest",
   "reporters": ["clear-text", "progress", "json"],
