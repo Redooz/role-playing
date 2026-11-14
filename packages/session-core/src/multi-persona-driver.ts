@@ -14,7 +14,9 @@ import type {
   SessionLanguage,
 } from './events.js'
 import { streamGrant } from './grant-stream.js'
-import { decideWithin, interjectRequestFor, speakRequestFor } from './policy-decisions.js'
+import { decideWithin, speakRequestFor } from './policy-decisions.js'
+import { collectInterjections } from './turn-interjections.js'
+import { TurnLifecycle } from './turn-lifecycle.js'
 
 /**
  * Multi-persona text session driver (M3b D3).
@@ -85,13 +87,14 @@ export class MultiPersonaSessionDriver<
   readonly #history: ConversationHistory
 
   #turnContext: Context | undefined
-  #turnDone: Promise<void> | undefined
   #active: ActiveGeneration | undefined
   #declinedThisTurn = new Set<string>()
   #failedThisTurn = new Set<string>()
   #turnCounter = 0
   #closed = false
   #closing: Promise<void> | undefined
+  /** Serializes each start and cancels a turn that has not generated yet. */
+  #turns = new TurnLifecycle()
 
   constructor(options: CreateTextSessionDriverOptions<State, Context>) {
     if (options.personaId !== undefined) {
@@ -172,51 +175,62 @@ export class MultiPersonaSessionDriver<
       throw new SessionDriverError('start() only opens an empty session')
     }
 
-    await this.#interrupt()
+    const { turn } = await this.#turns.open(async () => {
+      if (this.#closed) throw new SessionClosedError()
+      if (this.#history.length > 0 || this.#turnCounter > 0) {
+        throw new SessionDriverError('start() only opens an empty session')
+      }
+      await this.#interrupt()
 
-    this.#turnCounter += 1
-    const turnId = `${this.sessionId}-turn-${this.#turnCounter}`
-    const grantId = `${this.sessionId}-grant-greeting-${this.#turnCounter}`
-    const expiresAtMs = this.#clock.now() + DEFAULT_GREETING_TTL_MS
-    this.#emit('turn.opened', { turnId })
-    this.#emit('turn.granted', {
-      grant: {
-        turnId,
-        grantId,
-        personaId: this.#openingPersonaId,
-        expiresAt: new Date(expiresAtMs).toISOString(),
-      },
+      this.#turnCounter += 1
+      const turnId = `${this.sessionId}-turn-${this.#turnCounter}`
+      const grantId = `${this.sessionId}-grant-greeting-${this.#turnCounter}`
+      const expiresAtMs = this.#clock.now() + DEFAULT_GREETING_TTL_MS
+      this.#emit('turn.opened', { turnId })
+      this.#emit('turn.granted', {
+        grant: {
+          turnId,
+          grantId,
+          personaId: this.#openingPersonaId,
+          expiresAt: new Date(expiresAtMs).toISOString(),
+        },
+      })
+
+      return {
+        turn: this.#runGeneration({
+          grantId,
+          personaId: this.#openingPersonaId,
+          turnId,
+          expiresAtMs,
+          greeting: true,
+          tracked: false,
+        }),
+      }
     })
-
-    await this.#trackTurn(
-      this.#runGeneration({
-        grantId,
-        personaId: this.#openingPersonaId,
-        turnId,
-        expiresAtMs,
-        greeting: true,
-        tracked: false,
-      }),
-    )
+    await turn
   }
 
   async send(text: string): Promise<void> {
     if (this.#closed) throw new SessionClosedError()
     if (text.trim() === '') throw new SessionDriverError('an utterance must not be empty')
 
-    // A new utterance supersedes an in-flight reply; the arbiter revokes it.
-    await this.#interrupt()
-    if (this.#closed) throw new SessionClosedError()
+    const { turn } = await this.#turns.open(async (signal) => {
+      // A new utterance supersedes an in-flight reply; the arbiter revokes it.
+      await this.#interrupt()
+      if (this.#closed) throw new SessionClosedError()
 
-    this.#emit('user.utterance.committed', { text })
-    this.#history.append({ role: 'user', content: text })
-    this.#turnCounter += 1
+      this.#emit('user.utterance.committed', { text })
+      this.#history.append({ role: 'user', content: text })
+      this.#turnCounter += 1
 
-    const turnId = `${this.sessionId}-turn-${this.#turnCounter}`
-    await this.#trackTurn(this.#driveTurn({ turnId, userText: text }))
+      const turnId = `${this.sessionId}-turn-${this.#turnCounter}`
+      return { turn: this.#driveTurn({ turnId, userText: text, signal }) }
+    })
+    await turn
   }
 
   async interrupt(): Promise<void> {
+    await this.#turns.started()
     await this.#interrupt()
   }
 
@@ -224,8 +238,10 @@ export class MultiPersonaSessionDriver<
     if (this.#closing !== undefined) return this.#closing
     this.#closed = true
     this.#closing = (async () => {
+      this.#turns.cancel()
       this.#active?.controller.abort()
-      await this.#turnDone
+      await this.#turns.started()
+      await this.#turns.done
       await this.#bridge.reduce({ kind: 'close', nowMs: this.#clock.now() })
       this.#queue.close()
     })()
@@ -233,23 +249,20 @@ export class MultiPersonaSessionDriver<
   }
 
   async #interrupt(): Promise<void> {
-    const done = this.#turnDone
+    this.#turns.cancel()
+    const done = this.#turns.done
     if (done === undefined) return
     await this.#bridge.reduce({ kind: 'user_barge_in', nowMs: this.#clock.now() })
     this.#active?.controller.abort()
     await done
   }
 
-  async #trackTurn(run: Promise<void>): Promise<void> {
-    this.#turnDone = run
-    try {
-      await run
-    } finally {
-      if (this.#turnDone === run) this.#turnDone = undefined
-    }
-  }
-
-  async #driveTurn(params: { readonly turnId: string; readonly userText: string }): Promise<void> {
+  async #driveTurn(params: {
+    readonly turnId: string
+    readonly userText: string
+    /** Aborted when a later input supersedes this turn before it generates. */
+    readonly signal: AbortSignal
+  }): Promise<void> {
     this.#declinedThisTurn.clear()
     this.#failedThisTurn.clear()
 
@@ -263,29 +276,34 @@ export class MultiPersonaSessionDriver<
     const eligible = this.#personas.map((persona) => persona.personaId)
     const openedAtMs = this.#clock.now()
 
-    await this.#bridge.reduce({
-      kind: 'user_committed',
-      turnId: params.turnId,
-      nowMs: openedAtMs,
-      seed,
-      context,
-      eligiblePersonaIds: eligible,
-    })
-    await this.#collectSpeakDecisions(params.turnId, openedAtMs, context, eligible)
-
-    while (!this.#closed) {
-      const start = this.#bridge.takePendingStart()
-      if (start === undefined) break
-      await this.#runGeneration({
-        grantId: start.grantId,
-        personaId: start.personaId,
-        turnId: this.#bridge.grantTurnId ?? params.turnId,
-        expiresAtMs: this.#bridge.grantExpiresAtMs ?? this.#clock.now() + DEFAULT_GREETING_TTL_MS,
-        greeting: false,
-        tracked: true,
+    try {
+      await this.#bridge.reduce({
+        kind: 'user_committed',
+        turnId: params.turnId,
+        nowMs: openedAtMs,
+        seed,
+        context,
+        eligiblePersonaIds: eligible,
       })
+      if (params.signal.aborted) return
+
+      await this.#collectSpeakDecisions(params.turnId, openedAtMs, context, eligible)
+
+      while (!this.#closed && !params.signal.aborted) {
+        const start = this.#bridge.takePendingStart()
+        if (start === undefined) break
+        await this.#runGeneration({
+          grantId: start.grantId,
+          personaId: start.personaId,
+          turnId: this.#bridge.grantTurnId ?? params.turnId,
+          expiresAtMs: this.#bridge.grantExpiresAtMs ?? this.#clock.now() + DEFAULT_GREETING_TTL_MS,
+          greeting: false,
+          tracked: true,
+        })
+      }
+    } finally {
+      this.#turnContext = undefined
     }
-    this.#turnContext = undefined
   }
 
   async #collectSpeakDecisions(
@@ -364,61 +382,23 @@ export class MultiPersonaSessionDriver<
     const context = this.#turnContext
     if (context === undefined) return
 
-    const others = this.#personas.filter(
+    const candidates = this.#personas.filter(
       (persona) =>
         persona.personaId !== request.personaId &&
         !this.#declinedThisTurn.has(persona.personaId) &&
         !this.#failedThisTurn.has(persona.personaId),
     )
 
-    await Promise.all(
-      others.map(async (persona) => {
-        const outcome = await decideWithin(
-          this.#policy,
-          this.#policyInput(
-            persona.personaId,
-            request.turnId,
-            context,
-            'interject',
-            request.grantId,
-          ),
-          this.#requestWindowMs,
-        )
-
-        if (outcome.kind === 'timeout' || outcome.kind === 'error') {
-          this.#failedThisTurn.add(persona.personaId)
-          await this.#bridge.reduce({
-            kind: 'policy_failed',
-            turnId: request.turnId,
-            personaId: persona.personaId,
-            cause: outcome.kind,
-            nowMs: this.#clock.now(),
-          })
-          return
-        }
-        if (outcome.decision.kind === 'decline') return
-
-        const interject = interjectRequestFor(
-          request.turnId,
-          persona.personaId,
-          request.grantId,
-          outcome.decision,
-        )
-        if (interject === undefined) {
-          this.#failedThisTurn.add(persona.personaId)
-          await this.#bridge.reduce({
-            kind: 'policy_failed',
-            turnId: request.turnId,
-            personaId: persona.personaId,
-            cause: 'error',
-            nowMs: this.#clock.now(),
-          })
-          return
-        }
-
-        await this.#bridge.reduce({ kind: 'request', request: interject, nowMs: this.#clock.now() })
-      }),
-    )
+    await collectInterjections(request, {
+      clock: this.#clock,
+      policy: this.#policy,
+      requestWindowMs: this.#requestWindowMs,
+      candidates,
+      policyInput: (personaId, turnId, action, targetGrantId) =>
+        this.#policyInput(personaId, turnId, context, action, targetGrantId),
+      markFailed: (personaId) => this.#failedThisTurn.add(personaId),
+      reduce: (input) => this.#bridge.reduce(input),
+    })
   }
 
   #policyInput(
