@@ -181,6 +181,7 @@ export class MultiPersonaSessionDriver<
         throw new SessionDriverError('start() only opens an empty session')
       }
       await this.#interrupt()
+      if (this.#closed) throw new SessionClosedError()
 
       this.#turnCounter += 1
       const turnId = `${this.sessionId}-turn-${this.#turnCounter}`

@@ -674,6 +674,28 @@ describe('multi-persona session driver', () => {
     expect(guardTurnEvents(harness.events).ok).toBe(true)
   })
 
+  it('refuses to greet when close lands during start', async () => {
+    const { driver, harness } = openMulti({
+      models: [
+        ['manager', scriptedModel(['hello '], { delayMs: 5 })],
+        ['peer', scriptedModel(['peer'])],
+      ],
+      policy: { decide: () => ({ kind: 'decline' }) },
+    })
+
+    const starting = driver.start()
+    // The single hop between the closed check and the greeting start.
+    await Promise.resolve()
+    const closing = driver.close()
+
+    await expect(starting).rejects.toThrow(/session is closed/)
+    await closing
+    await harness.finished()
+
+    expect(types(harness.events)).toEqual(['session.started', 'session.completed'])
+    expect(guardTurnEvents(harness.events).ok).toBe(true)
+  })
+
   it('revokes and re-grants atomically when another persona interjects', async () => {
     const manager = scriptedModel(['first ', 'second ', 'third '])
     const peer = scriptedModel(['let me stop you'])
