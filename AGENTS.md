@@ -332,3 +332,30 @@ test uses a local server, and Groq/OpenRouter use injected `fetch`).
   effect after merge.
 - When the plan and the code disagree, trust the code, then update the plan in
   Notion.
+
+### Delegation and review findings
+
+- **Delegate execution, not judgement.** Send a long, mechanical layer to one
+  subagent at a time, in this worktree, on that layer's branch. Metric names,
+  gate design, dataset class design and decision records stay in the main
+  session. The stack is serial; parallel layers produce conflicts, not speed.
+- **Brief and report.** Each subagent gets a brief outside the repo
+  (`/tmp/opencode/<layer>-brief.md`) with the base SHA, the files it may and may
+  not touch, the commands that prove the work, and the prohibitions: no live
+  provider call, no `gh` command, no merge, and no change to a threshold,
+  baseline, recorded manifest or golden file. It writes a report file and
+  returns a short summary plus the path.
+- **Validate before you fix.** A read-only subagent reads each review finding,
+  reproduces the claim with the real command, and returns `valid`, `partly` or
+  `invalid`, with `file:line` evidence and the smallest fix consistent with this
+  file. It never edits.
+- **The validator does not implement its own finding.** Hand the validated list
+  to a different context, or implement it in the main session. A context that
+  both proposes and implements defends its own work.
+- **Answer an invalid finding with evidence on the PR.** Never lower a gate, a
+  threshold or a baseline to satisfy a finding.
+- **The main session owns the stack.** Branch creation, `gh stack sync` and
+  `gh stack submit`, PR titles and bodies, PR comments, `evals/decisions.md` and
+  the run index stay here. A subagent commits only.
+- **A subagent's verdict is evidence, not truth.** Read the cited lines before
+  acting on them.
