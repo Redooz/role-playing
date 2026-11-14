@@ -126,15 +126,17 @@ validator and Jev-canary jobs. The canary is skipped when
   environment. The only place that imports Langfuse or OpenTelemetry is
   `src/adapters/langfuse.adapter.ts`.
 - `tools/annotation-kit` — context-free double-annotation kit for Langfuse
-  queues (`build-bundle.mjs`, `annotate.mjs`, `analyze-agreement.mjs`). Keep
-  scores, model names and candidate/baseline labels out of annotator bundles;
-  the trace→run manifest stays operator-only.
+  queues: the M2 persona scripts (`build-bundle.mjs`, `annotate.mjs`,
+  `analyze-agreement.mjs`) and their M3a `routing-*` variants. Keep scores,
+  model names and candidate/baseline labels out of annotator bundles; the
+  trace→run manifest stays operator-only.
 - `apps/cli` — composition root for the line CLI. `main.ts` reads env, selects
   one persona or a two-persona set, scenario and locale, builds one prompt and
   model per persona, and starts the driver; `cli-main.ts` is the REPL, prints
   `[manager]`/`[peer]` labels in multi-persona mode, and holds no session state.
-- `evals/` — manifests, tasks, golden labels, rubrics, schemas, baselines and
-  `decisions.md`; `results/` is git-ignored except the curated `index.md`.
+- `evals/` — manifests, tasks, golden labels, rubrics, schemas, baselines,
+  `analysis/` notes and `decisions.md`; `results/` is git-ignored except the
+  curated `index.md`.
 - `tools/agent-harness-bench` — overhead and latency benches (`*.bench.spec.ts`).
 - `tools/routing-bench` — M3a routing timing/comparison benches and the M3b
   timing and shadow scripts; outside the PR gate and never a UI.
@@ -150,8 +152,10 @@ intentional `.gitkeep` placeholders. Do not fill them with speculative code.
 
 - Node 26 strips types, so `npm run chat` and `npm run eval` run `.ts` source
   directly; no build is required. Relative imports still use `.js` specifiers
-  under `module: nodenext` even though the files are `.ts`. New entrypoints must
-  register the same `.js` → `.ts` resolve hook as `apps/cli/src/cli.ts`.
+  under `module: nodenext` even though the files are `.ts`. `erasableSyntaxOnly`
+  is on, so `enum`, `namespace` and parameter properties are compile errors. New
+  entrypoints must register the same `.js` → `.ts` resolve hook as
+  `apps/cli/src/cli.ts` and `tools/eval-harness-cli/src/cli.ts`.
 - The built packages export `./src/index.ts`. `dist/` is tsc output, not what the
   scripts or workspace imports use.
 - Tests sit next to the file under test and end in `.spec.ts`; there is no
@@ -167,6 +171,14 @@ intentional `.gitkeep` placeholders. Do not fill them with speculative code.
   after changing `packages/eval-harness/src/tasks/schema.ts`:
   `UPDATE_SCHEMAS=1 npx vitest run packages/eval-harness/src/tasks/schema.spec.ts`
   then `npx prettier --write evals/schemas`.
+- The task layout and validation contract is `evals/tasks/README.md`; a breaking
+  major bump of the shared event/transcript schema also needs an entry in
+  `evals/tasks/MIGRATIONS.md` (additive minor bumps do not).
+  `evals/manifests/m0-incomplete-missing-limits.json` is intentionally invalid
+  (it has no `limits`): never "fix" it or run it.
+- CI workflows that hold secrets pin third-party actions to a full commit SHA
+  and must leave a clean worktree; `opencode-review.yml` also checks out with
+  `persist-credentials: false`. Match that pattern when adding a workflow.
 - The eval CLI refuses to overwrite `evals/results/<runId>/`; pass
   `--results-root <dir>` to keep a second run of the same manifest. `runId` is
   the manifest's suite id, not a unique run id.
@@ -282,9 +294,10 @@ test uses a local server, and Groq/OpenRouter use injected `fetch`).
   `stryker.config.json` (session-core, pipeline, persona-kit prompt/lookup,
   scenario-kit lookup/helpers, routing-policy, turn-arbiter, shared
   locale/plain-text, apps/cli), then checks each package against
-  `evals/baselines/m1-mutation.json`. `packages/eval-harness`, `tools/*` and the
-  M3b shadow/turn-taking modules are **not** in the gate; adding them needs a
-  measured package floor and is recorded as a D7 gap, not assumed.
+  `evals/baselines/m1-mutation.json`. `packages/eval-harness`, `tools/*`
+  (including the M3b shadow runner) and the turn-taking code grader are **not**
+  in the gate; adding them needs a measured package floor and is recorded as a
+  D7 gap, not assumed. The `turn-arbiter` reducer itself **is** scored.
   The global break threshold is 95. Timed-out mutants count as killed;
   runtime/compile errors are excluded. Never lower the floor or hand-edit the
   baseline. Record a new baseline only with `npm run mutation:record` after a
@@ -316,8 +329,8 @@ test uses a local server, and Groq/OpenRouter use injected `fetch`).
   with its own `<module>.spec.ts`. Split by responsibility, not by layer:
   `utils`, `types` or `handlers` dumps are not splits. A file past 300
   non-comment lines is a prompt to look for the second job; 450 is the
-  `max-lines` stop in the mutation-gated packages. If you reach for
-  `eslint-disable`, split instead.
+  `max-lines` stop in the behaviour-bearing packages the mutation floor covers.
+  If you reach for `eslint-disable`, split instead.
 - Reviewers: a diff whose bulk appends to one existing file usually added a job
   that deserved a module. Ask for the split before approving.
 - **The agent never merges.** On M3b, use one stacked PR per deliverable
