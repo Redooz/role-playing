@@ -624,6 +624,56 @@ describe('multi-persona session driver', () => {
     expect(guardTurnEvents(events).ok).toBe(true)
   })
 
+  it('opens one turn for each utterance when two sends arrive during a reply', async () => {
+    const manager = scriptedModel(['one ', 'two ', 'three '], { delayMs: 5 })
+    const { driver, harness } = openMulti({
+      models: [
+        ['manager', manager],
+        ['peer', scriptedModel(['peer'])],
+      ],
+      policy: {
+        decide(input) {
+          if (input.personaId === 'peer') return { kind: 'decline' }
+          return { kind: 'request', request: speakRequest(input.turnId, input.personaId) }
+        },
+      },
+    })
+
+    let starts = 0
+    const firstReplyStarted = new Promise<void>((resolve) => {
+      harness.onEvent((event) => {
+        if (event.type !== 'persona.response.started') return
+        starts += 1
+        // The greeting is the first start; the next one belongs to "one".
+        if (starts === 2) resolve()
+      })
+    })
+
+    await driver.start()
+    const first = driver.send('one')
+    await firstReplyStarted
+    const second = driver.send('two')
+    const third = driver.send('three')
+    await Promise.all([first, second, third])
+    await driver.close()
+    await harness.finished()
+
+    const utterances = harness.events.filter((event) => event.type === 'user.utterance.committed')
+    const turns = harness.events.filter((event) => event.type === 'turn.opened')
+    expect(utterances.map((event) => event.payload.text)).toEqual(['one', 'two', 'three'])
+    // The greeting plus one turn for each committed utterance.
+    expect(turns).toHaveLength(4)
+
+    let lastGrantId: string | undefined
+    let lastCommittedGrantId: string | undefined
+    for (const event of harness.events) {
+      if (event.type === 'turn.granted') lastGrantId = event.payload.grant.grantId
+      if (event.type === 'persona.response.committed') lastCommittedGrantId = event.payload.grantId
+    }
+    expect(lastCommittedGrantId).toBe(lastGrantId)
+    expect(guardTurnEvents(harness.events).ok).toBe(true)
+  })
+
   it('revokes and re-grants atomically when another persona interjects', async () => {
     const manager = scriptedModel(['first ', 'second ', 'third '])
     const peer = scriptedModel(['let me stop you'])
