@@ -99,10 +99,12 @@ recorded for a separate decision.
    `tools/eval-harness-cli/src/live-provider.ts:121-127` validates a trimmed
    value but returns the original, so a padded key reaches the adapter with
    spaces. `optionalEnv` does trim.
-4. **`settleWithin` rejects through its own `.catch`.**
-   `tools/agent-harness-bench/src/session-latency.ts` documents a rejection as
-   settled but propagates it, so a rejected `close()`/`dispose()` fails the
-   measurement.
+4. **`settleWithin` propagates a rejection.**
+   `packages/session-core/src/stream-utils.ts:11-22` documents that it resolves
+   when the promise settles, but `Promise.race` rethrows a rejection, so a
+   rejected `driver.close()` or `model.dispose()` in
+   `tools/agent-harness-bench/src/session-latency.ts:249-251` fails the whole
+   measurement instead of being treated as settled.
 5. **The transcript guard becomes a failed trial.**
    `packages/eval-harness/src/runner/runner.ts:206-222` throws
    `HarnessConfigError` inside the per-trial `try`, so the run records a failed
