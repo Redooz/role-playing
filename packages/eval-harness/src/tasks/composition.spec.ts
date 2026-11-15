@@ -799,7 +799,12 @@ describe('checkCompositions ordering', () => {
         files: new Map([
           [
             compositionScope('a-dataset', '1.0.0'),
-            { path: compositionFilePath('a-dataset', '1.0.0'), value: composition },
+            {
+              path: compositionFilePath('a-dataset', '1.0.0'),
+              dataset: 'a-dataset',
+              version: '1.0.0',
+              value: composition,
+            },
           ],
         ]),
       },

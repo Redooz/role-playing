@@ -86,9 +86,7 @@ export interface CompositionLocation {
 export function parseCompositionPath(pathInEvals: string): CompositionLocation | undefined {
   const [kind, dataset, version, file, ...rest] = pathInEvals.split('/')
   if (kind !== 'tasks' || file !== COMPOSITION_FILE_NAME || rest.length > 0) return undefined
-  if (dataset === undefined || dataset === '' || version === undefined || version === '') {
-    return undefined
-  }
+  if (!dataset || !version) return undefined
   return { dataset, version, scope: `${dataset}/${version}` }
 }
 
@@ -259,6 +257,10 @@ export function sliceKey(split: Split, lang: Lang): string {
 export interface CompositionFileRecord {
   /** Path relative to the repository root, always with `/` separators. */
   readonly path: string
+  /** The dataset directory the file sits under. */
+  readonly dataset: string
+  /** The version directory the file sits under. */
+  readonly version: string
   /**
    * Parsed JSON. `undefined` means the file could not be parsed and the walker
    * already reported it, so the pair counts as declared but is not re-checked.
@@ -290,11 +292,9 @@ export function checkCompositions(tree: CompositionTree, violations: TaskViolati
     }
   }
 
-  for (const scope of tree.files.keys()) {
+  for (const [scope, file] of tree.files) {
     if (pairs.has(scope)) continue
-    const [dataset, version] = scope.split('/')
-    if (dataset === undefined || version === undefined) continue
-    pairs.set(scope, { dataset, version, tasks: [] })
+    pairs.set(scope, { dataset: file.dataset, version: file.version, tasks: [] })
   }
 
   for (const [scope, pair] of [...pairs].sort(([left], [right]) => left.localeCompare(right))) {
@@ -432,7 +432,9 @@ function checkFamilies(
       if (unit.family === undefined) missing.add(unit.path ?? filePath)
       else families.add(unit.family)
     }
-    for (const path of [...missing].sort()) {
+    // The walker sorts every violation before returning it, so insertion order
+    // here only has to be deterministic; sorting a Set of paths would be dead code.
+    for (const path of missing) {
       violations.push({
         path,
         code: 'COMPOSITION_FAMILY',
@@ -454,7 +456,7 @@ function checkFamilies(
     if (unit.family === undefined) continue
     counts.set(unit.family, (counts.get(unit.family) ?? 0) + 1)
   }
-  for (const [family, count] of [...counts].sort(([left], [right]) => left.localeCompare(right))) {
+  for (const [family, count] of counts) {
     if (count <= slice.maxPerFamily) continue
     violations.push({
       path: filePath,

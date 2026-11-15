@@ -126,26 +126,23 @@ function toLabelRecord(entry: GoldenEntry, version: string): CompositionLabelRec
 
 /** `undefined` means no composition file: the legacy path, not an error. */
 async function readComposition(path: string): Promise<unknown> {
-  let text: string
+  let bytes: Buffer
   try {
-    text = await readFile(path, 'utf8')
+    bytes = await readFile(path)
   } catch (error) {
     if (isMissingPathError(error)) return undefined
     throw new HarnessConfigError(`cannot read composition ${path}: ${errorMessage(error)}`)
   }
 
   try {
-    return JSON.parse(text) as unknown
+    // `Buffer#toString()` decodes UTF-8 by default. Reading a Buffer avoids an
+    // encoding literal at the call site, so the decode has one obvious form.
+    return JSON.parse(bytes.toString()) as unknown
   } catch (error) {
     throw new HarnessConfigError(`composition ${path} is not valid JSON: ${errorMessage(error)}`)
   }
 }
 
 function isMissingPathError(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    (error as { code?: unknown }).code === 'ENOENT'
-  )
+  return error instanceof Error && (error as NodeJS.ErrnoException).code === 'ENOENT'
 }
