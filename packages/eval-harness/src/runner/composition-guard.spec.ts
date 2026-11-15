@@ -164,7 +164,23 @@ describe('assertCompositionCoversSelection', () => {
     ).rejects.toThrow(/does not declare calibration\/en/u)
   })
 
-  it('skips a legacy pair without a composition', async () => {
+  it('skips a grandfathered pair without a composition', async () => {
+    const root = await makeTree({ 'evals/README.md': '# evals' })
+
+    await expect(
+      assertCompositionCoversSelection({
+        repoRoot: root,
+        dataset: DATASET,
+        version: '1.0.0',
+        // A selection that would lose the silence class still runs: the legacy
+        // path is skipped, not guessed.
+        tasks: [loaded(speakTask)],
+        goldens,
+      }),
+    ).resolves.toBeUndefined()
+  })
+
+  it('rejects a non-grandfathered pair that has no composition', async () => {
     const root = await makeTree({ 'evals/README.md': '# evals' })
 
     await expect(
@@ -172,12 +188,10 @@ describe('assertCompositionCoversSelection', () => {
         repoRoot: root,
         dataset: DATASET,
         version: VERSION,
-        // A selection that would lose the silence class still runs: the legacy
-        // path is skipped, not guessed.
-        tasks: [loaded(speakTask)],
+        tasks: [loaded(speakTask), loaded(silenceTask)],
         goldens,
       }),
-    ).resolves.toBeUndefined()
+    ).rejects.toThrow(/is missing; only a grandfathered version may run without a composition/u)
   })
 
   it('rejects a selected slice the composition does not declare', async () => {
