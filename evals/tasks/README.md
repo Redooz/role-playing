@@ -116,6 +116,27 @@ that keeps every class is accepted. A pair without a composition file is skipped
 which is how the grandfathered versions keep running. The guard is
 `packages/eval-harness/src/runner/composition-guard.ts`.
 
+## Label rules (M3c P3.5)
+
+New versions decide a label by **ownership**, not by topic. The versioned rules
+are:
+
+- `evals/rubrics/m3b-speaker-label-guideline-v1.md` for `m3b-v2` and later.
+- `evals/rubrics/m3a-routing-label-v2.md` for `synthetic-routing/1.1.0` and later.
+
+Three rules bind both:
+
+1. A `speak` label must name the scenario owner of the topic. "Someone should
+   say something" is not an owner.
+2. A closing move ("thanks, noted", "merci, je prends note") is `silence`, even
+   when it contains a topic word or a persona name.
+3. A covered-topic `silence` label needs a prior transcript span that states the
+   answer. `coveredObjectiveIds` alone is bookkeeping, not visible evidence.
+
+`m3b-v1` and `synthetic-routing/1.0.0` are frozen on their old rules; a changed
+label set gets a new version. New tasks name the applicable guideline in
+`annotationVersions`.
+
 ## Session tasks (M2)
 
 `mode: "session"` tasks point at a registered persona and scenario instead of
