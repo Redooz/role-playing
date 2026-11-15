@@ -2,11 +2,12 @@ import { parseRoutingContext } from '@rp/routing-policy'
 import { describe, expect, it } from 'vitest'
 import type { RoutingCentralObservation } from '../jev/routing.js'
 import type { JevBatchSuccess } from '../jev/types.js'
-import { buildRoutingMatrix } from './routing-matrix.js'
+import { buildRoutingMatrix, type RoutingMatrixEntry } from './routing-matrix.js'
 import {
   routingArtifact,
   runDeterministicRoutingReplay,
   runJevRoutingReplay,
+  type RoutingDecisionArtifact,
   type RoutingReplaySuccess,
 } from './routing.js'
 
@@ -363,5 +364,322 @@ describe('buildRoutingMatrix', () => {
 
   it('returns null rates for an empty bucket', () => {
     expect(buildRoutingMatrix([])).toEqual({ schemaVersion: 1, arms: [] })
+  })
+})
+
+const acceptPeer = {
+  intent: 'handoff',
+  acceptablePersonaIds: ['peer'],
+  allowUserYield: false,
+  labelSource: 'agent' as const,
+}
+const acceptAnyYield = { ...acceptPeer, allowUserYield: true }
+
+function failedArtifact(latencyMs: number): RoutingDecisionArtifact {
+  return routingArtifact(
+    context,
+    {
+      ok: false,
+      kind: 'infrastructure_incomplete',
+      error: 'down',
+      questionIds: [],
+      policyLatencyMs: latencyMs,
+    },
+    {
+      trialId: '0:en:failed',
+      taskId: 'failed',
+      arm: { topology: 'central_selection', judgmentSource: 'jev' },
+    },
+  )
+}
+
+function timedOutArtifact(latencyMs: number): RoutingDecisionArtifact {
+  return routingArtifact(
+    context,
+    {
+      ...speak,
+      policyLatencyMs: latencyMs,
+      decision: { ...speak.decision, fallback: { kind: 'deterministic', cause: 'timeout' } },
+      observation: { kind: 'timeout' },
+    },
+    {
+      trialId: '0:en:timed-out',
+      taskId: 'timed-out',
+      arm: { topology: 'persona_requests', judgmentSource: 'jev' },
+    },
+  )
+}
+
+function speakWithFallback(
+  cause: 'timeout' | 'unsettled',
+  latencyMs: number,
+): RoutingDecisionArtifact {
+  return routingArtifact(
+    context,
+    {
+      ...speak,
+      policyLatencyMs: latencyMs,
+      decision: { ...speak.decision, fallback: { kind: 'deterministic', cause } },
+      observation: {
+        kind: 'jev',
+        central: centralWithUsage(
+          successWithUsage({ input_tokens: 2, output_tokens: 1, cost: 0.0001 }),
+        ),
+      },
+    },
+    {
+      trialId: `0:en:${cause}`,
+      taskId: cause,
+      arm: { topology: 'central_selection', judgmentSource: 'jev' },
+    },
+  )
+}
+
+const completeExact = () => successWithUsage({ input_tokens: 4, output_tokens: 1, cost: 0.0005 })
+
+function personaUsageArtifact(exact: unknown): RoutingDecisionArtifact {
+  const judgments = {
+    directlyAddressed: 0,
+    hasRelevantContribution: 0,
+    addsUncoveredInformation: 0,
+    hasUnmetRelevantObjective: 0,
+    pauseWouldBenefitUser: 1,
+  }
+  const result = {
+    ...speak,
+    observation: {
+      kind: 'jev',
+      personas: {
+        manager: { judgments, exact },
+        peer: { judgments, exact: completeExact() },
+      },
+    },
+  } as unknown as RoutingReplaySuccess
+  return artifactFor(result, 'usage', 'usage')
+}
+
+describe('buildRoutingMatrix per-arm record', () => {
+  it('reports the complete arm record with every counter and rate', () => {
+    const entries: RoutingMatrixEntry[] = [
+      {
+        armId: 'det',
+        lang: 'en',
+        artifact: artifactFor({ ...speak, policyLatencyMs: 25 }, 'det', 'speak-ok-1'),
+        label: acceptPeer,
+      },
+      {
+        armId: 'det',
+        lang: 'en',
+        artifact: artifactFor({ ...speak, policyLatencyMs: 25 }, 'det', 'speak-ok-2'),
+        label: acceptPeer,
+      },
+      {
+        armId: 'det',
+        lang: 'en',
+        artifact: artifactFor({ ...speak, policyLatencyMs: 25 }, 'det', 'speak-wrong'),
+        label: label('manager'),
+      },
+      {
+        armId: 'det',
+        lang: 'en',
+        artifact: artifactFor({ ...speak, policyLatencyMs: 25 }, 'det', 'speak-wrong-2'),
+        label: label('manager'),
+      },
+      {
+        armId: 'det',
+        lang: 'en',
+        artifact: artifactFor({ ...noContribution, policyLatencyMs: 25 }, 'det', 'yield-ok-1'),
+        label: acceptAnyYield,
+      },
+      {
+        armId: 'det',
+        lang: 'en',
+        artifact: artifactFor({ ...noContribution, policyLatencyMs: 25 }, 'det', 'yield-ok-2'),
+        label: acceptAnyYield,
+      },
+      {
+        armId: 'det',
+        lang: 'en',
+        artifact: artifactFor({ ...noContribution, policyLatencyMs: 25 }, 'det', 'yield-wrong'),
+        label: acceptPeer,
+      },
+      { armId: 'det', lang: 'en', artifact: failedArtifact(25), label: acceptPeer },
+    ]
+    expect(buildRoutingMatrix(entries).arms[0]).toStrictEqual({
+      armId: 'det',
+      lang: 'en',
+      n: 8,
+      completed: 7,
+      incomplete: 1,
+      acceptable: 4,
+      acceptableOutcomeRate: 4 / 7,
+      falseSpeak: 2,
+      falseSpeakRate: 2 / 7,
+      falseYield: 1,
+      falseYieldRate: 1 / 7,
+      timeoutFallbacks: 0,
+      unsettledFallbacks: 0,
+      timeoutFallbackRate: 0,
+      unsettledFallbackRate: 0,
+      fallbackRate: 0,
+      latencyMs: { count: 8, min: 25, p50: 25, p95: 25, p99: 25, max: 25 },
+      usage: { inputTokens: null, outputTokens: null, costUsd: null },
+    })
+  })
+
+  it('does not depend on the input order of latencies', () => {
+    const report = buildRoutingMatrix(
+      [30, 10, 20].map((latencyMs, index) => ({
+        armId: 'lat',
+        lang: 'en' as const,
+        artifact: artifactFor({ ...speak, policyLatencyMs: latencyMs }, 'lat', `lat-${index}`),
+        label: acceptPeer,
+      })),
+    )
+    expect(report.arms[0]?.latencyMs).toMatchObject({
+      count: 3,
+      min: 10,
+      p50: 20,
+      p95: 29,
+      p99: 29.8,
+      max: 30,
+    })
+  })
+
+  it('separates unsettled, timeout and ordinary decisions', () => {
+    const report = buildRoutingMatrix([
+      {
+        armId: 'fb',
+        lang: 'en',
+        artifact: artifactFor({ ...speak, policyLatencyMs: 25 }, 'fb', 'none'),
+        label: acceptPeer,
+      },
+      {
+        armId: 'fb',
+        lang: 'en',
+        artifact: speakWithFallback('unsettled', 25),
+        label: acceptPeer,
+      },
+      {
+        armId: 'fb',
+        lang: 'en',
+        artifact: speakWithFallback('timeout', 25),
+        label: acceptPeer,
+      },
+    ])
+    expect(report.arms[0]).toStrictEqual({
+      armId: 'fb',
+      lang: 'en',
+      n: 3,
+      completed: 3,
+      incomplete: 0,
+      acceptable: 3,
+      acceptableOutcomeRate: 1,
+      falseSpeak: 0,
+      falseSpeakRate: 0,
+      falseYield: 0,
+      falseYieldRate: 0,
+      timeoutFallbacks: 0,
+      unsettledFallbacks: 1,
+      timeoutFallbackRate: 0,
+      unsettledFallbackRate: 1 / 3,
+      fallbackRate: 2 / 3,
+      latencyMs: { count: 3, min: 25, p50: 25, p95: 25, p99: 25, max: 25 },
+      usage: { inputTokens: 4, outputTokens: 2, costUsd: 0.0002 },
+    })
+  })
+
+  it('counts a timeout fallback as incomplete, never as a resolved decision', () => {
+    const report = buildRoutingMatrix([
+      { armId: 'fb', lang: 'en', artifact: timedOutArtifact(25), label: acceptAnyYield },
+      {
+        armId: 'fb',
+        lang: 'en',
+        artifact: artifactFor({ ...speak, policyLatencyMs: 25 }, 'fb', 'none'),
+        label: acceptPeer,
+      },
+    ])
+    expect(report.arms[0]).toStrictEqual({
+      armId: 'fb',
+      lang: 'en',
+      n: 2,
+      completed: 1,
+      incomplete: 1,
+      acceptable: 1,
+      acceptableOutcomeRate: 1,
+      falseSpeak: 0,
+      falseSpeakRate: 0,
+      falseYield: 0,
+      falseYieldRate: 0,
+      timeoutFallbacks: 1,
+      unsettledFallbacks: 0,
+      timeoutFallbackRate: 0.5,
+      unsettledFallbackRate: 0,
+      fallbackRate: 0.5,
+      latencyMs: { count: 2, min: 25, p50: 25, p95: 25, p99: 25, max: 25 },
+      usage: { inputTokens: null, outputTokens: null, costUsd: null },
+    })
+  })
+})
+
+describe('buildRoutingMatrix usage completeness', () => {
+  it.each([
+    ['a missing exact batch', undefined],
+    ['a missing usage block', {}],
+    [
+      'a missing input token count',
+      successWithUsage({ input_tokens: undefined as never, output_tokens: 1, cost: 0.0002 }),
+    ],
+    [
+      'a missing output token count',
+      successWithUsage({ input_tokens: 4, output_tokens: undefined as never, cost: 0.0002 }),
+    ],
+    ['a missing cost', successWithUsage({ input_tokens: 4, output_tokens: 1, cost: undefined })],
+  ])('keeps every total null when one batch has %s', (_case, exact) => {
+    const report = buildRoutingMatrix([
+      {
+        armId: 'usage',
+        lang: 'en',
+        artifact: personaUsageArtifact(exact),
+        label: acceptPeer,
+      },
+    ])
+    expect(report.arms[0]?.usage).toStrictEqual({
+      inputTokens: null,
+      outputTokens: null,
+      costUsd: null,
+    })
+  })
+
+  it('sums a central batch together with persona batches', () => {
+    const result = {
+      ...speak,
+      observation: {
+        kind: 'jev',
+        central: centralWithUsage(
+          successWithUsage({ input_tokens: 10, output_tokens: 2, cost: 0.001 }),
+        ),
+        personas: {
+          peer: {
+            judgments: {
+              directlyAddressed: 1,
+              hasRelevantContribution: 1,
+              addsUncoveredInformation: 0,
+              hasUnmetRelevantObjective: 0,
+              pauseWouldBenefitUser: 0,
+            },
+            exact: completeExact(),
+          },
+        },
+      },
+    } as RoutingReplaySuccess
+    const report = buildRoutingMatrix([
+      { armId: 'jev', lang: 'en', artifact: artifactFor(result, 'jev'), label: acceptPeer },
+    ])
+    expect(report.arms[0]?.usage).toStrictEqual({
+      inputTokens: 14,
+      outputTokens: 3,
+      costUsd: 0.0015,
+    })
   })
 })

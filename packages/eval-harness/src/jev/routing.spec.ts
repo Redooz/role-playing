@@ -161,6 +161,53 @@ describe('buildCentralRoutingJudgment', () => {
     expect(noul.criteria.true).toContain('information utile')
     expect(choice?.instructions).toContain('doit parler ensuite')
   })
+
+  it('writes the exact English question copy', () => {
+    const built = buildCentralRoutingJudgment(context())
+    const noul = built.questions[CENTRAL_CONTRIBUTION_QUESTION_ID]
+    const choice = built.questions[CENTRAL_SPEAKER_QUESTION_ID]
+    if (noul?.type !== 'noul') throw new Error('expected a noul question')
+    if (choice?.type !== 'choice') throw new Error('expected a choice question')
+
+    expect(noul.instructions).toBe(
+      'Does at least one persona in `eligible_personas` have a relevant contribution that moves the workplace role-play forward after `learner_utterance`?',
+    )
+    expect(noul.criteria).toStrictEqual({
+      true: 'At least one eligible persona can add useful, relevant information now.',
+      false: 'No eligible persona has a useful, relevant contribution now.',
+    })
+    expect(choice.instructions).toBe(
+      'Which eligible persona should speak next after `learner_utterance`?',
+    )
+    expect(choice.criteria.peer).toBe(
+      'Sam Carter, peer colleague. Confirm the handoff. Find cover.',
+    )
+  })
+
+  it('gives every eligible persona its objective descriptions as responsibilities', () => {
+    const built = buildCentralRoutingJudgment(context())
+    const state = built.state as { readonly eligible_personas: unknown }
+    expect(state.eligible_personas).toStrictEqual([
+      {
+        id: 'manager',
+        name: 'Katherine Brooks',
+        role: 'manager',
+        responsibilities: ['Agree a delivery deadline.'],
+      },
+      {
+        id: 'peer',
+        name: 'Sam Carter',
+        role: 'peer colleague',
+        responsibilities: ['Confirm the handoff.', 'Find cover.'],
+      },
+      {
+        id: 'client',
+        name: 'Julian Moore',
+        role: 'external client',
+        responsibilities: ['Resolve the renewal.'],
+      },
+    ])
+  })
 })
 
 describe('buildPersonaRoutingJudgment', () => {
@@ -197,6 +244,54 @@ describe('buildPersonaRoutingJudgment', () => {
     const addressed = built.questions[PERSONA_JUDGMENT_QUESTION_IDS.directlyAddressed]
     if (addressed?.type !== 'noul') throw new Error('expected a noul question')
     expect(addressed.criteria.true).toContain('nomme')
+  })
+
+  it('writes the exact English persona questions', () => {
+    const ctx = context()
+    const built = buildPersonaRoutingJudgment(ctx, ctx.personas[1]!)
+    expect(built.questions[PERSONA_JUDGMENT_QUESTION_IDS.directlyAddressed]).toStrictEqual({
+      type: 'noul',
+      instructions: 'Does `learner_utterance` directly address `persona` by name or role?',
+      criteria: {
+        true: 'The learner names the persona or their role and speaks to them directly.',
+        false: 'The learner does not name or directly address the persona.',
+      },
+    })
+    expect(built.questions[PERSONA_JUDGMENT_QUESTION_IDS.hasRelevantContribution]).toStrictEqual({
+      type: 'noul',
+      instructions: 'Does `persona` have a contribution that is relevant to `learner_utterance`?',
+      criteria: {
+        true: 'The persona can respond usefully and relate to what the learner just said.',
+        false: 'The persona has no useful contribution related to what the learner just said.',
+      },
+    })
+    expect(built.questions[PERSONA_JUDGMENT_QUESTION_IDS.addsUncoveredInformation]).toStrictEqual({
+      type: 'noul',
+      instructions:
+        'Would `persona` add information that is not already covered in `conversation` or in an objective in `objectives` marked `covered: true`?',
+      criteria: {
+        true: 'The persona would add new information that has not already been said.',
+        false: 'The persona would repeat information that is already covered.',
+      },
+    })
+    expect(built.questions[PERSONA_JUDGMENT_QUESTION_IDS.hasUnmetRelevantObjective]).toStrictEqual({
+      type: 'noul',
+      instructions:
+        'Does `persona` have an unmet objective in `objectives` that is relevant to `learner_utterance`?',
+      criteria: {
+        true: 'One of the persona’s open objectives relates to what the learner is saying.',
+        false: 'None of the persona’s open objectives relates to what the learner is saying.',
+      },
+    })
+    expect(built.questions[PERSONA_JUDGMENT_QUESTION_IDS.pauseWouldBenefitUser]).toStrictEqual({
+      type: 'noul',
+      instructions:
+        'Would the learner benefit from a pause instead of a reply from `persona` right now?',
+      criteria: {
+        true: 'Leaving the learner to think or continue alone would be more useful than a reply.',
+        false: 'A reply from the persona would be more useful than a pause.',
+      },
+    })
   })
 })
 
@@ -252,6 +347,11 @@ describe('createJevRoutingJudge', () => {
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error).toBeInstanceOf(JevInvalidResponseError)
+    expect(result.error.message).toBe('Jev central judgment was invalid: unknown_persona.')
+    expect(result.questionIds).toEqual([
+      CENTRAL_CONTRIBUTION_QUESTION_ID,
+      CENTRAL_SPEAKER_QUESTION_ID,
+    ])
   })
 
   it('rejects a wrong answer type instead of defaulting to zero', async () => {
@@ -271,6 +371,74 @@ describe('createJevRoutingJudge', () => {
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error).toBeInstanceOf(JevInvalidResponseError)
+    expect(result.error.message).toBe('Jev did not return a Choice answer for "best_next_speaker".')
+  })
+
+  it('rejects a missing Noul or Choice answer by name', async () => {
+    const missingNoul = success(
+      {
+        [CENTRAL_SPEAKER_QUESTION_ID]: {
+          type: 'choice',
+          choice: 'peer',
+          probabilities: { manager: 0.1, peer: 0.8, client: 0.1 },
+        },
+      },
+      [CENTRAL_CONTRIBUTION_QUESTION_ID, CENTRAL_SPEAKER_QUESTION_ID],
+    )
+    const noNoul = await createJevRoutingJudge({
+      async decideMany() {
+        return missingNoul
+      },
+    }).judgeCentral(context())
+    expect(noNoul).toMatchObject({ ok: false })
+    if (noNoul.ok) return
+    expect(noNoul.error.message).toBe(
+      'Jev did not return a Noul answer for "anyone_should_contribute".',
+    )
+
+    const missingChoice = success(
+      {
+        [CENTRAL_CONTRIBUTION_QUESTION_ID]: { type: 'noul', noul: 0.9 },
+      },
+      [CENTRAL_CONTRIBUTION_QUESTION_ID, CENTRAL_SPEAKER_QUESTION_ID],
+    )
+    const noChoice = await createJevRoutingJudge({
+      async decideMany() {
+        return missingChoice
+      },
+    }).judgeCentral(context())
+    expect(noChoice).toMatchObject({ ok: false })
+    if (noChoice.ok) return
+    expect(noChoice.error.message).toBe(
+      'Jev did not return a Choice answer for "best_next_speaker".',
+    )
+  })
+
+  it('wraps a non-Jev central failure and keeps the cause', async () => {
+    const exact = success(centralAnswers(), [
+      CENTRAL_CONTRIBUTION_QUESTION_ID,
+      CENTRAL_SPEAKER_QUESTION_ID,
+    ])
+    Object.defineProperty(exact, 'answers', {
+      get() {
+        throw new Error('plain central failure')
+      },
+    })
+    const result = await createJevRoutingJudge({
+      async decideMany() {
+        return exact
+      },
+    }).judgeCentral(context())
+
+    expect(result).toMatchObject({
+      ok: false,
+      questionIds: [CENTRAL_CONTRIBUTION_QUESTION_ID, CENTRAL_SPEAKER_QUESTION_ID],
+    })
+    if (result.ok) return
+    expect(result.error).toBeInstanceOf(JevInvalidResponseError)
+    expect(result.error.message).toBe('Could not read the central Jev judgment.')
+    expect(result.error.cause).toBeInstanceOf(Error)
+    expect((result.error.cause as Error).message).toBe('plain central failure')
   })
 
   it('maps five valid persona answers', async () => {
@@ -348,5 +516,70 @@ describe('createJevRoutingJudge', () => {
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error).toBeInstanceOf(JevInvalidResponseError)
+    expect(result.error.message).toBe(
+      'Jev did not return a Noul answer for "pause_would_benefit_user".',
+    )
+  })
+
+  it('rejects a missing persona Noul answer by name', async () => {
+    const ctx = context()
+    const exact = success(
+      {
+        [PERSONA_JUDGMENT_QUESTION_IDS.directlyAddressed]: { type: 'noul', noul: 0.9 },
+        [PERSONA_JUDGMENT_QUESTION_IDS.hasRelevantContribution]: { type: 'noul', noul: 0.8 },
+        [PERSONA_JUDGMENT_QUESTION_IDS.addsUncoveredInformation]: { type: 'noul', noul: 0.7 },
+        [PERSONA_JUDGMENT_QUESTION_IDS.hasUnmetRelevantObjective]: { type: 'noul', noul: 0.6 },
+      },
+      Object.values(PERSONA_JUDGMENT_QUESTION_IDS),
+    )
+    const result = await createJevRoutingJudge({
+      async decideMany() {
+        return exact
+      },
+    }).judgePersona(ctx, ctx.personas[0]!)
+
+    expect(result).toMatchObject({
+      ok: false,
+      questionIds: Object.values(PERSONA_JUDGMENT_QUESTION_IDS),
+    })
+    if (result.ok) return
+    expect(result.error).toBeInstanceOf(JevInvalidResponseError)
+    expect(result.error.message).toBe(
+      'Jev did not return a Noul answer for "pause_would_benefit_user".',
+    )
+  })
+
+  it('wraps a non-Jev persona failure and keeps the cause', async () => {
+    const ctx = context()
+    const exact = success(
+      {
+        [PERSONA_JUDGMENT_QUESTION_IDS.directlyAddressed]: { type: 'noul', noul: 0.9 },
+        [PERSONA_JUDGMENT_QUESTION_IDS.hasRelevantContribution]: { type: 'noul', noul: 0.8 },
+        [PERSONA_JUDGMENT_QUESTION_IDS.addsUncoveredInformation]: { type: 'noul', noul: 0.7 },
+        [PERSONA_JUDGMENT_QUESTION_IDS.hasUnmetRelevantObjective]: { type: 'noul', noul: 0.6 },
+        [PERSONA_JUDGMENT_QUESTION_IDS.pauseWouldBenefitUser]: { type: 'noul', noul: 0.1 },
+      },
+      Object.values(PERSONA_JUDGMENT_QUESTION_IDS),
+    )
+    Object.defineProperty(exact, 'answers', {
+      get() {
+        throw new Error('plain persona failure')
+      },
+    })
+    const result = await createJevRoutingJudge({
+      async decideMany() {
+        return exact
+      },
+    }).judgePersona(ctx, ctx.personas[0]!)
+
+    expect(result).toMatchObject({
+      ok: false,
+      questionIds: Object.values(PERSONA_JUDGMENT_QUESTION_IDS),
+    })
+    if (result.ok) return
+    expect(result.error).toBeInstanceOf(JevInvalidResponseError)
+    expect(result.error.message).toBe('Could not read the persona Jev judgments.')
+    expect(result.error.cause).toBeInstanceOf(Error)
+    expect((result.error.cause as Error).message).toBe('plain persona failure')
   })
 })

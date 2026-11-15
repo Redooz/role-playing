@@ -214,3 +214,71 @@ describe('JevClient.decideMany', () => {
     expect(result.error).toBeInstanceOf(JevConfigError)
   })
 })
+
+describe('JevClient.decideMany input guards', () => {
+  it('names the fixed model and sends nothing for a per-call override', async () => {
+    const { calls, fetchImpl } = recordingFetch(
+      () => new Response(JSON.stringify(response()), { status: 200 }),
+    )
+    const client = createJevClient({ apiKey: 'test-key', fetchImpl, cache: false })
+
+    const result = await client.decideMany({
+      ...judgment,
+      model: 'jev-latest',
+    } as unknown as JevBatchJudgment)
+
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.error).toBeInstanceOf(JevConfigError)
+    if (!(result.error instanceof JevConfigError)) return
+    expect(result.error.message).toBe(
+      'Jev model is fixed at typesafe/jev-1.14; per-call model overrides are not accepted.',
+    )
+    expect(result.questionIds).toEqual([
+      CENTRAL_CONTRIBUTION_QUESTION_ID,
+      CENTRAL_SPEAKER_QUESTION_ID,
+    ])
+    expect(result.cache).toEqual({ key: null, hit: false, stored: false })
+    expect(calls).toHaveLength(0)
+  })
+
+  const invalidBatches: readonly { readonly label: string; readonly input: unknown }[] = [
+    { label: 'a null batch', input: null },
+    { label: 'an undefined batch', input: undefined },
+    { label: 'a string batch', input: 'not a batch' },
+    {
+      label: 'a batch without questions',
+      input: { metadata: judgment.metadata, state: judgment.state },
+    },
+    {
+      label: 'a batch with null questions',
+      input: { metadata: judgment.metadata, state: judgment.state, questions: null },
+    },
+    {
+      label: 'a batch with a string question set',
+      input: { metadata: judgment.metadata, state: judgment.state, questions: 'questions' },
+    },
+  ]
+
+  it.each(invalidBatches)(
+    'returns an empty question list and a typed failure for $label',
+    async ({ input }) => {
+      const { calls, fetchImpl } = recordingFetch(
+        () => new Response(JSON.stringify(response()), { status: 200 }),
+      )
+      const client = createJevClient({ apiKey: 'test-key', fetchImpl, cache: false })
+
+      const result = await client.decideMany(input as JevBatchJudgment)
+
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.questionIds).toEqual([])
+      expect(result.error).toBeInstanceOf(JevConfigError)
+      if (!(result.error instanceof JevConfigError)) return
+      expect(result.error.message).toBe('Invalid batched Jev judgment.')
+      expect(result.error.details.length).toBeGreaterThan(0)
+      expect(result.cache).toEqual({ key: null, hit: false, stored: false })
+      expect(calls).toHaveLength(0)
+    },
+  )
+})
