@@ -337,8 +337,20 @@ test uses a local server, and Groq/OpenRouter use injected `fetch`).
   non-comment lines is a prompt to look for the second job; 450 is the
   `max-lines` stop in the behaviour-bearing packages the mutation floor covers.
   If you reach for `eslint-disable`, split instead.
+- **A coordinator only coordinates.** A function that sequences a feature reads
+  as a list of named steps: gather the input, call one function per rule, pass
+  the result on. It does not also implement a step. If its body contains a loop
+  that applies a rule, an inline parse, or a branch that computes an outcome,
+  that body moves into a named function in the module that owns the rule. Keep
+  the coordinator small enough to read in one screen: if it grows past the
+  modules it coordinates, a step is still inlined. Reference:
+  `checkCompositions` in `packages/eval-harness/src/tasks/composition.ts` groups
+  the tree and calls `checkPair`; `checkPair` parses the file, then calls one
+  function per rule.
 - Reviewers: a diff whose bulk appends to one existing file usually added a job
-  that deserved a module. Ask for the split before approving.
+  that deserved a module. Ask for the split before approving. When a function
+  sequences a feature, ask where its coordinator is and whether every step has a
+  name; a coordinator that also implements a rule is two jobs in one body.
 - **The agent never merges.** On M3b, use one stacked PR per deliverable
   (`feat/m3b-d<N>-<slug>`, via the `gh stack` extension), one automated review,
   then stop for explicit user approval before the next layer. Do not close or
