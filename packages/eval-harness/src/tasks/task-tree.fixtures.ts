@@ -10,7 +10,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { RoutingContext } from '@rp/routing-policy'
-import type { CompositionFile, CompositionSlice } from './composition.js'
+import type { CompositionFile, CompositionSlice } from './composition-file.js'
 import type { GoldenEntry, TaskEntry } from './schema.js'
 
 const tempDirs: string[] = []
