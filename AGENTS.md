@@ -294,15 +294,21 @@ test uses a local server, and Groq/OpenRouter use injected `fetch`).
   `stryker.config.json` (session-core, pipeline, persona-kit prompt/lookup,
   scenario-kit lookup/helpers, routing-policy, turn-arbiter, shared
   locale/plain-text, apps/cli, `packages/eval-harness` and every `tools/*/src`
-  module), then checks each package against `evals/baselines/m1-mutation.json`.
-  `packages/eval-harness` brings the turn-taking code grader into the gate; the
-  annotation kit's `.mjs` scripts stay out except `routing-labels.mjs`, which has
-  a unit spec. Test-only `*.fixtures.ts` modules are outside the scope. The
-  `turn-arbiter` reducer itself **is** scored. The global break threshold is 95.
-  Timed-out mutants count as killed; runtime/compile errors are excluded. Never
-  lower the floor or hand-edit the baseline. Record a new baseline only with
-  `npm run mutation:record` after a clean `npm run mutation`; a package with
-  mutants but no recorded floor fails the gate.
+  module except the direct-execution entrypoints), then checks each package
+  against `evals/baselines/m1-mutation.json`. `packages/eval-harness` brings the
+  turn-taking code grader into the gate; the annotation kit's `.mjs` scripts stay
+  out except `routing-labels.mjs`, which has a unit spec. Test-only
+  `*.fixtures.ts` modules are outside the scope. The five direct-execution
+  entrypoints listed in `stryker.config.json` stay out of `mutate`: they run in a
+  separate Node process, so per-test coverage cannot see them. The exclusion and
+  its revisit condition are in
+  `evals/analysis/m3c-p0-mutation-scope-2026-11-14.md`; remove an exclusion when
+  an entrypoint becomes coverable. The `turn-arbiter` reducer itself **is**
+  scored. The global break threshold is 95. Timed-out mutants count as killed;
+  runtime/compile errors are excluded. Never lower the floor or hand-edit the
+  baseline. Record a new baseline only with `npm run mutation:record` after a
+  clean `npm run mutation`; a package with mutants but no recorded floor fails
+  the gate.
 - A run writes `manifest.json`, `manifest.sha256`, `result.json`, `transcripts/`,
   `grades.jsonl` and `langfuse.json`. `grades.jsonl` is the raw per-trial grade
   copy; `export-run` re-exports a finished run without re-running the model.

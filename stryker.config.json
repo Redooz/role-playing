@@ -31,6 +31,11 @@
     "apps/cli/src/session-log.adapter.ts",
     "tools/*/src/**/*.ts",
     "!tools/*/src/**/*.spec.ts",
+    "!tools/eval-harness-cli/src/cli.ts",
+    "!tools/routing-bench/src/compare.ts",
+    "!tools/routing-bench/src/compare-main.ts",
+    "!tools/routing-bench/src/m3b-shadow.cli.ts",
+    "!tools/routing-bench/src/m3b-shadow.ts",
     "tools/annotation-kit/routing-labels.mjs"
   ],
   "coverageAnalysis": "perTest",
