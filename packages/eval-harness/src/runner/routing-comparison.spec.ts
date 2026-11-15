@@ -91,7 +91,7 @@ function armReport(
 }
 
 function matrix(arms: RoutingArmLanguageReport[]): RoutingMatrixReport {
-  return { schemaVersion: 1, arms }
+  return { schemaVersion: 2, arms }
 }
 
 describe('runRoutingComparison', () => {

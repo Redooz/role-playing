@@ -363,7 +363,7 @@ describe('buildRoutingMatrix', () => {
   })
 
   it('returns null rates for an empty bucket', () => {
-    expect(buildRoutingMatrix([])).toEqual({ schemaVersion: 1, arms: [] })
+    expect(buildRoutingMatrix([])).toEqual({ schemaVersion: 2, arms: [] })
   })
 })
 

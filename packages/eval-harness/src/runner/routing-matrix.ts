@@ -124,7 +124,11 @@ export interface RoutingArmLanguageReport {
 }
 
 export interface RoutingMatrixReport {
-  readonly schemaVersion: 1
+  /**
+   * Version 2 adds the per-class `classes` reading to every arm. A version 1
+   * report has no class data, so the two are never interchangeable.
+   */
+  readonly schemaVersion: 2
   readonly arms: readonly RoutingArmLanguageReport[]
 }
 
@@ -339,5 +343,5 @@ export function buildRoutingMatrix(entries: readonly RoutingMatrixEntry[]): Rout
       (left, right) => left.armId.localeCompare(right.armId) || left.lang.localeCompare(right.lang),
     )
 
-  return { schemaVersion: 1, arms }
+  return { schemaVersion: 2, arms }
 }
