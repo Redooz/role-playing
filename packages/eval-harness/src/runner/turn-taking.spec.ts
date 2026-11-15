@@ -3,9 +3,12 @@ import { describe, expect, it } from 'vitest'
 import type { GoldenEntry, TaskEntry } from '../tasks/schema.js'
 import {
   METRIC_ACCEPTABLE_SPEAKER_RATE,
+  METRIC_REQUIRED_SPEAKER_RATE,
+  METRIC_SILENCE_APPROPRIATE_RATE,
   TURN_TAKING_GRADER_ID,
   TURN_TAKING_GRADER_VERSION,
   createTurnTakingGrader,
+  scoreTrialTurnClasses,
   scoreTrialTurnTaking,
 } from './turn-taking.js'
 import type { TrialRecord } from './grader.js'
@@ -279,12 +282,14 @@ describe('turn-taking grader contract', () => {
     expect(grader).toStrictEqual({
       id: 'turn-taking-speakers',
       kind: 'code',
-      version: '1.0.0',
+      version: '1.1.0',
       score: grader.score,
     })
     expect(TURN_TAKING_GRADER_ID).toBe('turn-taking-speakers')
-    expect(TURN_TAKING_GRADER_VERSION).toBe('1.0.0')
+    expect(TURN_TAKING_GRADER_VERSION).toBe('1.1.0')
     expect(METRIC_ACCEPTABLE_SPEAKER_RATE).toBe('turn_taking.acceptable_speaker_rate')
+    expect(METRIC_REQUIRED_SPEAKER_RATE).toBe('turn_taking.required_speaker_rate')
+    expect(METRIC_SILENCE_APPROPRIATE_RATE).toBe('turn_taking.silence_appropriate_rate')
   })
 
   it('reports a rate of zero when every labelled turn picked the wrong speaker', async () => {
@@ -358,5 +363,172 @@ describe('turn-taking invalid grants on a yield-allowed turn', () => {
     ]
 
     expect(scoreTrialTurnTaking(trial({ records }))).toStrictEqual({ turns: 4, acceptable: 1 })
+  })
+})
+
+function goldenWithLabels(labels: NonNullable<GoldenEntry['speakerLabels']>): GoldenEntry {
+  return { ...golden(), speakerLabels: labels }
+}
+
+const silenceLabel = {
+  acceptablePersonaIds: [],
+  allowUserYield: true,
+  labelSource: 'agent' as const,
+}
+
+describe('turn-taking label classes', () => {
+  it('reports the required-speaker rate over speak-required turns only', () => {
+    const classes = scoreTrialTurnClasses(trial())
+
+    expect(classes).toStrictEqual({
+      speak: { total: 3, appropriate: 2, rate: 2 / 3 },
+      silence: { total: 0, appropriate: 0, rate: null },
+      mixed: { total: 1 },
+    })
+    // The three class totals partition the same labelled turns the all-turn rate uses.
+    expect(classes.speak.total + classes.silence.total + classes.mixed.total).toBe(
+      scoreTrialTurnTaking(trial()).turns,
+    )
+  })
+
+  it('reports the silence rate over silence-required turns only', () => {
+    const records = [
+      record(0, 'user.utterance.committed', { text: 'a' }),
+      granted('g0', 'peer'),
+      record(2, 'user.utterance.committed', { text: 'b' }),
+      record(3, 'user.utterance.committed', { text: 'c' }),
+    ]
+    const silenceGolden = goldenWithLabels([
+      { turnIndex: 0, ...silenceLabel },
+      { turnIndex: 1, ...silenceLabel },
+      { turnIndex: 2, ...silenceLabel },
+    ])
+
+    expect(scoreTrialTurnClasses(trial({ records, golden: silenceGolden }))).toStrictEqual({
+      speak: { total: 0, appropriate: 0, rate: null },
+      silence: { total: 3, appropriate: 2, rate: 2 / 3 },
+      mixed: { total: 0 },
+    })
+  })
+
+  it('counts a mixed label without rating it', () => {
+    const mixedGolden = goldenWithLabels([
+      { turnIndex: 0, acceptablePersonaIds: ['peer'], allowUserYield: true, labelSource: 'agent' },
+    ])
+
+    expect(scoreTrialTurnClasses(trial({ golden: mixedGolden }))).toStrictEqual({
+      speak: { total: 0, appropriate: 0, rate: null },
+      silence: { total: 0, appropriate: 0, rate: null },
+      mixed: { total: 1 },
+    })
+  })
+
+  it('accepts a speak-required turn when any granted persona is acceptable', () => {
+    const records = [
+      record(0, 'user.utterance.committed', { text: 'a' }),
+      granted('g0', 'manager'),
+      granted('g0b', 'peer'),
+      record(3, 'user.utterance.committed', { text: 'b' }),
+    ]
+    const oneTurn = goldenWithLabels([
+      { turnIndex: 0, acceptablePersonaIds: ['peer'], allowUserYield: false, labelSource: 'agent' },
+    ])
+
+    expect(scoreTrialTurnClasses(trial({ records, golden: oneTurn })).speak).toStrictEqual({
+      total: 1,
+      appropriate: 1,
+      rate: 1,
+    })
+  })
+
+  it('uses one label per turn when a golden repeats a turn index', () => {
+    const repeated = goldenWithLabels([
+      { turnIndex: 0, acceptablePersonaIds: ['peer'], allowUserYield: false, labelSource: 'agent' },
+      { turnIndex: 0, acceptablePersonaIds: ['peer'], allowUserYield: false, labelSource: 'agent' },
+    ])
+
+    expect(scoreTrialTurnClasses(trial({ golden: repeated })).speak.total).toBe(1)
+  })
+
+  it('scores a label with no transcript record as a turn with no grants', () => {
+    const missingRecord = goldenWithLabels([
+      { turnIndex: 9, acceptablePersonaIds: ['peer'], allowUserYield: false, labelSource: 'agent' },
+    ])
+
+    expect(scoreTrialTurnClasses(trial({ golden: missingRecord })).speak).toStrictEqual({
+      total: 1,
+      appropriate: 0,
+      rate: 0,
+    })
+  })
+
+  it.each([
+    ['a failed trial', { ok: false }],
+    ['a single-persona task', { task: task(['manager']) }],
+    ['missing speaker labels', { golden: { ...golden(), speakerLabels: undefined } }],
+  ])('yields empty classes for %s', (_case, overrides) => {
+    expect(scoreTrialTurnClasses(trial(overrides))).toStrictEqual({
+      speak: { total: 0, appropriate: 0, rate: null },
+      silence: { total: 0, appropriate: 0, rate: null },
+      mixed: { total: 0 },
+    })
+  })
+})
+
+describe('turn-taking class metrics', () => {
+  it('reports both class rates with the all-turn rate', async () => {
+    const records = [
+      record(0, 'user.utterance.committed', { text: 'a' }),
+      granted('g0', 'peer'),
+      record(2, 'user.utterance.committed', { text: 'b' }),
+      record(3, 'user.utterance.committed', { text: 'c' }),
+    ]
+    const classesGolden = goldenWithLabels([
+      { turnIndex: 0, acceptablePersonaIds: ['peer'], allowUserYield: false, labelSource: 'agent' },
+      { turnIndex: 1, ...silenceLabel },
+      {
+        turnIndex: 2,
+        acceptablePersonaIds: ['manager'],
+        allowUserYield: false,
+        labelSource: 'agent',
+      },
+    ])
+    const metrics = await createTurnTakingGrader().score({
+      manifest: {} as never,
+      trials: [trial({ records, golden: classesGolden })],
+    })
+
+    expect(metrics[METRIC_REQUIRED_SPEAKER_RATE]).toBe(1 / 2)
+    expect(metrics[METRIC_SILENCE_APPROPRIATE_RATE]).toBe(1)
+    expect(metrics[METRIC_ACCEPTABLE_SPEAKER_RATE]).toBe(2 / 3)
+  })
+
+  it('omits an empty class rate rather than reporting zero', async () => {
+    const silenceOnly = goldenWithLabels([
+      { turnIndex: 0, ...silenceLabel },
+      { turnIndex: 1, ...silenceLabel },
+    ])
+    const metrics = await createTurnTakingGrader().score({
+      manifest: {} as never,
+      trials: [trial({ records: [], golden: silenceOnly })],
+    })
+
+    expect(METRIC_REQUIRED_SPEAKER_RATE in metrics).toBe(false)
+    expect(metrics[METRIC_SILENCE_APPROPRIATE_RATE]).toBe(1)
+    expect(metrics[METRIC_ACCEPTABLE_SPEAKER_RATE]).toBe(1)
+  })
+
+  it('reports a class rate of zero when every turn in the class is wrong', async () => {
+    const speakOnly = goldenWithLabels([
+      { turnIndex: 0, acceptablePersonaIds: ['peer'], allowUserYield: false, labelSource: 'agent' },
+      { turnIndex: 1, acceptablePersonaIds: ['peer'], allowUserYield: false, labelSource: 'agent' },
+    ])
+    const metrics = await createTurnTakingGrader().score({
+      manifest: {} as never,
+      trials: [trial({ records: [], golden: speakOnly })],
+    })
+
+    expect(metrics[METRIC_REQUIRED_SPEAKER_RATE]).toBe(0)
+    expect(METRIC_SILENCE_APPROPRIATE_RATE in metrics).toBe(false)
   })
 })
