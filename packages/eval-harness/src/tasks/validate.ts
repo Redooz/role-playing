@@ -22,14 +22,13 @@ import {
   type IdIndex,
   type SpeakerIndex,
 } from './tree-index.js'
+import { checkCompositions } from './composition.js'
 import {
   COMPOSITION_FILE_NAME,
-  checkCompositions,
   parseCompositionPath,
   type CompositionFileRecord,
-  type CompositionLabelRecord,
-  type CompositionTaskRecord,
-} from './composition.js'
+} from './composition-file.js'
+import type { CompositionLabelRecord, CompositionTaskRecord } from './composition-units.js'
 import { pushSchemaViolations, type TaskViolation } from './violations.js'
 
 export { formatViolation } from './violations.js'
