@@ -189,7 +189,10 @@ export async function withTrialTimeout<T>(
 
 /**
  * Wait for a promise, but never longer than `ms`. Rejects when the limit is
- * reached. Used for cleanup that must not re-introduce a hang.
+ * reached **and** when the promise rejects; cleanup that must not re-introduce
+ * a hang still needs to surface a failed dispose. The attached `catch` only
+ * stops a late rejection becoming an unhandled one when the timer wins. Used
+ * for cleanup that must not re-introduce a hang.
  */
 export async function settleWithin<T>(
   promise: Promise<T>,

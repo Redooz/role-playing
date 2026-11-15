@@ -73,6 +73,21 @@ describe('live provider selection', () => {
     ).toThrow(/LIVEKIT_API_SECRET/)
   })
 
+  it('trims a credential before handing it to the adapter', () => {
+    const seen: Array<{ apiKey: string }> = []
+    createLiveProviderFactory({
+      label: 'groq/openai/gpt-oss-20b',
+      env: { GROQ_API_KEY: '  groq-key  ' },
+      paceMs: 0,
+      createModel: (_selection, credentials) => {
+        seen.push({ apiKey: credentials.apiKey })
+        return fakeModel()
+      },
+    })()
+
+    expect(seen).toStrictEqual([{ apiKey: 'groq-key' }])
+  })
+
   it('passes adapter-specific default base URLs', () => {
     const seen: Array<{ kind: string; baseUrl: string; apiSecret?: string }> = []
     const capture = (selection: LiveProviderSelection, credentials: LiveProviderCredentials) => {

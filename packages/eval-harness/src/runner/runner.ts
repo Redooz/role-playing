@@ -265,6 +265,10 @@ export async function executeRun(options: ExecuteRunOptions): Promise<Evaluation
           throw new HarnessConfigError(`replay failure: ${error.message}`)
         }
 
+        // A configuration error means the run cannot be trusted, not that this
+        // trial measured a failure. `errors.ts` promises exactly that.
+        if (error instanceof HarnessConfigError) throw error
+
         trials.push(failedTrial(round, task, error))
         roundFailed = true
       } finally {

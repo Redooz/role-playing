@@ -21,6 +21,12 @@ describe('stream utilities', () => {
     await expect(settleWithin(Promise.resolve('done'), 50)).resolves.toBeUndefined()
   })
 
+  it('treats a rejection as settled and does not rethrow it', async () => {
+    await expect(
+      settleWithin(Promise.reject(new Error('close failed')), 50),
+    ).resolves.toBeUndefined()
+  })
+
   it('resolves after the bound when the promise never settles', async () => {
     const started = Date.now()
     await settleWithin(new Promise(() => undefined), 5)

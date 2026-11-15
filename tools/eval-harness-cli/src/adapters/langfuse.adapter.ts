@@ -186,11 +186,14 @@ class LangfuseObserver implements EvaluationObserver {
         observation.end(at(span.endMs))
         spanById.set(span.id, observation)
 
+        // The plan nests an event inside its span, so the event's parent is the
+        // span itself, not the span's parent.
+        const spanContext = observation.otelSpan.spanContext()
         for (const event of span.events) {
           startObservation(
             event.name,
             { input: event.attributes, metadata: { atMs: event.atMs } },
-            { asType: 'event', parentSpanContext, startTime: at(event.atMs) },
+            { asType: 'event', parentSpanContext: spanContext, startTime: at(event.atMs) },
           )
         }
       }
