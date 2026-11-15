@@ -1,13 +1,22 @@
-import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createJevClient } from './client.js'
-import { computeJevCacheKey, createFileJevCache, type JevCacheKeyInput } from './cache.js'
+import {
+  computeJevCacheKey,
+  createFileJevCache,
+  defaultJevCacheDir,
+  type JevCacheKeyInput,
+} from './cache.js'
 import { JEV_CACHE_SCHEMA_VERSION, JEV_MODEL, JEV_PROVIDER_SURFACE } from './constants.js'
 import { JevConfigError } from './errors.js'
 import { declareJevJudgment } from './questions.js'
 import type { JevJudgment, JevRequestPayload } from './types.js'
+
+const here = dirname(fileURLToPath(import.meta.url))
+const repoRoot = resolve(here, '../../../..')
 
 const QUESTION_ID = 'cache-question'
 
@@ -124,6 +133,22 @@ describe('computeJevCacheKey', () => {
     const key = computeJevCacheKey({ ...baseKeyInput, locale: 'en' })
     expect(computeJevCacheKey({ ...baseKeyInput, locale: 'en-GB' })).not.toBe(key)
     expect(computeJevCacheKey({ ...baseKeyInput, locale: 'fr-CA' })).not.toBe(key)
+    expect(key).not.toBe(computeJevCacheKey(baseKeyInput))
+  })
+
+  it('hashes the canonical request and version stamps into one stable key', () => {
+    expect(computeJevCacheKey(baseKeyInput)).toBe(
+      '5740394aafb424dd39d1697c74eb5ea4e5d03330a470e9cfdd490468e1e1b32a',
+    )
+    expect(computeJevCacheKey({ ...baseKeyInput, locale: 'en-GB' })).toBe(
+      '52ab151961a6b715b962f26a05ae1fa09b6bd695258060d71416210dbd95a135',
+    )
+  })
+})
+
+describe('defaultJevCacheDir', () => {
+  it('points at the git-ignored evals cache at the repo root', () => {
+    expect(defaultJevCacheDir()).toBe(join(repoRoot, 'evals/.cache'))
   })
 })
 
@@ -172,6 +197,92 @@ describe('createFileJevCache', () => {
 
     await expect(cache.read('../escape')).resolves.toBeUndefined()
     await expect(cache.write('../escape', rawResponse)).rejects.toThrow(JevConfigError)
+  })
+
+  it('rejects only keys that are exactly 64 lowercase hex characters', async () => {
+    const cache = createFileJevCache({ directory })
+    const key = computeJevCacheKey(baseKeyInput)
+
+    for (const invalid of [
+      `x${key}`,
+      `${key}x`,
+      key.toUpperCase(),
+      key.slice(0, 63),
+      `${key.slice(0, 62)}zz`,
+    ]) {
+      await expect(cache.read(invalid)).resolves.toBeUndefined()
+      await expect(cache.write(invalid, rawResponse)).rejects.toThrow(
+        new JevConfigError(`Invalid Jev cache key: ${JSON.stringify(invalid)}`),
+      )
+    }
+
+    await expect(cache.write(key, rawResponse)).resolves.toBeUndefined()
+  })
+
+  it('trims the configured directory and rejects an empty or blank one', async () => {
+    const trimmed = createFileJevCache({ directory: `  ${directory}  ` })
+    expect(trimmed.directory).toBe(directory)
+    const key = computeJevCacheKey(baseKeyInput)
+    await trimmed.write(key, rawResponse)
+    await expect(readdir(directory)).resolves.toEqual([`${key}.json`])
+
+    expect(() => createFileJevCache({ directory: '' })).toThrow(
+      new JevConfigError('Jev cache directory must be non-empty.'),
+    )
+    expect(() => createFileJevCache({ directory: '   ' })).toThrow(
+      new JevConfigError('Jev cache directory must be non-empty.'),
+    )
+  })
+
+  it('writes the exact envelope with a trailing newline', async () => {
+    const cache = createFileJevCache({ directory })
+    const key = computeJevCacheKey(baseKeyInput)
+    await cache.write(key, rawResponse)
+
+    const text = await readFile(join(directory, `${key}.json`), 'utf8')
+    expect(text).toBe(
+      `${JSON.stringify(
+        {
+          cacheSchemaVersion: JEV_CACHE_SCHEMA_VERSION,
+          cacheKey: key,
+          raw: rawResponse,
+        },
+        null,
+        2,
+      )}\n`,
+    )
+  })
+
+  it('treats a wrong envelope version or a mismatched key as a miss', async () => {
+    const cache = createFileJevCache({ directory })
+    const key = computeJevCacheKey(baseKeyInput)
+
+    await writeFile(
+      join(directory, `${key}.json`),
+      JSON.stringify({ cacheSchemaVersion: 2, cacheKey: key, raw: rawResponse }),
+      'utf8',
+    )
+    await expect(cache.read(key)).resolves.toBeUndefined()
+
+    await writeFile(
+      join(directory, `${key}.json`),
+      JSON.stringify({
+        cacheSchemaVersion: JEV_CACHE_SCHEMA_VERSION,
+        cacheKey: 'a'.repeat(64),
+        raw: rawResponse,
+      }),
+      'utf8',
+    )
+    await expect(cache.read(key)).resolves.toBeUndefined()
+  })
+
+  it('removes the temp file and rethrows when the final rename fails', async () => {
+    const cache = createFileJevCache({ directory })
+    const key = computeJevCacheKey(baseKeyInput)
+    await mkdir(join(directory, `${key}.json`))
+
+    await expect(cache.write(key, rawResponse)).rejects.toThrow()
+    await expect(readdir(directory)).resolves.toEqual([`${key}.json`])
   })
 })
 

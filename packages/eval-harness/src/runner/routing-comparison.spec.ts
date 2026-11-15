@@ -193,3 +193,107 @@ describe('computeRoutingArmVerdicts', () => {
     expect(() => computeRoutingArmVerdicts(matrix([]), 'det', 0)).toThrow(/positive/i)
   })
 })
+
+describe('computeRoutingArmVerdicts exact records', () => {
+  it('keeps the exact baseline and candidate records and treats a delta at the MDE as met', () => {
+    const verdicts = computeRoutingArmVerdicts(
+      matrix([armReport('det', 'en', 0.5), armReport('jev', 'en', 0.75)]),
+      'det',
+      0.25,
+    )
+    expect(verdicts).toStrictEqual([
+      {
+        armId: 'det',
+        lang: 'en',
+        baselineArmId: 'det',
+        metric: 'routing.acceptable_outcome_rate',
+        baseline: 0.5,
+        candidate: 0.5,
+        delta: 0,
+        minimumDetectableEffect: 0.25,
+        incomplete: 0,
+        verdict: 'baseline',
+      },
+      {
+        armId: 'jev',
+        lang: 'en',
+        baselineArmId: 'det',
+        metric: 'routing.acceptable_outcome_rate',
+        baseline: 0.5,
+        candidate: 0.75,
+        delta: 0.25,
+        minimumDetectableEffect: 0.25,
+        incomplete: 0,
+        verdict: 'target_met',
+      },
+    ])
+  })
+
+  it('keeps the exact incomplete record when the candidate has incomplete trials', () => {
+    const verdicts = computeRoutingArmVerdicts(
+      matrix([armReport('det', 'en', 0.5), armReport('jev', 'en', 0.9, 3)]),
+      'det',
+      0.2,
+    )
+    expect(verdicts[1]).toStrictEqual({
+      armId: 'jev',
+      lang: 'en',
+      baselineArmId: 'det',
+      metric: 'routing.acceptable_outcome_rate',
+      baseline: 0.5,
+      candidate: 0.9,
+      delta: null,
+      minimumDetectableEffect: 0.2,
+      incomplete: 3,
+      verdict: 'incomplete',
+    })
+  })
+
+  it('never passes a candidate whose baseline has incomplete trials', () => {
+    const verdicts = computeRoutingArmVerdicts(
+      matrix([{ ...armReport('det', 'en', 0.5), incomplete: 2 }, armReport('jev', 'en', 0.9)]),
+      'det',
+      0.2,
+    )
+    expect(verdicts[1]).toStrictEqual({
+      armId: 'jev',
+      lang: 'en',
+      baselineArmId: 'det',
+      metric: 'routing.acceptable_outcome_rate',
+      baseline: 0.5,
+      candidate: 0.9,
+      delta: null,
+      minimumDetectableEffect: 0.2,
+      incomplete: 0,
+      verdict: 'incomplete',
+    })
+  })
+})
+
+describe('routing comparison guard rails', () => {
+  it('rejects a comparison with no arms', async () => {
+    await expect(runRoutingComparison(tasks, [])).rejects.toThrow(
+      'a routing comparison needs at least one arm',
+    )
+  })
+
+  it('rejects a missing baseline even when the matrix is empty', () => {
+    expect(() => computeRoutingArmVerdicts(matrix([]), 'det', 0.2)).toThrow(
+      'baseline arm "det" is missing',
+    )
+  })
+
+  it('rejects an arm that reports a language the baseline does not have', () => {
+    expect(() =>
+      computeRoutingArmVerdicts(
+        matrix([
+          armReport('det', 'en', 0.5),
+          armReport('jev', 'en', 0.9),
+          armReport('jev', 'fr', 0.9),
+        ]),
+        'det',
+        0.2,
+      ),
+    ).toThrow('baseline arm "det" is missing language fr')
+  })
+})

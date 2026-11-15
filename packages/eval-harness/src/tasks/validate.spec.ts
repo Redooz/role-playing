@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, readFile } from 'node:fs/promises'
+import { chmod, mkdtemp, readdir, readFile, rm, symlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -10,6 +10,8 @@ import {
   goldenEntry,
   goldenPath,
   makeTree,
+  routingGolden,
+  routingTask,
   taskEntry,
   taskPath,
 } from './task-tree.fixtures.js'
@@ -200,5 +202,512 @@ describe('seeded task tree', () => {
       expect(golden.status).toBe('draft')
       expect(golden.annotatorAgreement).toBeUndefined()
     }
+  })
+})
+
+describe('directory walker', () => {
+  it('treats a missing evals/tasks or evals/golden subtree as empty', async () => {
+    const root = await makeTree({ 'evals/README.md': '# evals' })
+
+    expect(await validateTaskTree(root)).toStrictEqual([])
+  })
+
+  it('reports a missing evals directory with the resolved root in the message', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'rp-eval-tree-'))
+    try {
+      expect(await validateTaskTree(`${root}/.`)).toStrictEqual([
+        {
+          path: 'evals',
+          code: 'EVALS_DIR_MISSING',
+          message: `expected an evals/ directory under ${root}`,
+        },
+      ])
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('treats evals that is a plain file as missing', async () => {
+    const root = await makeTree({ evals: 'not a directory' })
+
+    expect(await validateTaskTree(root)).toStrictEqual([
+      {
+        path: 'evals',
+        code: 'EVALS_DIR_MISSING',
+        message: `expected an evals/ directory under ${root}`,
+      },
+    ])
+  })
+
+  it('treats a dangling evals symlink as missing instead of throwing', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'rp-eval-tree-'))
+    try {
+      await symlink(join(root, 'missing-target'), join(root, 'evals'))
+      expect(await validateTaskTree(root)).toStrictEqual([
+        {
+          path: 'evals',
+          code: 'EVALS_DIR_MISSING',
+          message: `expected an evals/ directory under ${root}`,
+        },
+      ])
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('walks nested directories and ignores files that are not lowercase .json', async () => {
+    const root = await makeTree({
+      [taskPath('en', 'nested/inside')]: taskEntry(),
+      'evals/tasks/synthetic-workplace/v1/en/notes.md': 'not a task',
+      'evals/tasks/synthetic-workplace/v1/en/UPPER.JSON': '{ not json',
+    })
+
+    expect(await validateTaskTree(root)).toStrictEqual([])
+  })
+
+  it('does not follow symlinked directories or symlinked json files', async () => {
+    const root = await makeTree({
+      [taskPath('en', 'real')]: taskEntry(),
+      'outside/bad.json': '{ "id": ',
+    })
+    const languageDir = join(root, 'evals/tasks/synthetic-workplace/v1/en')
+    await symlink(join(root, 'outside'), join(languageDir, 'linked-dir'))
+    await symlink(join(root, 'outside/bad.json'), join(languageDir, 'linked.json'))
+
+    expect(await validateTaskTree(root)).toStrictEqual([])
+  })
+
+  it('reports an unreadable tasks directory instead of throwing', async () => {
+    const root = await makeTree({ 'evals/tasks': 'not a directory' })
+    const expected = await captureError(readdir(join(root, 'evals/tasks'), { withFileTypes: true }))
+
+    expect(await validateTaskTree(root)).toStrictEqual([
+      {
+        path: 'evals/tasks',
+        code: 'UNREADABLE_DIRECTORY',
+        message: `cannot read directory: ${expected.message}`,
+      },
+    ])
+  })
+
+  it.skipIf(process.getuid?.() === 0)(
+    'reports an unreadable file instead of throwing',
+    async () => {
+      const path = taskPath('en', 'locked')
+      const root = await makeTree({ [path]: taskEntry() })
+      const file = join(root, path)
+      await chmod(file, 0o000)
+
+      const expected = await captureError(readFile(file, 'utf8'))
+      expect(await validateTaskTree(root)).toStrictEqual([
+        {
+          path,
+          code: 'UNREADABLE_FILE',
+          message: `cannot read file: ${expected.message}`,
+        },
+      ])
+    },
+  )
+
+  it.skipIf(process.getuid?.() === 0)('reports an unreadable subdirectory', async () => {
+    const root = await makeTree({ [taskPath('en', 'locked/task')]: taskEntry() })
+    const locked = join(root, 'evals/tasks/synthetic-workplace/v1/en/locked')
+    await chmod(locked, 0o000)
+
+    try {
+      const expected = await captureError(readdir(locked, { withFileTypes: true }))
+      expect(await validateTaskTree(root)).toStrictEqual([
+        {
+          path: 'evals/tasks/synthetic-workplace/v1/en/locked',
+          code: 'UNREADABLE_DIRECTORY',
+          message: `cannot read directory: ${expected.message}`,
+        },
+      ])
+    } finally {
+      await chmod(locked, 0o755)
+    }
+  })
+
+  it('reports invalid JSON with the parser message', async () => {
+    const root = await makeTree({ [taskPath('en', 'broken')]: '{ "id": ' })
+    const expected = await captureError(Promise.resolve().then(() => JSON.parse('{ "id": ')))
+
+    expect(await validateTaskTree(root)).toStrictEqual([
+      {
+        path: taskPath('en', 'broken'),
+        code: 'INVALID_JSON',
+        message: `invalid JSON: ${expected.message}`,
+      },
+    ])
+  })
+})
+
+describe('schema violation rendering', () => {
+  it('uses the <root> placeholder for an entry that is not an object', async () => {
+    const path = taskPath('en', 'null-entry')
+    const root = await makeTree({ [path]: 'null' })
+
+    expect(await validateTaskTree(root)).toStrictEqual([
+      {
+        path,
+        code: 'SCHEMA_VIOLATION',
+        message: '<root>: Invalid input: expected object, received null',
+      },
+    ])
+  })
+
+  it('orders metadata and schema violations by code, then by message', async () => {
+    const path = taskPath('en', 'missing-metadata')
+    const { provenance: _provenance, consentScope: _consentScope, ...withoutMetadata } = taskEntry()
+    const root = await makeTree({ [path]: withoutMetadata })
+
+    expect(await validateTaskTree(root)).toStrictEqual([
+      {
+        path,
+        code: 'MISSING_CONSENT_SCOPE',
+        message: 'consentScope must be a non-empty string',
+      },
+      {
+        path,
+        code: 'MISSING_PROVENANCE',
+        message: 'provenance is required (M0 default: { "source": "synthetic" })',
+      },
+      {
+        path,
+        code: 'SCHEMA_VIOLATION',
+        message: 'consentScope: Invalid input: expected string, received undefined',
+      },
+      {
+        path,
+        code: 'SCHEMA_VIOLATION',
+        message: 'provenance: Invalid input: expected object, received undefined',
+      },
+    ])
+  })
+
+  it('sorts schema issues for one file by their rendered message', async () => {
+    const path = taskPath('en', 'two-issues')
+    const root = await makeTree({
+      [path]: { ...taskEntry(), cefrBand: 'D1', annotationVersions: [] },
+    })
+
+    expect(await validateTaskTree(root)).toStrictEqual([
+      {
+        path,
+        code: 'MISSING_ANNOTATION_VERSIONS',
+        message: 'annotationVersions must be a non-empty record of name → version',
+      },
+      {
+        path,
+        code: 'SCHEMA_VIOLATION',
+        message: 'annotationVersions: Invalid input: expected record, received array',
+      },
+      {
+        path,
+        code: 'SCHEMA_VIOLATION',
+        message: 'cefrBand: Invalid option: expected one of "A1"|"A2"|"B1"|"B2"|"C1"|"C2"',
+      },
+    ])
+  })
+
+  it('keeps the non-agreement schema issue when suppressing the duplicate agreement issue', async () => {
+    const path = goldenPath('en', 'stable-without-agreement')
+    const root = await makeTree({
+      [path]: goldenEntry({
+        status: 'stable',
+        dimensionScores: undefined,
+        annotatorAgreement: undefined,
+      }),
+    })
+
+    expect(await validateTaskTree(root)).toStrictEqual([
+      {
+        path,
+        code: 'GOLDEN_AGREEMENT_MISSING',
+        message:
+          "status 'stable' requires annotatorAgreement measured with at least 2 distinct annotators, a metric, and a value",
+      },
+      {
+        path,
+        code: 'SCHEMA_VIOLATION',
+        message: 'dimensionScores: a legacy routingLabels entry requires dimensionScores',
+      },
+    ])
+  })
+})
+
+describe('language and layout messages', () => {
+  it('reports a task whose entry language differs from its path', async () => {
+    const path = taskPath('en', 'wrong-lang')
+    const root = await makeTree({ [path]: taskEntry({ lang: 'fr' }) })
+
+    expect(await validateTaskTree(root)).toStrictEqual([
+      {
+        path,
+        code: 'LANG_PATH_MISMATCH',
+        message: 'entry lang is "fr" but the path says "en"',
+      },
+    ])
+  })
+
+  it('reports a golden entry whose language differs from its path', async () => {
+    const path = goldenPath('en', 'wrong-lang')
+    const root = await makeTree({ [path]: goldenEntry({ lang: 'fr' }) })
+
+    expect(await validateTaskTree(root)).toStrictEqual([
+      {
+        path,
+        code: 'LANG_PATH_MISMATCH',
+        message: 'entry lang is "fr" but the path says "en"',
+      },
+    ])
+  })
+
+  it('reports a golden entry outside the layout contract', async () => {
+    const root = await makeTree({ 'evals/golden/stray.json': goldenEntry() })
+
+    expect(await validateTaskTree(root)).toStrictEqual([
+      {
+        path: 'evals/golden/stray.json',
+        code: 'INVALID_LAYOUT',
+        message:
+          'golden files must live at evals/golden/<lang>/<version>/**.json with lang in en|fr',
+      },
+    ])
+  })
+
+  it('rejects a language segment that is not en or fr', async () => {
+    const path = 'evals/tasks/synthetic-workplace/v1/en-UK/task.json'
+    const root = await makeTree({ [path]: taskEntry() })
+
+    expect(await validateTaskTree(root)).toStrictEqual([
+      {
+        path,
+        code: 'INVALID_LAYOUT',
+        message:
+          'task files must live at evals/tasks/<dataset>/<version>/<lang>/**.json with lang in en|fr',
+      },
+    ])
+  })
+
+  it('reports a golden entry whose locale does not match the path language', async () => {
+    const path = goldenPath('en', 'locale-mismatch')
+    const root = await makeTree({ [path]: goldenEntry({ locale: 'fr-CA' }) })
+
+    expect(await validateTaskTree(root)).toContainEqual({
+      path,
+      code: 'GOLDEN_LOCALE_MISMATCH',
+      message: 'entry locale "fr-CA" does not match path language "en"',
+    })
+  })
+})
+
+describe('duplicate id scoping', () => {
+  it('treats an explicit base-language locale and no locale as the same namespace', async () => {
+    const root = await makeTree({
+      [taskPath('en', 'a')]: taskEntry({ id: 'dup', locale: 'en' }),
+      [taskPath('en', 'b')]: taskEntry({ id: 'dup', speakerId: 'speaker-002' }),
+    })
+
+    expect(await validateTaskTree(root)).toStrictEqual([
+      {
+        path: taskPath('en', 'b'),
+        code: 'DUPLICATE_ID',
+        message: `id "dup" is already used by ${taskPath('en', 'a')} within synthetic-workplace/v1/en/en`,
+      },
+    ])
+  })
+
+  it('scopes a regional locale to its own namespace', async () => {
+    const root = await makeTree({
+      [taskPath('en', 'a')]: taskEntry({ id: 'dup', locale: 'en-GB' }),
+      [taskPath('en', 'b')]: taskEntry({ id: 'dup', locale: 'en-GB', speakerId: 'speaker-002' }),
+    })
+
+    expect(await validateTaskTree(root)).toStrictEqual([
+      {
+        path: taskPath('en', 'b'),
+        code: 'DUPLICATE_ID',
+        message: `id "dup" is already used by ${taskPath('en', 'a')} within synthetic-workplace/v1/en/en-GB`,
+      },
+    ])
+  })
+
+  it('does not treat the same id as a duplicate across locales', async () => {
+    const root = await makeTree({
+      [taskPath('en', 'a')]: taskEntry({ id: 'dup', locale: 'en' }),
+      [taskPath('en', 'b')]: taskEntry({ id: 'dup', locale: 'en-GB', speakerId: 'speaker-002' }),
+    })
+
+    expect(await validateTaskTree(root)).toStrictEqual([])
+  })
+
+  it('names the lexicographically first path as the original', async () => {
+    const root = await makeTree({
+      [taskPath('en', 'b')]: taskEntry({ id: 'dup' }),
+      [taskPath('en', 'a')]: taskEntry({ id: 'dup', speakerId: 'speaker-002' }),
+    })
+
+    expect(await validateTaskTree(root)).toStrictEqual([
+      {
+        path: taskPath('en', 'b'),
+        code: 'DUPLICATE_ID',
+        message: `id "dup" is already used by ${taskPath('en', 'a')} within synthetic-workplace/v1/en/en`,
+      },
+    ])
+  })
+})
+
+describe('routing label registration', () => {
+  it('matches a routing label through the task locale', async () => {
+    const root = await makeTree({
+      [taskPath('en', 'routing')]: routingTask({ locale: 'en-GB' }),
+      [goldenPath('en', 'routing')]: routingGolden({ locale: 'en-GB' }),
+    })
+
+    expect(await validateTaskTree(root)).toStrictEqual([])
+  })
+
+  it('does not match a base-locale label to a regional-locale task', async () => {
+    const root = await makeTree({
+      [taskPath('en', 'routing')]: routingTask({ locale: 'en-GB' }),
+      [goldenPath('en', 'routing')]: routingGolden(),
+    })
+
+    const violations = await validateTaskTree(root)
+    expect(violations).toContainEqual({
+      path: taskPath('en', 'routing'),
+      code: 'ROUTING_LABEL_MISSING',
+      message: 'a routing task requires a routingOutcome golden label in its split',
+    })
+    expect(violations).toContainEqual({
+      path: goldenPath('en', 'routing'),
+      code: 'GOLDEN_TASK_MISSING',
+      message:
+        'taskId "routing-001" does not resolve to a task with lang "en", locale "en" and version "v1"',
+    })
+  })
+
+  it('requires a routing label to name its task before registration', async () => {
+    const root = await makeTree({
+      [taskPath('en', 'routing')]: routingTask(),
+      [goldenPath('en', 'routing')]: routingGolden({ taskId: undefined }),
+    })
+
+    expect(await validateTaskTree(root)).toStrictEqual([
+      {
+        path: goldenPath('en', 'routing'),
+        code: 'ROUTING_LABEL_INVALID',
+        message: 'a routingOutcome label must name the routing taskId it labels',
+      },
+      {
+        path: taskPath('en', 'routing'),
+        code: 'ROUTING_LABEL_MISSING',
+        message: 'a routing task requires a routingOutcome golden label in its split',
+      },
+    ])
+  })
+
+  it('does not match a label registered under another version', async () => {
+    const root = await makeTree({
+      [taskPath('en', 'routing')]: routingTask(),
+      'evals/golden/en/v2/routing.json': routingGolden(),
+    })
+
+    expect(await validateTaskTree(root)).toStrictEqual([
+      {
+        path: 'evals/golden/en/v2/routing.json',
+        code: 'GOLDEN_TASK_MISSING',
+        message:
+          'taskId "routing-001" does not resolve to a task with lang "en", locale "en" and version "v2"',
+      },
+      {
+        path: taskPath('en', 'routing'),
+        code: 'ROUTING_LABEL_MISSING',
+        message: 'a routing task requires a routingOutcome golden label in its split',
+      },
+    ])
+  })
+})
+
+async function captureError(promise: Promise<unknown>): Promise<Error> {
+  try {
+    await promise
+  } catch (error) {
+    if (error instanceof Error) return error
+    throw error
+  }
+  throw new Error('expected the operation to fail')
+}
+
+describe('golden file failures', () => {
+  it('reports invalid JSON in a golden file once', async () => {
+    const path = goldenPath('en', 'broken')
+    const root = await makeTree({ [path]: '{ "id": ' })
+    const expected = await captureError(Promise.resolve().then(() => JSON.parse('{ "id": ')))
+
+    expect(await validateTaskTree(root)).toStrictEqual([
+      {
+        path,
+        code: 'INVALID_JSON',
+        message: `invalid JSON: ${expected.message}`,
+      },
+    ])
+  })
+
+  it('treats an explicit base-language golden locale and no locale as the same namespace', async () => {
+    const root = await makeTree({
+      [goldenPath('en', 'a')]: goldenEntry({ id: 'dup', locale: 'en' }),
+      [goldenPath('en', 'b')]: goldenEntry({ id: 'dup' }),
+    })
+
+    expect(await validateTaskTree(root)).toStrictEqual([
+      {
+        path: goldenPath('en', 'b'),
+        code: 'DUPLICATE_ID',
+        message: `id "dup" is already used by ${goldenPath('en', 'a')} within en/v1/en`,
+      },
+    ])
+  })
+
+  it('scopes a regional golden locale to its own namespace', async () => {
+    const root = await makeTree({
+      [goldenPath('en', 'a')]: goldenEntry({ id: 'dup', locale: 'en-GB' }),
+      [goldenPath('en', 'b')]: goldenEntry({ id: 'dup', locale: 'en-GB' }),
+    })
+
+    expect(await validateTaskTree(root)).toStrictEqual([
+      {
+        path: goldenPath('en', 'b'),
+        code: 'DUPLICATE_ID',
+        message: `id "dup" is already used by ${goldenPath('en', 'a')} within en/v1/en-GB`,
+      },
+    ])
+  })
+
+  it('does not treat the same golden id as a duplicate across locales', async () => {
+    const root = await makeTree({
+      [goldenPath('en', 'a')]: goldenEntry({ id: 'dup', locale: 'en' }),
+      [goldenPath('en', 'b')]: goldenEntry({ id: 'dup', locale: 'en-GB' }),
+    })
+
+    expect(await validateTaskTree(root)).toStrictEqual([])
+  })
+})
+
+describe('routing label registration guard', () => {
+  it('does not accept a legacy-labelled golden as a routing outcome label', async () => {
+    const root = await makeTree({
+      [taskPath('en', 'routing')]: routingTask(),
+      [goldenPath('en', 'legacy')]: goldenEntry({ taskId: 'routing-001' }),
+    })
+
+    expect(await validateTaskTree(root)).toStrictEqual([
+      {
+        path: taskPath('en', 'routing'),
+        code: 'ROUTING_LABEL_MISSING',
+        message: 'a routing task requires a routingOutcome golden label in its split',
+      },
+    ])
   })
 })

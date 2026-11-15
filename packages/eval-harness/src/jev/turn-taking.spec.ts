@@ -72,6 +72,10 @@ function success(answers: JevJudgmentSuccess['response']['answers']): JevJudgmen
 }
 
 describe('buildInterruptionWarrantedJudgment', () => {
+  it('pins the question id the answers must use', () => {
+    expect(INTERRUPTION_WARRANTED_QUESTION_ID).toBe('interruption_warranted')
+  })
+
   it('builds one atomic question under the M3b rubric', () => {
     const built = buildInterruptionWarrantedJudgment(input())
     expect(built.metadata).toMatchObject({
@@ -81,6 +85,20 @@ describe('buildInterruptionWarrantedJudgment', () => {
     })
     expect(built.question.type).toBe('noul')
     expect(built.metadata.id).toBe('m3b-interruption-warranted-v1')
+  })
+
+  it('writes the exact English instructions and criteria', () => {
+    const built = buildInterruptionWarrantedJudgment(input())
+    expect(built.question).toStrictEqual({
+      type: 'noul',
+      instructions:
+        'Would an interjection by `interjecting_persona` be clearly warranted now, while `active_speaker` is replying?',
+      criteria: {
+        true: 'The interjecting persona has a specific, urgent contribution: it corrects a misunderstanding, answers a direct address, or prevents a concrete error, and waiting for the next turn would harm the role-play.',
+        false:
+          'The interjection would repeat, distract, or add nothing that cannot wait for the next turn.',
+      },
+    })
   })
 
   it('keeps the public conversation, both personas and the partial reply', () => {
@@ -149,21 +167,41 @@ describe('createJevInterruptionJudge', () => {
   })
 
   it('passes a transport failure through without a probability', async () => {
+    const error = new JevUnavailableError('offline', { reason: 'network' })
     const judge = createJevInterruptionJudge({
       async grade() {
         return {
           ok: false,
           questionId: INTERRUPTION_WARRANTED_QUESTION_ID,
-          error: new JevUnavailableError('offline', { reason: 'network' }),
+          error,
           cache: { key: null, hit: false, stored: false },
         }
       },
     })
     const result = await judge.judgeInterruption(input())
-    expect(result.ok).toBe(false)
+    expect(result).toEqual({
+      ok: false,
+      error,
+      questionIds: [INTERRUPTION_WARRANTED_QUESTION_ID],
+    })
+  })
+
+  it('rejects a non-Noul distribution even when the answer looks Noul', async () => {
+    const judge = createJevInterruptionJudge({
+      async grade() {
+        return {
+          ...success({ [INTERRUPTION_WARRANTED_QUESTION_ID]: { type: 'noul', noul: 0.82 } }),
+          distribution: { kind: 'choice', choice: 'yes', probabilities: { yes: 1 } },
+        }
+      },
+    })
+    const result = await judge.judgeInterruption(input())
+    expect(result).toMatchObject({ ok: false })
     if (result.ok) return
-    expect(result.error.message).toContain('offline')
-    expect(result).not.toHaveProperty('observation')
+    expect(result.error).toBeInstanceOf(JevInvalidResponseError)
+    expect(result.error.message).toBe(
+      'Jev did not return a Noul answer for "interruption_warranted".',
+    )
   })
 
   it('turns a missing or wrong answer type into an invalid response error', async () => {
@@ -172,10 +210,17 @@ describe('createJevInterruptionJudge', () => {
         return success({})
       },
     })
-    await expect(missing.judgeInterruption(input())).resolves.toMatchObject({
+    const missingResult = await missing.judgeInterruption(input())
+    expect(missingResult).toMatchObject({
       ok: false,
       error: expect.any(JevInvalidResponseError),
+      questionIds: [INTERRUPTION_WARRANTED_QUESTION_ID],
     })
+    if (!missingResult.ok) {
+      expect(missingResult.error.message).toBe(
+        'Jev did not return a Noul answer for "interruption_warranted".',
+      )
+    }
 
     const wrongType = createJevInterruptionJudge({
       async grade() {
@@ -188,9 +233,40 @@ describe('createJevInterruptionJudge', () => {
         })
       },
     })
-    await expect(wrongType.judgeInterruption(input())).resolves.toMatchObject({
+    const wrongTypeResult = await wrongType.judgeInterruption(input())
+    expect(wrongTypeResult).toMatchObject({
       ok: false,
       error: expect.any(JevInvalidResponseError),
     })
+    if (!wrongTypeResult.ok) {
+      expect(wrongTypeResult.error.message).toBe(
+        'Jev did not return a Noul answer for "interruption_warranted".',
+      )
+    }
+  })
+
+  it('wraps a non-Jev failure from the response and keeps the cause', async () => {
+    const payload = success({ [INTERRUPTION_WARRANTED_QUESTION_ID]: { type: 'noul', noul: 0.82 } })
+    Object.defineProperty(payload, 'response', {
+      get() {
+        throw new Error('plain interruption failure')
+      },
+    })
+    const judge = createJevInterruptionJudge({
+      async grade() {
+        return payload
+      },
+    })
+    const result = await judge.judgeInterruption(input())
+
+    expect(result).toMatchObject({
+      ok: false,
+      questionIds: [INTERRUPTION_WARRANTED_QUESTION_ID],
+    })
+    if (result.ok) return
+    expect(result.error).toBeInstanceOf(JevInvalidResponseError)
+    expect(result.error.message).toBe('Could not read the interruption Jev judgment.')
+    expect(result.error.cause).toBeInstanceOf(Error)
+    expect((result.error.cause as Error).message).toBe('plain interruption failure')
   })
 })

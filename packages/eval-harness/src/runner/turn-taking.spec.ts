@@ -2,7 +2,9 @@ import { TRANSCRIPT_SCHEMA_VERSION, type TranscriptRecord } from '@rp/session-co
 import { describe, expect, it } from 'vitest'
 import type { GoldenEntry, TaskEntry } from '../tasks/schema.js'
 import {
+  METRIC_ACCEPTABLE_SPEAKER_RATE,
   TURN_TAKING_GRADER_ID,
+  TURN_TAKING_GRADER_VERSION,
   createTurnTakingGrader,
   scoreTrialTurnTaking,
 } from './turn-taking.js'
@@ -160,5 +162,201 @@ describe('turn-taking grader', () => {
 
   it('ignores a failed trial even when it has labels', () => {
     expect(scoreTrialTurnTaking(trial({ ok: false }))).toEqual({ turns: 0, acceptable: 0 })
+  })
+})
+
+describe('turn-taking grants', () => {
+  it('ignores a grant that arrives before the first user utterance', () => {
+    const records = [
+      granted('pre', 'peer'),
+      record(1, 'user.utterance.committed', { text: 'a' }),
+      granted('g0', 'peer'),
+    ]
+
+    expect(scoreTrialTurnTaking(trial({ records }))).toStrictEqual({ turns: 4, acceptable: 2 })
+  })
+
+  it('ignores records that are not grants between user turns', () => {
+    const records = [
+      record(0, 'user.utterance.committed', { text: 'a' }),
+      record(1, 'persona.response.chunk', { grantId: 'g0', text: 'x', sequence: 0 }),
+      granted('g0', 'peer'),
+    ]
+
+    expect(scoreTrialTurnTaking(trial({ records }))).toStrictEqual({ turns: 4, acceptable: 2 })
+  })
+
+  it('ignores a grant payload without a grant object', () => {
+    const records = [
+      record(0, 'user.utterance.committed', { text: 'a' }),
+      record(1, 'turn.granted', {}),
+    ]
+
+    expect(scoreTrialTurnTaking(trial({ records }))).toStrictEqual({ turns: 4, acceptable: 1 })
+  })
+
+  it.each([
+    ['missing', undefined],
+    ['an empty string', ''],
+    ['a number', 42],
+  ])('ignores a grant with %s persona id', (_label, personaId) => {
+    const records = [
+      record(0, 'user.utterance.committed', { text: 'a' }),
+      record(1, 'turn.granted', {
+        grant: {
+          turnId: 'turn-1',
+          grantId: 'g0',
+          personaId,
+          expiresAt: '2026-11-11T00:00:00.000Z',
+        },
+      }),
+    ]
+
+    expect(scoreTrialTurnTaking(trial({ records }))).toStrictEqual({ turns: 4, acceptable: 1 })
+  })
+
+  it('accepts a turn with no grant only when the label allows a user yield', () => {
+    const records = [
+      record(0, 'user.utterance.committed', { text: 'a' }),
+      record(1, 'user.utterance.committed', { text: 'b' }),
+    ]
+
+    expect(scoreTrialTurnTaking(trial({ records }))).toStrictEqual({ turns: 4, acceptable: 1 })
+  })
+
+  it('does not accept a no-grant turn whose label forbids a user yield', () => {
+    const records = [record(0, 'user.utterance.committed', { text: 'a' })]
+
+    expect(scoreTrialTurnTaking(trial({ records }))).toStrictEqual({ turns: 4, acceptable: 1 })
+  })
+
+  it('accepts a later replacement grant for the same turn', () => {
+    const records = [
+      record(0, 'user.utterance.committed', { text: 'a' }),
+      granted('g0', 'client'),
+      granted('g0-replacement', 'peer'),
+    ]
+
+    expect(scoreTrialTurnTaking(trial({ records }))).toStrictEqual({ turns: 4, acceptable: 2 })
+  })
+})
+
+describe('turn-taking eligibility', () => {
+  it('does not score a trial without a task', () => {
+    expect(scoreTrialTurnTaking(trial({ task: undefined }))).toStrictEqual({
+      turns: 0,
+      acceptable: 0,
+    })
+  })
+
+  it('does not score a trial whose task has no session block', () => {
+    expect(
+      scoreTrialTurnTaking(trial({ task: { ...task(), session: undefined } as never })),
+    ).toStrictEqual({ turns: 0, acceptable: 0 })
+  })
+
+  it('does not score a task whose session has no persona list', () => {
+    const taskWithoutList = { ...task(), session: { ...task().session, personaIds: undefined } }
+
+    expect(scoreTrialTurnTaking(trial({ task: taskWithoutList as never }))).toStrictEqual({
+      turns: 0,
+      acceptable: 0,
+    })
+  })
+
+  it('does not score a single-persona task even when it has labels', () => {
+    expect(scoreTrialTurnTaking(trial({ task: task(['manager']) }))).toStrictEqual({
+      turns: 0,
+      acceptable: 0,
+    })
+  })
+})
+
+describe('turn-taking grader contract', () => {
+  it('pins the grader id, version, kind and metric name', () => {
+    const grader = createTurnTakingGrader()
+
+    expect(grader).toStrictEqual({
+      id: 'turn-taking-speakers',
+      kind: 'code',
+      version: '1.0.0',
+      score: grader.score,
+    })
+    expect(TURN_TAKING_GRADER_ID).toBe('turn-taking-speakers')
+    expect(TURN_TAKING_GRADER_VERSION).toBe('1.0.0')
+    expect(METRIC_ACCEPTABLE_SPEAKER_RATE).toBe('turn_taking.acceptable_speaker_rate')
+  })
+
+  it('reports a rate of zero when every labelled turn picked the wrong speaker', async () => {
+    const strictGolden = {
+      ...golden(),
+      speakerLabels: (golden().speakerLabels ?? []).map((label) => ({
+        ...label,
+        allowUserYield: false,
+      })),
+    }
+    const metrics = await createTurnTakingGrader().score({
+      manifest: {} as never,
+      trials: [trial({ records: [], golden: strictGolden })],
+    })
+
+    expect(metrics[METRIC_ACCEPTABLE_SPEAKER_RATE]).toBe(0)
+  })
+
+  it('reports a rate of one when every labelled turn is acceptable', async () => {
+    const metrics = await createTurnTakingGrader().score({
+      manifest: {} as never,
+      trials: [
+        trial({
+          records: [
+            record(0, 'user.utterance.committed', { text: 'a' }),
+            granted('g0', 'peer'),
+            record(2, 'user.utterance.committed', { text: 'b' }),
+            granted('g1', 'manager'),
+            record(4, 'user.utterance.committed', { text: 'c' }),
+            granted('g2', 'manager'),
+            record(6, 'user.utterance.committed', { text: 'd' }),
+            granted('g3', 'manager'),
+          ],
+        }),
+      ],
+    })
+
+    expect(metrics[METRIC_ACCEPTABLE_SPEAKER_RATE]).toBe(1)
+  })
+
+  it('keeps the deterministic invariant metrics alongside the turn rate', async () => {
+    const metrics = await createTurnTakingGrader().score({
+      manifest: {} as never,
+      trials: [trial()],
+    })
+
+    expect(Object.keys(metrics)).toContain('replay.deterministic_rate')
+    expect(Object.keys(metrics)).toContain('transcript.guard_violations')
+    expect(METRIC_ACCEPTABLE_SPEAKER_RATE in metrics).toBe(true)
+  })
+})
+
+describe('turn-taking invalid grants on a yield-allowed turn', () => {
+  it.each([
+    ['missing', undefined],
+    ['an empty string', ''],
+    ['a number', 42],
+  ])('ignores a grant with %s persona id on a yield-allowed turn', (_label, personaId) => {
+    const records = [
+      record(0, 'user.utterance.committed', { text: 'a' }),
+      record(1, 'user.utterance.committed', { text: 'b' }),
+      record(2, 'user.utterance.committed', { text: 'c' }),
+      record(3, 'turn.granted', {
+        grant: {
+          turnId: 'turn-1',
+          grantId: 'g2',
+          personaId,
+          expiresAt: '2026-11-11T00:00:00.000Z',
+        },
+      }),
+    ]
+
+    expect(scoreTrialTurnTaking(trial({ records }))).toStrictEqual({ turns: 4, acceptable: 1 })
   })
 })

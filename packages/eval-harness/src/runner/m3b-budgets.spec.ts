@@ -4,6 +4,11 @@ import { M3B_BUDGETS, M3B_BUDGET_VERSION } from './m3b-budgets.js'
 import { SHADOW_DEADLINE_MS } from './shadow.js'
 
 describe('frozen M3b budgets', () => {
+  it('pins the budget table version string', () => {
+    expect(M3B_BUDGET_VERSION).toBe('m3b-budgets-v1')
+    expect(M3B_BUDGETS.version).toBe('m3b-budgets-v1')
+  })
+
   it('pins the arbiter config and the version it was measured against', () => {
     expect(M3B_BUDGETS.version).toBe(M3B_BUDGET_VERSION)
     expect(M3B_BUDGETS.arbiterConfigVersion).toBe(TURN_ARBITER_CONFIG_VERSION)
