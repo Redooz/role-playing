@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path'
 import {
   compositionPath,
   declaredSlices,
+  isGrandfathered,
   parseComposition,
   resolveCompositionUnits,
   sliceKey,
@@ -24,10 +25,13 @@ import type { LoadedTask } from './task-loader.js'
  * selected unit. Exact-count matching stays in the walker, so a deliberate
  * locale or id subset is not rejected here.
  *
- * A pair without a composition file is skipped, so the grandfathered versions
- * keep running. A composition that exists but is broken, mislabelled or missing a
- * selected slice is a configuration error: a run against an unreadable contract
- * cannot be trusted, and `errors.ts` maps that to exit code 2 before any trial.
+ * A pair with no composition file is skipped only when it is grandfathered;
+ * any other version that reaches a run without a contract is a configuration
+ * error, so a layer that adds a version cannot skip the rule by not running
+ * `validate:tasks` first. A composition that exists but is broken, mislabelled
+ * or missing a selected slice is also a configuration error: a run against an
+ * unreadable contract cannot be trusted, and `errors.ts` maps that to exit code
+ * 2 before any trial.
  */
 
 export interface CompositionGuardInput {
@@ -46,7 +50,12 @@ export async function assertCompositionCoversSelection(
 ): Promise<void> {
   const path = compositionPath(input.dataset, input.version)
   const raw = await readComposition(join(resolve(input.repoRoot), path))
-  if (raw === undefined) return
+  if (raw === undefined) {
+    if (isGrandfathered(input.dataset, input.version)) return
+    throw new HarnessConfigError(
+      `${path} is missing; only a grandfathered version may run without a composition`,
+    )
+  }
 
   const parsed = parseComposition(raw)
   if (!parsed.ok) {
