@@ -60,6 +60,49 @@ describe('summarizeDurations', () => {
     expect(() => summarizeDurations([1, Number.NaN])).toThrow(TypeError)
     expect(() => summarizeDurations([1, Number.POSITIVE_INFINITY])).toThrow(TypeError)
   })
+
+  it('names the empty sample and the offending non-finite value', () => {
+    expect(() => summarizeDurations([])).toThrow(new RangeError('Cannot summarize an empty sample'))
+    expect(() => summarizeDurations([1, Number.NaN])).toThrow(
+      new TypeError('Durations must be finite numbers, received: NaN'),
+    )
+    expect(() => summarizeDurations([1, Number.NEGATIVE_INFINITY])).toThrow(
+      new TypeError('Durations must be finite numbers, received: -Infinity'),
+    )
+  })
+
+  it('summarizes zero values without inventing a minimum', () => {
+    expect(summarizeDurations([0, 0, 0])).toEqual({
+      count: 3,
+      min: 0,
+      max: 0,
+      mean: 0,
+      p50: 0,
+      p95: 0,
+      p99: 0,
+    })
+  })
+
+  it('sorts an unsorted sample before taking min, max and percentiles', () => {
+    const summary = summarizeDurations([100, 1, 50, 25])
+
+    expect(summary.count).toBe(4)
+    expect(summary.min).toBe(1)
+    expect(summary.max).toBe(100)
+    expect(summary.mean).toBe(44)
+    expect(summary.p50).toBe(37.5)
+    expect(summary.p95).toBeCloseTo(92.5, 10)
+    expect(summary.p99).toBeCloseTo(98.5, 10)
+  })
+
+  it('keeps duplicated values distinct from their neighbours', () => {
+    const summary = summarizeDurations([5, 5, 5, 9])
+
+    expect(summary.min).toBe(5)
+    expect(summary.max).toBe(9)
+    expect(summary.p50).toBe(5)
+    expect(summary.p95).toBeCloseTo(8.4, 10)
+  })
 })
 
 describe('percentile', () => {
@@ -76,6 +119,28 @@ describe('percentile', () => {
     expect(() => percentile([1, 2], -0.01)).toThrow(RangeError)
     expect(() => percentile([1, 2], 1.01)).toThrow(RangeError)
     expect(() => percentile([], 0.5)).toThrow(RangeError)
+  })
+
+  it('names the invalid point and the empty sample', () => {
+    expect(() => percentile([1, 2], Number.NaN)).toThrow(
+      new RangeError('Percentile point must be between 0 and 1: NaN'),
+    )
+    expect(() => percentile([1, 2], -0.5)).toThrow(
+      new RangeError('Percentile point must be between 0 and 1: -0.5'),
+    )
+    expect(() => percentile([1, 2], 1.5)).toThrow(
+      new RangeError('Percentile point must be between 0 and 1: 1.5'),
+    )
+    expect(() => percentile([], 0.5)).toThrow(
+      new RangeError('Cannot compute a percentile of an empty sample'),
+    )
+  })
+
+  it('does not reorder the caller array', () => {
+    const sample = [50, 10, 40, 20, 30]
+
+    expect(percentile(sample, 0.95)).toBeCloseTo(48, 10)
+    expect(sample).toEqual([50, 10, 40, 20, 30])
   })
 })
 
