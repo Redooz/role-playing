@@ -298,7 +298,7 @@ describe('run command provider and grader selection', () => {
     const root = await tempDir()
     const results = join(root, 'results')
     const manifest = await writeManifest(root, {
-      grader: { id: 'turn-taking-speakers', kind: 'code', version: '1.0.0' },
+      grader: { id: 'turn-taking-speakers', kind: 'code', version: '1.1.0' },
     })
 
     const { code, err, out } = await invoke([

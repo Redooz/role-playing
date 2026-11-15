@@ -1,5 +1,6 @@
-import { routingDecisionSchema } from '@rp/routing-policy'
+import { routingDecisionSchema, type RoutingDecision } from '@rp/routing-policy'
 import { routingOutcomeLabelSchema } from '../tasks/schema.js'
+import { labelClass, type LabelClass } from './label-class.js'
 import type { RoutingDecisionArtifact } from './routing.js'
 
 /**
@@ -26,12 +27,83 @@ interface LatencySummary {
   readonly max: number
 }
 
+/**
+ * One label class's readings.
+ *
+ * `completed` is the only rate denominator; an incomplete decision is counted,
+ * never a pass and never a zero. `rate` is `null` when nothing completed.
+ */
+interface ClassReading {
+  /** Every completed or incomplete decision in the class. */
+  readonly total: number
+  /** Decisions with an outcome to judge. */
+  readonly completed: number
+  /** Infrastructure-incomplete or timeout decisions. */
+  readonly incomplete: number
+  readonly appropriate: number
+  /** `appropriate / completed`; `null` on a zero denominator. */
+  readonly rate: number | null
+}
+
+/** A class that is counted and reported but never rated. */
+interface ClassTotals {
+  readonly total: number
+  readonly completed: number
+  readonly incomplete: number
+}
+
+interface ClassTally {
+  total: number
+  completed: number
+  incomplete: number
+  appropriate: number
+}
+
+function newTally(): ClassTally {
+  return { total: 0, completed: 0, incomplete: 0, appropriate: 0 }
+}
+
+function classReading(tally: ClassTally): ClassReading {
+  return {
+    total: tally.total,
+    completed: tally.completed,
+    incomplete: tally.incomplete,
+    appropriate: tally.appropriate,
+    rate: rate(tally.appropriate, tally.completed),
+  }
+}
+
+function classTotals(tally: ClassTally): ClassTotals {
+  return { total: tally.total, completed: tally.completed, incomplete: tally.incomplete }
+}
+
+/** True when a completed decision answers its own label class correctly. */
+function classAppropriate(
+  klass: 'speak' | 'silence',
+  outcome: RoutingDecision['outcome'],
+  acceptablePersonaIds: readonly string[],
+): boolean {
+  if (klass === 'speak') {
+    return outcome.kind === 'speak' && acceptablePersonaIds.includes(outcome.personaId)
+  }
+  return outcome.kind === 'user_yield'
+}
+
 export interface RoutingArmLanguageReport {
   readonly armId: string
   readonly lang: 'en' | 'fr'
   readonly n: number
   readonly completed: number
   readonly incomplete: number
+  /**
+   * Per label class readings. `mixed` accepts both a persona and a learner
+   * yield, so it is counted and excluded from both class rates.
+   */
+  readonly classes: {
+    readonly speak: ClassReading
+    readonly silence: ClassReading
+    readonly mixed: ClassTotals
+  }
   readonly acceptable: number
   readonly acceptableOutcomeRate: number | null
   readonly falseSpeak: number
@@ -52,7 +124,11 @@ export interface RoutingArmLanguageReport {
 }
 
 export interface RoutingMatrixReport {
-  readonly schemaVersion: 1
+  /**
+   * Version 2 adds the per-class `classes` reading to every arm. A version 1
+   * report has no class data, so the two are never interchangeable.
+   */
+  readonly schemaVersion: 2
   readonly arms: readonly RoutingArmLanguageReport[]
 }
 
@@ -153,25 +229,44 @@ function summarizeGroup(
   let falseSpeak = 0
   let falseYield = 0
   let timeoutFallbacks = 0
+  const tallies: Record<LabelClass, ClassTally> = {
+    speak: newTally(),
+    silence: newTally(),
+    mixed: newTally(),
+  }
   const usages: Usage[] = []
   const latencies: number[] = []
 
   for (const entry of entries) {
     latencies.push(entry.artifact.policyLatencyMs)
+    // Every decision, completed or not, needs a class: it is the class
+    // denominator's only source. A label that cannot be classified is a
+    // configuration error, not a zero.
+    const label = routingOutcomeLabelSchema.parse(entry.label)
+    const klass = labelClass(label)
+    const tally = tallies[klass]
+    tally.total += 1
     const timedOut = entry.artifact.observation.kind === 'timeout'
     if (entry.artifact.outcome === 'infrastructure_incomplete' || timedOut) {
       incomplete += 1
+      tally.incomplete += 1
       if (timedOut) timeoutFallbacks += 1
       continue
     }
 
     completed += 1
+    tally.completed += 1
     const decision = routingDecisionSchema.parse(entry.artifact.decision)
-    const label = routingOutcomeLabelSchema.parse(entry.label)
     const accepted =
       decision.outcome.kind === 'speak'
         ? label.acceptablePersonaIds.includes(decision.outcome.personaId)
         : label.allowUserYield
+    if (
+      klass !== 'mixed' &&
+      classAppropriate(klass, decision.outcome, label.acceptablePersonaIds)
+    ) {
+      tally.appropriate += 1
+    }
 
     if (accepted) acceptable += 1
     if (decision.outcome.kind === 'speak' && !accepted) falseSpeak += 1
@@ -204,6 +299,11 @@ function summarizeGroup(
     n: entries.length,
     completed,
     incomplete,
+    classes: {
+      speak: classReading(tallies.speak),
+      silence: classReading(tallies.silence),
+      mixed: classTotals(tallies.mixed),
+    },
     acceptable,
     acceptableOutcomeRate: rate(acceptable, completed),
     falseSpeak,
@@ -243,5 +343,5 @@ export function buildRoutingMatrix(entries: readonly RoutingMatrixEntry[]): Rout
       (left, right) => left.armId.localeCompare(right.armId) || left.lang.localeCompare(right.lang),
     )
 
-  return { schemaVersion: 1, arms }
+  return { schemaVersion: 2, arms }
 }

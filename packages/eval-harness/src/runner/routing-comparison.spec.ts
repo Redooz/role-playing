@@ -63,6 +63,17 @@ function armReport(
     n: 30,
     completed: 30 - incomplete,
     incomplete,
+    classes: {
+      speak: {
+        total: 30,
+        completed: 30 - incomplete,
+        incomplete,
+        appropriate: Math.round(rate * (30 - incomplete)),
+        rate,
+      },
+      silence: { total: 0, completed: 0, incomplete: 0, appropriate: 0, rate: null },
+      mixed: { total: 0, completed: 0, incomplete: 0 },
+    },
     acceptable: Math.round(rate * (30 - incomplete)),
     acceptableOutcomeRate: rate,
     falseSpeak: 0,
@@ -80,7 +91,7 @@ function armReport(
 }
 
 function matrix(arms: RoutingArmLanguageReport[]): RoutingMatrixReport {
-  return { schemaVersion: 1, arms }
+  return { schemaVersion: 2, arms }
 }
 
 describe('runRoutingComparison', () => {
