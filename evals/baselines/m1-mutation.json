@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
   "suite": "m1-mutation",
-  "generatedAt": "2026-11-15T05:31:51.356Z",
-  "commit": "86049ae8236f12ab2387feb980fabe5f5ec32de8",
+  "generatedAt": "2026-11-15T17:22:39.236Z",
+  "commit": "b9c9507bfa6f304852f983a6dcc07b82fdc558c7",
   "tool": "@stryker-mutator/core 10.1.1 + @stryker-mutator/vitest-runner 10.1.1",
   "command": "npm run mutation",
   "note": "Measured floor. Timed-out mutants count as killed; runtime/compile errors are excluded. Not a PR gate.",
   "global": {
-    "mutants": 12861,
-    "killed": 12257,
+    "mutants": 12868,
+    "killed": 12264,
     "timeout": 37,
     "survived": 443,
     "noCoverage": 49,
     "ignored": 0,
     "errors": 75,
-    "total": 96.15204129516658,
-    "covered": 96.52194394284368
+    "total": 96.15414679903071,
+    "covered": 96.52385436283741
   },
   "packages": {
     "apps/cli": {
@@ -30,15 +30,15 @@
       "covered": 97.8441127694859
     },
     "packages/eval-harness": {
-      "mutants": 6798,
-      "killed": 6492,
+      "mutants": 6800,
+      "killed": 6494,
       "timeout": 6,
       "survived": 229,
       "noCoverage": 29,
       "ignored": 0,
       "errors": 42,
-      "total": 96.18117229129662,
-      "covered": 96.59580793815965
+      "total": 96.18230245634804,
+      "covered": 96.59681973547333
     },
     "packages/persona-kit": {
       "mutants": 349,
@@ -74,26 +74,26 @@
       "covered": 93.56913183279742
     },
     "tools/agent-harness-bench": {
-      "mutants": 509,
-      "killed": 478,
+      "mutants": 513,
+      "killed": 482,
       "timeout": 4,
       "survived": 24,
       "noCoverage": 3,
       "ignored": 0,
       "errors": 0,
-      "total": 94.69548133595285,
-      "covered": 95.25691699604744
+      "total": 94.73684210526315,
+      "covered": 95.29411764705881
     },
     "tools/eval-harness-cli": {
-      "mutants": 1036,
-      "killed": 994,
+      "mutants": 1037,
+      "killed": 995,
       "timeout": 6,
       "survived": 31,
       "noCoverage": 5,
       "ignored": 0,
       "errors": 0,
-      "total": 96.52509652509652,
-      "covered": 96.99321047526674
+      "total": 96.52844744455159,
+      "covered": 96.99612403100775
     },
     "packages/pipeline": {
       "mutants": 404,
@@ -263,15 +263,15 @@
       "covered": 94.11764705882352
     },
     "packages/eval-harness/src/runner/runner.ts": {
-      "mutants": 155,
-      "killed": 128,
+      "mutants": 157,
+      "killed": 130,
       "timeout": 2,
       "survived": 21,
       "noCoverage": 4,
       "ignored": 0,
       "errors": 0,
-      "total": 83.87096774193549,
-      "covered": 86.09271523178808
+      "total": 84.07643312101911,
+      "covered": 86.27450980392157
     },
     "packages/eval-harness/src/runner/session-prompt.ts": {
       "mutants": 101,
@@ -406,15 +406,15 @@
       "covered": 100
     },
     "tools/eval-harness-cli/src/live-provider.ts": {
-      "mutants": 196,
-      "killed": 186,
+      "mutants": 197,
+      "killed": 187,
       "timeout": 6,
       "survived": 1,
       "noCoverage": 3,
       "ignored": 0,
       "errors": 0,
-      "total": 97.95918367346938,
-      "covered": 99.48186528497409
+      "total": 97.96954314720813,
+      "covered": 99.48453608247422
     },
     "apps/cli/src/session-log.adapter.ts": {
       "mutants": 27,
@@ -438,9 +438,9 @@
       "total": 88.23529411764706,
       "covered": 88.23529411764706
     },
-    "packages/eval-harness/src/jev/constants.ts": {
-      "mutants": 9,
-      "killed": 9,
+    "packages/eval-harness/src/jev/errors.ts": {
+      "mutants": 19,
+      "killed": 19,
       "timeout": 0,
       "survived": 0,
       "noCoverage": 0,
@@ -449,9 +449,9 @@
       "total": 100,
       "covered": 100
     },
-    "packages/eval-harness/src/jev/errors.ts": {
-      "mutants": 19,
-      "killed": 19,
+    "packages/eval-harness/src/jev/constants.ts": {
+      "mutants": 9,
+      "killed": 9,
       "timeout": 0,
       "survived": 0,
       "noCoverage": 0,
@@ -1275,15 +1275,15 @@
       "covered": 94.73684210526315
     },
     "tools/agent-harness-bench/src/session-latency.ts": {
-      "mutants": 249,
-      "killed": 233,
+      "mutants": 253,
+      "killed": 237,
       "timeout": 2,
       "survived": 14,
       "noCoverage": 0,
       "ignored": 0,
       "errors": 0,
-      "total": 94.37751004016064,
-      "covered": 94.37751004016064
+      "total": 94.46640316205533,
+      "covered": 94.46640316205533
     },
     "tools/agent-harness-bench/src/workloads.ts": {
       "mutants": 47,
