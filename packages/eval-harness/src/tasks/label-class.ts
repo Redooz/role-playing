@@ -4,10 +4,17 @@
  * Both code graders share this single rule instead of copying it: a label either
  * requires a persona to speak, requires the learner to continue alone, or accepts
  * both (`mixed`, reported but never folded into a class rate).
+ *
+ * It lives under `tasks/` because the task walker also classifies labels when it
+ * checks a version's `composition.json`. The validation layer must not import
+ * from `runner/`, so the shared rule sits on the side the walker owns.
  */
 
+/** The three label classes, in report order. */
+export const LABEL_CLASSES = ['speak', 'silence', 'mixed'] as const
+
 /** Who a label requires to produce the next turn. */
-export type LabelClass = 'speak' | 'silence' | 'mixed'
+export type LabelClass = (typeof LABEL_CLASSES)[number]
 
 /** The two label fields the class rule reads; every label family carries both. */
 export interface LabelClassInput {
