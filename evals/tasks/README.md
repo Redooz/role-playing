@@ -6,11 +6,13 @@ stubs so the validator, schemas, and CI gate exist before any real data does.
 
 ```text
 evals/tasks/<dataset>/<version>/<lang>/**/*.json   task entries (input turns + metadata)
+evals/tasks/<dataset>/<version>/composition.json    reserved composition contract
 evals/golden/<lang>/<version>/**/*.json               human labels (human-based grading)
 ```
 
-`<lang>` is `en` or `fr`. Every JSON file must be in one of those two shapes,
-otherwise `validateTaskTree` reports `INVALID_LAYOUT`.
+`<lang>` is `en` or `fr`. Every JSON file must be in one of those three shapes,
+otherwise `validateTaskTree` reports `INVALID_LAYOUT`; in particular, a
+`composition.json` outside the version root is a layout violation.
 
 ## Validation
 
@@ -34,7 +36,85 @@ Codes: `EVALS_DIR_MISSING`, `UNREADABLE_DIRECTORY`,
 `GOLDEN_AGREEMENT_MISSING`, `GOLDEN_TASK_MISSING`,
 `GOLDEN_TASK_SPLIT_MISMATCH`, `GOLDEN_LOCALE_MISMATCH`,
 `SESSION_REFERENCE_MISSING`, `SESSION_VERSION_MISMATCH`,
-`SESSION_LOCALE_MISSING`, `SESSION_PERSONA_MISMATCH`, `SPEAKER_LABEL_INVALID`.
+`SESSION_LOCALE_MISSING`, `SESSION_PERSONA_MISMATCH`, `SPEAKER_LABEL_INVALID`,
+`COMPOSITION_MISSING`, `INVALID_COMPOSITION`, `COMPOSITION_MISMATCH`,
+`COMPOSITION_ONE_SIDED`, `COMPOSITION_FAMILY`, `COMPOSITION_DISTRACTOR`.
+
+## Composition contract (M3c)
+
+`evals/tasks/<dataset>/<version>/composition.json` is the one reserved path
+above the language directories. It records how many labels of each class a
+version contains, how they spread across families and how many distractors it
+carries. The counts are a pre-registered contract, so a one-sided version cannot
+be declared and a version cannot silently lose a class. The file contract is
+`packages/eval-harness/src/tasks/composition-file.ts`, counting is
+`composition-units.ts`, the rules are `composition-rules.ts`, and the whole-tree
+coordinator is `composition.ts`.
+
+```json
+{
+  "schemaVersion": 1,
+  "dataset": "synthetic-routing",
+  "version": "1.1.0",
+  "unit": "routing_outcome",
+  "splits": {
+    "holdout": {
+      "en": {
+        "classes": { "speak": 22, "silence": 14, "mixed": 4 },
+        "minFamilies": 4,
+        "maxPerFamily": 3,
+        "minDistractors": 6
+      }
+    }
+  }
+}
+```
+
+- `unit` is `routing_outcome` (one unit per task's `routingOutcome` label) or
+  `speaker_label` (one unit per entry in `speakerLabels`). A unit belongs to its
+  task, so its split and language come from the task tree; a label whose split
+  disagrees with its task is already a `GOLDEN_TASK_SPLIT_MISMATCH` and is not
+  counted.
+- `splits` keys are `calibration` and `holdout`; inner keys are `en` and `fr`.
+  Unknown keys are rejected rather than ignored.
+- `classes` holds the counts for `speak`, `silence` and `mixed`. `mixed` is
+  counted and reported; it is never folded into either class rate.
+- `minFamilies`, `maxPerFamily` and `minDistractors` are constraints. `0` means
+  "no requirement", so a version without families or distractors declares zeros.
+- `family` (non-empty string) and `distractor` (boolean) are optional fields on
+  both `routingOutcomeLabelSchema` and `speakerLabelSchema`. Families count
+  labels, not tasks; `maxPerFamily` bounds each declared family; `minDistractors`
+  bounds the labels marked `distractor: true`.
+
+`npm run validate:tasks` checks a composition whenever it is present:
+
+| Situation                                                       | Code                     |
+| --------------------------------------------------------------- | ------------------------ |
+| JSON does not parse, or does not satisfy the composition schema | `INVALID_COMPOSITION`    |
+| declared `dataset` or `version` differs from the path           | `COMPOSITION_MISMATCH`   |
+| a `(split, lang)` with tasks is undeclared, or has no tasks     | `COMPOSITION_MISMATCH`   |
+| a class count differs from the labels present                   | `COMPOSITION_MISMATCH`   |
+| a declared slice has `speak` or `silence` at zero               | `COMPOSITION_ONE_SIDED`  |
+| a family is missing, too few families, or a family is too large | `COMPOSITION_FAMILY`     |
+| fewer labels marked `distractor` than `minDistractors`          | `COMPOSITION_DISTRACTOR` |
+| no composition for a pair that is not grandfathered             | `COMPOSITION_MISSING`    |
+
+**Grandfather list.** Four dataset/version pairs predate the rule and may omit
+the file: `synthetic-routing/1.0.0`, `synthetic-multi-persona-session/m3b-v1`,
+`synthetic-workplace/v1` and `synthetic-workplace-session/v1`. The list matches
+by name, never by age, so `synthetic-routing/1.1.0` and `m3b-v2` must declare a
+composition. A spec over the committed tree asserts the list is exactly those
+four pairs and that every other pair declares one.
+
+**Full-tree validation versus the run-time guard.** `validate:tasks` compares
+every declared count with the whole tree. A run does not repeat that: after the
+manifest's split, language and locale filters, `executeRun` only checks that each
+selected `(split, lang)` is declared and that every declared class with a
+non-zero count still has at least one selected unit. Losing a class is a
+configuration error (exit 2) before any trial; a deliberate locale or id subset
+that keeps every class is accepted. A pair without a composition file is skipped,
+which is how the grandfathered versions keep running. The guard is
+`packages/eval-harness/src/runner/composition-guard.ts`.
 
 ## Session tasks (M2)
 

@@ -7,6 +7,9 @@ import type { GoldenEntry, TaskEntry } from './schema.js'
 import { validateTaskTree } from './validate.js'
 import {
   cleanupTempDirs,
+  compositionFile,
+  compositionFilePath,
+  compositionSlice,
   goldenEntry,
   goldenPath,
   makeTree,
@@ -15,6 +18,7 @@ import {
   taskEntry,
   taskPath,
 } from './task-tree.fixtures.js'
+import { multiPersonaTask } from '../runner/session.fixtures.js'
 
 const REPO_ROOT = fileURLToPath(new URL('../../../../', import.meta.url))
 
@@ -67,6 +71,14 @@ describe('validateTaskTree', () => {
   })
 
   it('scopes the split rule per dataset, version, and language', async () => {
+    // A second version of the primary dataset needs its own composition and a
+    // two-sided label pair, so the same-dataset/different-version dimension stays
+    // covered; the other extra pair is a grandfathered same-version dataset.
+    const v2Task: TaskEntry = {
+      ...multiPersonaTask(),
+      split: 'holdout',
+      speakerId: 'shared-speaker',
+    }
     const root = await makeTree({
       [taskPath('en', 'cal')]: taskEntry({
         id: 'en-1',
@@ -79,15 +91,41 @@ describe('validateTaskTree', () => {
         speakerId: 'shared-speaker',
         split: 'holdout',
       }),
-      [taskPath('en', 'other-dataset-hold', 'other-workplace')]: taskEntry({
-        id: 'other-1',
+      // Same version as the primary pair, different dataset: a version-only key leaks.
+      [taskPath('en', 'session-hold', 'synthetic-workplace-session', 'v1')]: taskEntry({
+        id: 'session-1',
         speakerId: 'shared-speaker',
         split: 'holdout',
       }),
-      [taskPath('en', 'v2-hold', 'synthetic-workplace', 'v2')]: taskEntry({
-        id: 'v2-1',
-        speakerId: 'shared-speaker',
+      // Same dataset as the primary pair, different version: a dataset-only key leaks.
+      [taskPath('en', 'v2-hold', 'synthetic-workplace', 'v2')]: v2Task,
+      [goldenPath('en', 'v2-hold', 'v2')]: goldenEntry({
+        id: 'golden-v2-hold',
+        lang: 'en',
         split: 'holdout',
+        taskId: v2Task.id,
+        routingLabels: undefined,
+        dimensionScores: undefined,
+        speakerLabels: [
+          {
+            turnIndex: 0,
+            acceptablePersonaIds: ['peer'],
+            allowUserYield: false,
+            labelSource: 'agent',
+          },
+          {
+            turnIndex: 1,
+            acceptablePersonaIds: [],
+            allowUserYield: true,
+            labelSource: 'agent',
+          },
+        ],
+      }),
+      [compositionFilePath('synthetic-workplace', 'v2')]: compositionFile({
+        dataset: 'synthetic-workplace',
+        version: 'v2',
+        unit: 'speaker_label',
+        splits: { holdout: { en: compositionSlice() } },
       }),
     })
 

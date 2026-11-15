@@ -10,6 +10,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { RoutingContext } from '@rp/routing-policy'
+import type { CompositionFile, CompositionSlice } from './composition-file.js'
 import type { GoldenEntry, TaskEntry } from './schema.js'
 
 const tempDirs: string[] = []
@@ -40,8 +41,35 @@ export function taskPath(
   return `evals/tasks/${dataset}/${version}/${lang}/${name}.json`
 }
 
-export function goldenPath(lang: 'en' | 'fr', name: string): string {
-  return `evals/golden/${lang}/v1/${name}.json`
+export function goldenPath(lang: 'en' | 'fr', name: string, version = 'v1'): string {
+  return `evals/golden/${lang}/${version}/${name}.json`
+}
+
+/** The one reserved composition location for one dataset version. */
+export function compositionFilePath(dataset: string, version: string): string {
+  return `evals/tasks/${dataset}/${version}/composition.json`
+}
+
+export function compositionSlice(overrides: Partial<CompositionSlice> = {}): CompositionSlice {
+  return {
+    classes: { speak: 1, silence: 1, mixed: 0 },
+    minFamilies: 0,
+    maxPerFamily: 0,
+    minDistractors: 0,
+    ...overrides,
+  }
+}
+
+/** A valid composition for `synthetic-routing/1.1.0`, the first version past the grandfather list. */
+export function compositionFile(overrides: Partial<CompositionFile> = {}): CompositionFile {
+  return {
+    schemaVersion: 1,
+    dataset: 'synthetic-routing',
+    version: '1.1.0',
+    unit: 'routing_outcome',
+    splits: { holdout: { en: compositionSlice() } },
+    ...overrides,
+  }
 }
 
 export function taskEntry(overrides: Partial<TaskEntry> = {}): TaskEntry {

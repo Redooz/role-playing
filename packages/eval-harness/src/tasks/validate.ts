@@ -22,6 +22,13 @@ import {
   type IdIndex,
   type SpeakerIndex,
 } from './tree-index.js'
+import { checkCompositions } from './composition.js'
+import {
+  COMPOSITION_FILE_NAME,
+  parseCompositionPath,
+  type CompositionFileRecord,
+} from './composition-file.js'
+import type { CompositionLabelRecord, CompositionTaskRecord } from './composition-units.js'
 import { pushSchemaViolations, type TaskViolation } from './violations.js'
 
 export { formatViolation } from './violations.js'
@@ -35,8 +42,14 @@ export type { TaskViolation, ViolationCode } from './violations.js'
  *
  * ```text
  * evals/tasks/<dataset>/<version>/<lang>/.../*.json   (task entries)
+ * evals/tasks/<dataset>/<version>/composition.json    (reserved composition)
  * evals/golden/<lang>/<version>/.../*.json               (golden entries)
  * ```
+ *
+ * The composition file is the one reserved path above the language directories.
+ * It declares the version's class and family composition and is checked against
+ * the labels actually present; a `composition.json` anywhere else is still an
+ * `INVALID_LAYOUT` entry.
  *
  * Violations are returned, never thrown: the eval-harness CLI prints them and CI
  * fails when the list is non-empty. Every violation names the file path relative
@@ -84,8 +97,48 @@ export async function validateTaskTree(rootDir: string): Promise<TaskViolation[]
     }[]
   >()
   const routingLabelKeys = new Set<string>()
+  const compositions = new Map<string, CompositionFileRecord>()
+  const compositionTasks: CompositionTaskRecord[] = []
+  const compositionLabels: CompositionLabelRecord[] = []
 
   for (const path of taskFiles) {
+    const composition = parseCompositionPath(relativeToEvals(path))
+    if (composition !== undefined) {
+      const raw = await readJsonFile(root, path)
+      if (raw.violation !== undefined) {
+        // Any failure to parse the contract under its own code; an unreadable
+        // file keeps its IO code because the file itself is the problem.
+        violations.push(
+          raw.violation.code === 'INVALID_JSON'
+            ? { path, code: 'INVALID_COMPOSITION', message: raw.violation.message }
+            : raw.violation,
+        )
+      }
+      // A file that failed to parse still counts as declared, so the pair is not
+      // reported twice as missing; the parse error is already a violation.
+      compositions.set(
+        composition.scope,
+        raw.violation === undefined
+          ? {
+              path,
+              dataset: composition.dataset,
+              version: composition.version,
+              value: raw.value,
+            }
+          : { path, dataset: composition.dataset, version: composition.version },
+      )
+      continue
+    }
+    if (path.endsWith(`/${COMPOSITION_FILE_NAME}`)) {
+      violations.push({
+        path,
+        code: 'INVALID_LAYOUT',
+        message:
+          'composition.json is only allowed at evals/tasks/<dataset>/<version>/composition.json',
+      })
+      continue
+    }
+
     const location = parseTaskLocation(relativeToEvals(path))
     if (location === undefined) {
       violations.push({
@@ -129,6 +182,15 @@ export async function validateTaskTree(rootDir: string): Promise<TaskViolation[]
     )
     registerSpeaker(speakers, location.scope, entry.speakerId, path, entry.split)
     registerTaskForGolden(tasksByLangVersion, location, entry, path)
+    compositionTasks.push({
+      dataset: location.dataset,
+      version: location.version,
+      lang: location.lang,
+      locale: entry.locale ?? location.lang,
+      split: entry.split,
+      id: entry.id,
+      path,
+    })
     checkSessionReferences(entry, path, violations)
     checkRoutingReferences(entry, path, violations)
   }
@@ -181,6 +243,16 @@ export async function validateTaskTree(rootDir: string): Promise<TaskViolation[]
       path,
     )
     checkGoldenTaskLink(entry, location, path, tasksByLangVersion, violations)
+    compositionLabels.push({
+      lang: location.lang,
+      version: location.version,
+      locale: entry.locale ?? location.lang,
+      split: entry.split,
+      taskId: entry.taskId,
+      routingOutcome: entry.routingOutcome,
+      speakerLabels: entry.speakerLabels,
+      path,
+    })
     if (entry.routingOutcome !== undefined && entry.taskId !== undefined) {
       routingLabelKeys.add(
         `${taskLinkKey(
@@ -208,6 +280,10 @@ export async function validateTaskTree(rootDir: string): Promise<TaskViolation[]
 
   violations.push(...collectDuplicateIds(ids))
   violations.push(...collectSplitLeakage(speakers))
+  checkCompositions(
+    { tasks: compositionTasks, labels: compositionLabels, files: compositions },
+    violations,
+  )
 
   return violations.sort(
     (a, b) =>

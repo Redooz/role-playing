@@ -439,6 +439,13 @@ function recordingProvider(requests: string[][] = []): CompletionProvider & {
  * Run `start` while advancing fake timers, so a per-trial wall-clock budget can
  * expire without waiting for it. Only `setTimeout`/`clearTimeout` are faked so
  * file IO and `setImmediate` still make progress.
+ *
+ * The loop bounds **real** elapsed time, not iterations. Every real filesystem
+ * await before the trial registers its budget timer would otherwise spend the
+ * same fixed step budget: a cold or slow checkout can burn 2000 `setImmediate`
+ * turns before the first timer exists, and the run then looks stuck even though
+ * nothing is wrong. A genuine hang still fails here, before Vitest's own
+ * timeout, because a step only costs microseconds.
  */
 async function runWithAdvancedTime<T>(start: () => Promise<T>): Promise<T> {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
@@ -454,7 +461,8 @@ async function runWithAdvancedTime<T>(start: () => Promise<T>): Promise<T> {
       },
     )
 
-    for (let step = 0; step < 2_000 && outcome === undefined; step += 1) {
+    const deadline = Date.now() + 3_000
+    while (outcome === undefined && Date.now() < deadline) {
       // Let file IO and promise chains progress before moving simulated time.
       await new Promise((resolve) => setImmediate(resolve))
       if (vi.getTimerCount() > 0) await vi.advanceTimersByTimeAsync(1_000)

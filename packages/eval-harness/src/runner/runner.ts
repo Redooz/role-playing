@@ -11,6 +11,7 @@ import {
 import type { Lang } from '../tasks/schema.js'
 import { goldenIndexByTask, loadGoldenEntries } from '../tasks/golden.js'
 import { CannedProviderMissError } from './canned-provider.js'
+import { assertCompositionCoversSelection } from './composition-guard.js'
 import { HarnessConfigError } from './errors.js'
 import { manifestHash, parseManifest } from './manifest.js'
 import { replayTask, ReplayError } from './replay.js'
@@ -126,12 +127,18 @@ export async function executeRun(options: ExecuteRunOptions): Promise<Evaluation
 
   const tasks = await loadSelectedTasks(options.repoRoot, manifest.tasks)
   assertSessionPrompt(manifest, tasks)
-  const goldens = goldenIndexByTask(
-    await loadGoldenEntries(options.repoRoot, {
-      version: manifest.tasks.version,
-      languages: manifest.tasks.languages,
-    }),
-  )
+  const goldenEntries = await loadGoldenEntries(options.repoRoot, {
+    version: manifest.tasks.version,
+    languages: manifest.tasks.languages,
+  })
+  await assertCompositionCoversSelection({
+    repoRoot: options.repoRoot,
+    dataset: manifest.tasks.dataset,
+    version: manifest.tasks.version,
+    tasks,
+    goldens: goldenEntries,
+  })
+  const goldens = goldenIndexByTask(goldenEntries)
   const providerFactory = options.providerFactory ?? createProviderFactory(manifest, tasks)
 
   const rng = createSeededRandom(manifest.seeds.master)
