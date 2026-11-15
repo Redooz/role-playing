@@ -2,7 +2,8 @@ import { readdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { GRANDFATHERED_COMPOSITIONS, compositionPath, isGrandfathered } from './composition.js'
+import { compositionPath } from './composition-file.js'
+import { GRANDFATHERED_COMPOSITIONS, isGrandfathered } from './composition-grandfather.js'
 
 /**
  * The committed tree must honour the composition rule (M3c P2).

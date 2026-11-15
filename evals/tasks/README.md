@@ -46,8 +46,10 @@ Codes: `EVALS_DIR_MISSING`, `UNREADABLE_DIRECTORY`,
 above the language directories. It records how many labels of each class a
 version contains, how they spread across families and how many distractors it
 carries. The counts are a pre-registered contract, so a one-sided version cannot
-be declared and a version cannot silently lose a class. The rules live in
-`packages/eval-harness/src/tasks/composition.ts`.
+be declared and a version cannot silently lose a class. The file contract is
+`packages/eval-harness/src/tasks/composition-file.ts`, counting is
+`composition-units.ts`, the rules are `composition-rules.ts`, and the whole-tree
+coordinator is `composition.ts`.
 
 ```json
 {

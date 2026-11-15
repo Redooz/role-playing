@@ -1,16 +1,15 @@
 import { readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
+import type { CompositionSlice } from '../tasks/composition-file.js'
+import { compositionPath, parseComposition } from '../tasks/composition-file.js'
+import { isGrandfathered } from '../tasks/composition-grandfather.js'
 import {
-  compositionPath,
   declaredSlices,
-  isGrandfathered,
-  parseComposition,
   resolveCompositionUnits,
   sliceKey,
   type CompositionLabelRecord,
-  type CompositionSlice,
   type CompositionTaskRecord,
-} from '../tasks/composition.js'
+} from '../tasks/composition-units.js'
 import { LABEL_CLASSES } from '../tasks/label-class.js'
 import type { GoldenEntry, Lang, Split } from '../tasks/schema.js'
 import { HarnessConfigError, errorMessage } from './errors.js'
