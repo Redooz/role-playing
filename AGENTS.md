@@ -301,9 +301,8 @@ test uses a local server, and Groq/OpenRouter use injected `fetch`).
   `*.fixtures.ts` modules are outside the scope. The five direct-execution
   entrypoints listed in `stryker.config.json` stay out of `mutate`: they run in a
   separate Node process, so per-test coverage cannot see them. The exclusion and
-  its revisit condition are in
-  `evals/analysis/m3c-p0-mutation-scope-2026-11-14.md`; remove an exclusion when
-  an entrypoint becomes coverable. The `turn-arbiter` reducer itself **is**
+  its revisit condition are recorded in `evals/decisions.md`; remove an exclusion
+  when an entrypoint becomes coverable. The `turn-arbiter` reducer itself **is**
   scored. The global break threshold is 95. Timed-out mutants count as killed;
   runtime/compile errors are excluded. Never lower the floor or hand-edit the
   baseline. Record a new baseline only with `npm run mutation:record` after a
