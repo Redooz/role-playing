@@ -134,9 +134,9 @@ validator and Jev-canary jobs. The canary is skipped when
   one persona or a two-persona set, scenario and locale, builds one prompt and
   model per persona, and starts the driver; `cli-main.ts` is the REPL, prints
   `[manager]`/`[peer]` labels in multi-persona mode, and holds no session state.
-- `evals/` — manifests, tasks, golden labels, rubrics, schemas, baselines,
-  `analysis/` notes and `decisions.md`; `results/` is git-ignored except the
-  curated `index.md`.
+- `evals/` — manifests, tasks, golden labels, rubrics, schemas, baselines and
+  `decisions.md`; `results/` is git-ignored except the curated `index.md`, and
+  analysis notes live in Notion rather than `evals/analysis/`.
 - `tools/agent-harness-bench` — overhead and latency benches (`*.bench.spec.ts`).
 - `tools/routing-bench` — M3a routing timing/comparison benches and the M3b
   timing and shadow scripts; outside the PR gate and never a UI.

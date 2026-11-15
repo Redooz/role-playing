@@ -15,6 +15,9 @@ logs/
 # Documentation lives in Obsidian, not in git
 docs/
 
+# Analysis notes live in Notion, not in git
+evals/analysis/
+
 # Eval run artifacts (results are per-run; baselines and a curated index are committed)
 evals/.cache/
 evals/results/*
