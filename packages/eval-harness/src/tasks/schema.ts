@@ -162,12 +162,17 @@ export const taskEntrySchema = z
     routing: routingTaskSchema.optional(),
   })
   .superRefine((task, ctx) => {
-    if (task.locale !== undefined && baseLanguageOfLocale(task.locale) !== task.lang) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['locale'],
-        message: `locale "${task.locale}" does not match base language "${task.lang}"`,
-      })
+    if (task.locale !== undefined) {
+      // The field rule reports a malformed tag. Do not call Intl.Locale on it
+      // here: safeParse must return an invalid result, never throw a RangeError.
+      const canonical = tryCanonicalizeLocale(task.locale)
+      if (canonical !== undefined && baseLanguageOfLocale(canonical) !== task.lang) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['locale'],
+          message: `locale "${task.locale}" does not match base language "${task.lang}"`,
+        })
+      }
     }
 
     if (task.routing !== undefined && task.mode !== 'routing') {
