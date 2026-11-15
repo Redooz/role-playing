@@ -33,6 +33,12 @@ export type ViolationCode =
   | 'ROUTING_LABEL_INVALID'
   | 'ROUTING_LABEL_MISSING'
   | 'SPEAKER_LABEL_INVALID'
+  | 'COMPOSITION_MISSING'
+  | 'INVALID_COMPOSITION'
+  | 'COMPOSITION_MISMATCH'
+  | 'COMPOSITION_ONE_SIDED'
+  | 'COMPOSITION_FAMILY'
+  | 'COMPOSITION_DISTRACTOR'
 
 export interface TaskViolation {
   /** Path relative to `rootDir`, always with `/` separators. */

@@ -79,12 +79,15 @@ describe('validateTaskTree', () => {
         speakerId: 'shared-speaker',
         split: 'holdout',
       }),
-      [taskPath('en', 'other-dataset-hold', 'other-workplace')]: taskEntry({
-        id: 'other-1',
-        speakerId: 'shared-speaker',
-        split: 'holdout',
-      }),
-      [taskPath('en', 'v2-hold', 'synthetic-workplace', 'v2')]: taskEntry({
+      [taskPath('en', 'other-dataset-hold', 'synthetic-multi-persona-session', 'm3b-v1')]:
+        taskEntry({
+          id: 'other-1',
+          speakerId: 'shared-speaker',
+          split: 'holdout',
+        }),
+      // Both extra pairs are on the composition grandfather list, so this spec
+      // stays about split scoping and does not need a composition.json.
+      [taskPath('en', 'v2-hold', 'synthetic-routing', '1.0.0')]: taskEntry({
         id: 'v2-1',
         speakerId: 'shared-speaker',
         split: 'holdout',
