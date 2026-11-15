@@ -8,6 +8,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type * as ReplayModule from './replay.js'
 import type { CompletionProvider } from './canned-provider.js'
+import { HarnessConfigError } from './errors.js'
 import { executeRun } from './runner.js'
 
 /**
@@ -170,35 +171,21 @@ describe('executeRun §2.1 transcript guard', () => {
   })
 
   it('refuses a record kind that is not a §2.1 event, naming the kind', async () => {
-    const built = await runFabricated([
-      record(0, 'turn.granted', GRANT_A, 'contentFree'),
-      record(1, 'latency.sample', { elapsedMs: 12 }, 'contentFree'),
-    ])
-    const { result } = built.execution
-
-    // The guard throws `HarnessConfigError` inside the per-trial `try`, so the
-    // runner records it as a failed trial rather than aborting the whole run;
-    // the exact discrimination message is what proves the typed error was built.
-    expect(producer.calls).toBe(1)
-    expect(built.provider.calls()).toBe(0)
-    expect(result.trials).toHaveLength(1)
-    expect(result.trials[0]).toMatchObject({
-      ok: false,
-      records: 0,
-      providerOutage: false,
-      error:
+    await expect(
+      runFabricated([
+        record(0, 'turn.granted', GRANT_A, 'contentFree'),
+        record(1, 'latency.sample', { elapsedMs: 12 }, 'contentFree'),
+      ]),
+    ).rejects.toThrow(
+      new HarnessConfigError(
         'transcript record kind "latency.sample" is not a §2.1 event; the replay path cannot emit it',
-    })
-    expect(result.transcripts).toHaveLength(0)
-    expect(built.execution.transcripts).toHaveLength(0)
-    expect(result.summary).toMatchObject({
-      attempts: 1,
-      completed: 0,
-      failed: 1,
-      failureRate: 1,
-      failedTrials: 1,
-    })
-    expect(result.verdict.status).toBe('inconclusive')
+      ),
+    )
+
+    // A §2.1 violation is a configuration error: the run aborts instead of
+    // recording a failed trial, so no result is produced and the provider is
+    // never reached.
+    expect(producer.calls).toBe(1)
   })
 
   it('counts a guard violation in the metrics and fails the guard_clean invariant', async () => {

@@ -437,11 +437,10 @@ describe('observe', () => {
       metadata: { atMs: 20 },
     })
     expect(spanEvent.options?.['asType']).toBe('event')
-    // The plan nests an event inside its span, but the adapter passes the
-    // span's *parent* context, so a turn event lands on the root here. This
-    // pins today's behaviour; the group report flags it as a suspected bug.
+    // The plan nests an event inside its span, so the event's parent is the
+    // span itself rather than the root.
     expect(spanEvent.options?.['parentSpanContext']).toStrictEqual(
-      root.observation.otelSpan.spanContext(),
+      personaTurn.observation.otelSpan.spanContext(),
     )
     expect(offsetMs(rootStart, startTimeOf(spanEvent))).toBe(20)
 

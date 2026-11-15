@@ -162,6 +162,15 @@ export async function measureSessionLatency(
         }
       }
     })()
+    // Attach the outcome handler now: a crash must not become an unhandled
+    // rejection while the turn loop is still waiting for its terminal event.
+    let consumerError: unknown
+    const consumerOutcome = consumer.then(
+      () => undefined,
+      (error: unknown) => {
+        consumerError = error
+      },
+    )
 
     try {
       for (let turn = 0; turn < options.turnsPerSession; turn += 1) {
@@ -247,9 +256,13 @@ export async function measureSessionLatency(
       }
     } finally {
       await settleWithin(driver.close(), turnTimeoutMs)
-      await settleWithin(consumer, turnTimeoutMs)
+      // A consumer crash is a measurement failure, not a teardown failure:
+      // surface it after teardown, so a failed dispose still runs.
+      await settleWithin(consumerOutcome, turnTimeoutMs)
       await settleWithin(Promise.resolve(model.dispose?.()), turnTimeoutMs)
     }
+
+    if (consumerError !== undefined) throw consumerError
   }
 
   return {
@@ -330,16 +343,25 @@ async function sendWithTimeout(
   return { status: outcome === 'timeout' ? 'timeout' : 'ok', error }
 }
 
-/** Resolve after `promise` settles, or `false` when `ms` passes first. */
+/**
+ * Resolve after `promise` settles (fulfils or rejects), or `false` when `ms`
+ * passes first. A rejection counts as settled: teardown must not mask the
+ * measurement.
+ */
 async function settleWithin(promise: Promise<unknown>, ms: number): Promise<boolean> {
-  promise.catch(() => undefined)
   let timer: NodeJS.Timeout | undefined
   const timeout = new Promise<false>((resolve) => {
     timer = setTimeout(() => resolve(false), ms)
   })
 
   try {
-    return await Promise.race([promise.then(() => true as const), timeout])
+    return await Promise.race([
+      promise.then(
+        () => true as const,
+        () => true as const,
+      ),
+      timeout,
+    ])
   } finally {
     if (timer !== undefined) clearTimeout(timer)
   }

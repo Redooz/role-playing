@@ -262,6 +262,7 @@ class FakeDriver implements SessionDriver {
   readonly sessionId = 'fake-session'
   readonly sent: string[] = []
   interruptCalls = 0
+  closeCalls = 0
   readonly #script: FakeDriverScript
   #queue: SessionEvent[] = []
   #waiters: Array<(result: IteratorResultOfEvent) => void> = []
@@ -315,6 +316,7 @@ class FakeDriver implements SessionDriver {
   }
 
   async close(): Promise<void> {
+    this.closeCalls += 1
     await this.#script.onClose?.(this)
     this.end()
   }
@@ -516,6 +518,81 @@ describe('text latency measurement with a scripted driver', () => {
 
     expect(measurement.turns).toHaveLength(1)
     expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('closes the driver and disposes the model after a completed session', async () => {
+    const driver = new FakeDriver({
+      onSend: (_text, _call, target) => {
+        target.push(granted('turn-0'))
+        target.push(chunk())
+        target.push(committed())
+      },
+    })
+    useFakeDriver(driver)
+    let disposed = 0
+
+    const measurement = await measureSessionLatency({
+      modelFactory: () => ({
+        model: fakeModel(() => {
+          disposed += 1
+        }),
+        timings: [],
+      }),
+      sessions: 1,
+      turnsPerSession: 1,
+      prompt: () => 'go',
+      now: scriptedClock(0, 10, 20, 30, 40),
+    })
+
+    expect(driver.closeCalls).toBe(1)
+    expect(disposed).toBe(1)
+    expect(measurement.turns).toHaveLength(1)
+  })
+
+  it('ignores chunk and committed events that arrive with no pending turn', async () => {
+    const driver = new FakeDriver({
+      onSend: (_text, _call, target) => {
+        target.push(granted('turn-0'))
+        target.push(chunk())
+        target.push(committed())
+        target.push(chunk('late '))
+        target.push(committed('late '))
+      },
+    })
+    useFakeDriver(driver)
+
+    const measurement = await measureSessionLatency({
+      modelFactory: () => ({ model: fakeModel(), timings: [] }),
+      sessions: 1,
+      turnsPerSession: 1,
+      prompt: () => 'go',
+      now: scriptedClock(0, 5, 10, 15, 20, 25, 30, 35),
+    })
+
+    expect(measurement.turns).toStrictEqual([
+      { sessionIndex: 0, turnIndex: 0, ttftMs: 10, totalMs: 15 },
+    ])
+    expect(measurement.failures).toStrictEqual([])
+  })
+
+  it('fails the measurement when a driver event is malformed', async () => {
+    const driver = new FakeDriver({
+      onSend: (_text, _call, target) => {
+        target.push({ type: 'turn.granted', payload: undefined } as never)
+      },
+    })
+    useFakeDriver(driver)
+
+    await expect(
+      measureSessionLatency({
+        modelFactory: () => ({ model: fakeModel(), timings: [] }),
+        sessions: 1,
+        turnsPerSession: 1,
+        turnTimeoutMs: 10,
+        prompt: () => 'go',
+        now: scriptedClock(0, 5, 10, 15, 20, 25, 30, 35),
+      }),
+    ).rejects.toBeInstanceOf(TypeError)
   })
 
   it('keeps the first chunk for ttft and the first session chunk for the start sample', async () => {
@@ -1136,7 +1213,7 @@ describe('text latency measurement with a scripted driver', () => {
     ])
   })
 
-  it('propagates a rejected close from the finally block', async () => {
+  it('treats a rejected close as settled and still returns the measurement', async () => {
     const driver = new FakeDriver({
       onSend: (_text, _call, target) => {
         target.push(granted('turn-0'))
@@ -1150,18 +1227,20 @@ describe('text latency measurement with a scripted driver', () => {
     })
     useFakeDriver(driver)
 
-    await expect(
-      measureSessionLatency({
-        modelFactory: () => ({ model: fakeModel(), timings: [] }),
-        sessions: 1,
-        turnsPerSession: 1,
-        prompt: () => 'go',
-        now: scriptedClock(0, 10, 20, 30, 40),
-      }),
-    ).rejects.toThrow(new Error('close failed'))
+    const measurement = await measureSessionLatency({
+      modelFactory: () => ({ model: fakeModel(), timings: [] }),
+      sessions: 1,
+      turnsPerSession: 1,
+      prompt: () => 'go',
+      now: scriptedClock(0, 10, 20, 30, 40),
+    })
+
+    expect(measurement.turns).toStrictEqual([
+      { sessionIndex: 0, turnIndex: 0, ttftMs: 20, totalMs: 30 },
+    ])
   })
 
-  it('propagates a rejected dispose from the finally block', async () => {
+  it('treats a rejected dispose as settled and still returns the measurement', async () => {
     const driver = new FakeDriver({
       onSend: (_text, _call, target) => {
         target.push(granted('turn-0'))
@@ -1172,15 +1251,17 @@ describe('text latency measurement with a scripted driver', () => {
     useFakeDriver(driver)
     const dispose = (): Promise<void> => Promise.reject(new Error('dispose failed'))
 
-    await expect(
-      measureSessionLatency({
-        modelFactory: () => ({ model: fakeModel(dispose), timings: [] }),
-        sessions: 1,
-        turnsPerSession: 1,
-        prompt: () => 'go',
-        now: scriptedClock(0, 10, 20, 30, 40),
-      }),
-    ).rejects.toThrow(new Error('dispose failed'))
+    const measurement = await measureSessionLatency({
+      modelFactory: () => ({ model: fakeModel(dispose), timings: [] }),
+      sessions: 1,
+      turnsPerSession: 1,
+      prompt: () => 'go',
+      now: scriptedClock(0, 10, 20, 30, 40),
+    })
+
+    expect(measurement.turns).toStrictEqual([
+      { sessionIndex: 0, turnIndex: 0, ttftMs: 20, totalMs: 30 },
+    ])
   })
 
   it('returns the measurement when close and the event stream never settle', async () => {

@@ -123,7 +123,7 @@ function requireEnv(env: NodeJS.ProcessEnv, name: string): string {
   if (value === undefined || value.trim() === '') {
     throw new HarnessConfigError(`a live run requires ${name} (set it in .env or the environment)`)
   }
-  return value
+  return value.trim()
 }
 
 function optionalEnv(env: NodeJS.ProcessEnv, name: string): string | undefined {

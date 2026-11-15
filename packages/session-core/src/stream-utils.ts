@@ -7,15 +7,23 @@
 
 export const MAX_ITERATOR_CLOSE_MS = 1_000
 
-/** Resolve when `promise` settles or after `ms`, whichever happens first. */
+/**
+ * Resolve when `promise` settles (fulfils or rejects) or after `ms`, whichever
+ * happens first. A rejection is a settled promise here: callers that need the
+ * failure must observe it themselves. Never rejects.
+ */
 export async function settleWithin(promise: Promise<unknown>, ms: number): Promise<void> {
   let timer: NodeJS.Timeout | undefined
   const timeout = new Promise<void>((resolve) => {
     timer = setTimeout(resolve, ms)
   })
+  const settled = promise.then(
+    () => undefined,
+    () => undefined,
+  )
 
   try {
-    await Promise.race([promise, timeout])
+    await Promise.race([settled, timeout])
   } finally {
     clearTimeout(timer)
   }
