@@ -119,7 +119,14 @@ export async function validateTaskTree(rootDir: string): Promise<TaskViolation[]
       // reported twice as missing; the parse error is already a violation.
       compositions.set(
         composition.scope,
-        raw.violation === undefined ? { path, value: raw.value } : { path },
+        raw.violation === undefined
+          ? {
+              path,
+              dataset: composition.dataset,
+              version: composition.version,
+              value: raw.value,
+            }
+          : { path, dataset: composition.dataset, version: composition.version },
       )
       continue
     }
