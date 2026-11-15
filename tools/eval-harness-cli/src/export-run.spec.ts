@@ -2,14 +2,20 @@ import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
-import type {
-  EvaluationObserver,
-  ObservationPlan,
-  ObserverConfig,
-  ObserverFactory,
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import {
+  LANGFUSE_ARTIFACT_SCHEMA_VERSION,
+  buildGrades,
+  executeRun,
+  type EvaluationObserver,
+  type EvaluationRun,
+  type GradesArtifact,
+  type ObservationPlan,
+  type ObserverConfig,
+  type ObserverFactory,
 } from '@rp/eval-harness'
 import { main, type CliIo } from './cli-main.js'
+import { exportRun } from './export-run.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(here, '../../..')
@@ -225,4 +231,487 @@ describe('Langfuse export in the eval CLI', () => {
     expect(code).toBe(2)
     expect(io.err.join('\n')).toContain('cannot be combined')
   })
+})
+
+/**
+ * Direct `exportRun` tests: an injected `EvaluationRun` and grades artifact let
+ * each branch of the export step be exercised without a second model run, with
+ * the observer always replaced by an injected factory (no socket is opened).
+ */
+
+const OBSERVER_ENV: NodeJS.ProcessEnv = {
+  LANGFUSE_ENABLED: 'true',
+  LANGFUSE_BASE_URL: 'http://127.0.0.1:3000',
+  LANGFUSE_PUBLIC_KEY: 'pk-lf-test',
+  LANGFUSE_SECRET_KEY: 'sk-lf-test',
+}
+
+let fixtureRun: EvaluationRun
+let fixtureGrades: GradesArtifact
+
+beforeAll(async () => {
+  const raw = JSON.parse(await readFile(manifestPath, 'utf8')) as unknown
+  fixtureRun = await executeRun({
+    repoRoot,
+    manifest: raw,
+    wallClock: () => 1_700_000_000_000,
+  })
+  fixtureGrades = buildGrades({ execution: fixtureRun })
+})
+
+interface ObserverCall {
+  readonly config: ObserverConfig
+  readonly plan: ObservationPlan
+}
+
+function scriptedObserver(
+  calls: ObserverCall[],
+  receipt: (plan: ObservationPlan) => {
+    experimentId: string
+    experimentUrl?: string
+    traceIds: Record<string, string>
+  },
+  shutdown: () => Promise<void> = async () => {},
+): ObserverFactory {
+  return async (config) => ({
+    async observe(plan) {
+      calls.push({ config, plan })
+      return receipt(plan)
+    },
+    shutdown,
+  })
+}
+
+function fullReceipt(plan: ObservationPlan): {
+  experimentId: string
+  experimentUrl?: string
+  traceIds: Record<string, string>
+} {
+  return {
+    experimentId: plan.executionId,
+    experimentUrl: `http://127.0.0.1:3000/project/project-test/experiments/${plan.executionId}`,
+    traceIds: Object.fromEntries(plan.items.map((item) => [item.itemId, `trace-${item.itemId}`])),
+  }
+}
+
+async function exportDir(): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), 'rp-langfuse-direct-'))
+  roots.push(dir)
+  return dir
+}
+
+describe('exportRun (direct)', () => {
+  it('writes a disabled artifact and loads no adapter when export is off', async () => {
+    const runDir = await exportDir()
+    const io = captureIo()
+    const factory = vi.fn<ObserverFactory>()
+
+    const artifact = await exportRun({
+      execution: fixtureRun,
+      grades: fixtureGrades,
+      runDir,
+      repoRoot,
+      io: io.io,
+      env: {},
+      observerFactory: factory,
+      noExport: true,
+      requireExport: false,
+    })
+
+    expect(factory).not.toHaveBeenCalled()
+    expect(io.err).toStrictEqual([])
+    expect(io.out).toStrictEqual([
+      'langfuse: export disabled (set LANGFUSE_ENABLED=true to export)',
+    ])
+    expect(artifact).toStrictEqual({
+      schemaVersion: LANGFUSE_ARTIFACT_SCHEMA_VERSION,
+      status: 'disabled',
+      executionId: fixtureGrades.executionId,
+      runId: fixtureRun.result.runId,
+      traceIds: {},
+    })
+    expect(await readFile(join(runDir, 'langfuse.json'), 'utf8')).toBe(
+      `${JSON.stringify(artifact, null, 2)}\n`,
+    )
+  })
+
+  it.each(['true', 'TRUE', ' true ', '1', 'yes', 'Yes'])(
+    'treats LANGFUSE_ENABLED=%j as on',
+    async (value) => {
+      const runDir = await exportDir()
+      const calls: ObserverCall[] = []
+
+      const artifact = await exportRun({
+        execution: fixtureRun,
+        grades: fixtureGrades,
+        runDir,
+        repoRoot,
+        io: captureIo().io,
+        env: { ...OBSERVER_ENV, LANGFUSE_ENABLED: value },
+        observerFactory: scriptedObserver(calls, fullReceipt),
+        noExport: false,
+        requireExport: false,
+      })
+
+      expect(calls).toHaveLength(1)
+      expect(artifact.status).toBe('exported')
+    },
+  )
+
+  it.each(['false', 'FALSE', '0', 'no', '', '  '])(
+    'treats LANGFUSE_ENABLED=%j as off',
+    async (value) => {
+      const runDir = await exportDir()
+      const calls: ObserverCall[] = []
+
+      const artifact = await exportRun({
+        execution: fixtureRun,
+        grades: fixtureGrades,
+        runDir,
+        repoRoot,
+        io: captureIo().io,
+        env: { ...OBSERVER_ENV, LANGFUSE_ENABLED: value },
+        observerFactory: scriptedObserver(calls, fullReceipt),
+        noExport: false,
+        requireExport: false,
+      })
+
+      expect(calls).toStrictEqual([])
+      expect(artifact.status).toBe('disabled')
+    },
+  )
+
+  it('honours --require-export even when LANGFUSE_ENABLED is unset', async () => {
+    const runDir = await exportDir()
+    const calls: ObserverCall[] = []
+
+    const artifact = await exportRun({
+      execution: fixtureRun,
+      grades: fixtureGrades,
+      runDir,
+      repoRoot,
+      io: captureIo().io,
+      env: OBSERVER_ENV,
+      observerFactory: scriptedObserver(calls, fullReceipt),
+      noExport: false,
+      requireExport: true,
+    })
+
+    expect(calls).toHaveLength(1)
+    expect(artifact.status).toBe('exported')
+  })
+
+  it('passes a trimmed self-hosted configuration, project id included', async () => {
+    const runDir = await exportDir()
+    const calls: ObserverCall[] = []
+
+    await exportRun({
+      execution: fixtureRun,
+      grades: fixtureGrades,
+      runDir,
+      repoRoot,
+      io: captureIo().io,
+      env: {
+        LANGFUSE_ENABLED: 'true',
+        LANGFUSE_BASE_URL: '  http://127.0.0.1:3000///  ',
+        LANGFUSE_PUBLIC_KEY: '  pk-lf-test  ',
+        LANGFUSE_SECRET_KEY: '  sk-lf-test  ',
+        LANGFUSE_PROJECT_ID: '  project-test  ',
+      },
+      observerFactory: scriptedObserver(calls, fullReceipt),
+      noExport: false,
+      requireExport: false,
+    })
+
+    expect(calls[0]?.config).toStrictEqual({
+      baseUrl: 'http://127.0.0.1:3000',
+      publicKey: 'pk-lf-test',
+      secretKey: 'sk-lf-test',
+      projectId: 'project-test',
+    })
+  })
+
+  it('omits the project id when the environment does not set it', async () => {
+    const runDir = await exportDir()
+    const calls: ObserverCall[] = []
+
+    await exportRun({
+      execution: fixtureRun,
+      grades: fixtureGrades,
+      runDir,
+      repoRoot,
+      io: captureIo().io,
+      env: { ...OBSERVER_ENV, LANGFUSE_PROJECT_ID: undefined },
+      observerFactory: scriptedObserver(calls, fullReceipt),
+      noExport: false,
+      requireExport: false,
+    })
+
+    expect(calls[0]?.config).toStrictEqual({
+      baseUrl: 'http://127.0.0.1:3000',
+      publicKey: 'pk-lf-test',
+      secretKey: 'sk-lf-test',
+    })
+  })
+
+  it.each([
+    ['LANGFUSE_BASE_URL', 'LANGFUSE_BASE_URL is not set'],
+    ['LANGFUSE_PUBLIC_KEY', 'LANGFUSE_PUBLIC_KEY is not set'],
+    ['LANGFUSE_SECRET_KEY', 'LANGFUSE_SECRET_KEY is not set'],
+  ])('fails closed when %s is missing', async (name, message) => {
+    const runDir = await exportDir()
+    const env: NodeJS.ProcessEnv = { ...OBSERVER_ENV }
+    delete env[name]
+    const io = captureIo()
+
+    const artifact = await exportRun({
+      execution: fixtureRun,
+      grades: fixtureGrades,
+      runDir,
+      repoRoot,
+      io: io.io,
+      env,
+      observerFactory: scriptedObserver([], fullReceipt),
+      noExport: false,
+      requireExport: false,
+    })
+
+    expect(artifact.status).toBe('failed')
+    expect(artifact.error).toBe(message)
+    expect(io.err).toStrictEqual([`langfuse: export failed: ${message}`])
+    expect(io.out).toStrictEqual([])
+  })
+
+  it('rejects a base URL that is not a URL', async () => {
+    const runDir = await exportDir()
+    const io = captureIo()
+
+    const artifact = await exportRun({
+      execution: fixtureRun,
+      grades: fixtureGrades,
+      runDir,
+      repoRoot,
+      io: io.io,
+      env: { ...OBSERVER_ENV, LANGFUSE_BASE_URL: 'not a url' },
+      observerFactory: scriptedObserver([], fullReceipt),
+      noExport: false,
+      requireExport: false,
+    })
+
+    expect(artifact.error).toBe('LANGFUSE_BASE_URL is not a valid URL: not a url')
+    expect(io.err).toStrictEqual([
+      'langfuse: export failed: LANGFUSE_BASE_URL is not a valid URL: not a url',
+    ])
+  })
+
+  it('rejects a non-http(s) base URL', async () => {
+    const runDir = await exportDir()
+    const io = captureIo()
+
+    const artifact = await exportRun({
+      execution: fixtureRun,
+      grades: fixtureGrades,
+      runDir,
+      repoRoot,
+      io: io.io,
+      env: { ...OBSERVER_ENV, LANGFUSE_BASE_URL: 'ftp://127.0.0.1:3000' },
+      observerFactory: scriptedObserver([], fullReceipt),
+      noExport: false,
+      requireExport: false,
+    })
+
+    expect(artifact.error).toBe('LANGFUSE_BASE_URL must be http(s): ftp://127.0.0.1:3000')
+  })
+
+  it.each([
+    'https://langfuse.com',
+    'https://langfuse.com/project/1',
+    'https://cloud.langfuse.com',
+    'https://us.cloud.langfuse.com/project/1',
+  ])('refuses Langfuse Cloud at %s', async (baseUrl) => {
+    const runDir = await exportDir()
+    const io = captureIo()
+
+    const artifact = await exportRun({
+      execution: fixtureRun,
+      grades: fixtureGrades,
+      runDir,
+      repoRoot,
+      io: io.io,
+      env: { ...OBSERVER_ENV, LANGFUSE_BASE_URL: baseUrl },
+      observerFactory: scriptedObserver([], fullReceipt),
+      noExport: false,
+      requireExport: false,
+    })
+
+    expect(artifact.error).toBe('refusing Langfuse Cloud; the review layer is self-hosted only')
+  })
+
+  it('records the exported experiment, every trace id and the URL', async () => {
+    const runDir = await exportDir()
+    const io = captureIo()
+    const calls: ObserverCall[] = []
+
+    const artifact = await exportRun({
+      execution: fixtureRun,
+      grades: fixtureGrades,
+      runDir,
+      repoRoot,
+      io: io.io,
+      env: OBSERVER_ENV,
+      observerFactory: scriptedObserver(calls, fullReceipt),
+      noExport: false,
+      requireExport: false,
+    })
+
+    const plan = calls[0]?.plan
+    expect(plan?.items).toHaveLength(12)
+    expect(artifact).toStrictEqual({
+      schemaVersion: LANGFUSE_ARTIFACT_SCHEMA_VERSION,
+      status: 'exported',
+      executionId: fixtureGrades.executionId,
+      runId: fixtureRun.result.runId,
+      baseUrl: 'http://127.0.0.1:3000',
+      experimentId: fixtureGrades.executionId,
+      experimentUrl: `http://127.0.0.1:3000/project/project-test/experiments/${fixtureGrades.executionId}`,
+      traceIds: fullReceipt(plan as ObservationPlan).traceIds,
+      exportedAt: expect.any(String),
+    })
+    expect(io.out).toStrictEqual([
+      `langfuse: exported 12 item trace(s) to experiment ${fixtureGrades.executionId}`,
+      `langfuse: http://127.0.0.1:3000/project/project-test/experiments/${fixtureGrades.executionId}`,
+    ])
+    expect(io.err).toStrictEqual([])
+    expect(await readFile(join(runDir, 'langfuse.json'), 'utf8')).toBe(
+      `${JSON.stringify(artifact, null, 2)}\n`,
+    )
+  })
+
+  it('omits the URL line and field when the platform returns no experiment URL', async () => {
+    const runDir = await exportDir()
+    const io = captureIo()
+
+    const artifact = await exportRun({
+      execution: fixtureRun,
+      grades: fixtureGrades,
+      runDir,
+      repoRoot,
+      io: io.io,
+      env: OBSERVER_ENV,
+      observerFactory: scriptedObserver([], (plan) => ({
+        experimentId: plan.executionId,
+        traceIds: Object.fromEntries(
+          plan.items.map((item) => [item.itemId, `trace-${item.itemId}`]),
+        ),
+      })),
+      noExport: false,
+      requireExport: false,
+    })
+
+    expect(artifact).not.toHaveProperty('experimentUrl')
+    expect(io.out).toStrictEqual([
+      `langfuse: exported 12 item trace(s) to experiment ${fixtureGrades.executionId}`,
+    ])
+  })
+
+  it('fails when the platform returns no trace id for an item', async () => {
+    const runDir = await exportDir()
+    const io = captureIo()
+    let dropped: string[] = []
+
+    const artifact = await exportRun({
+      execution: fixtureRun,
+      grades: fixtureGrades,
+      runDir,
+      repoRoot,
+      io: io.io,
+      env: OBSERVER_ENV,
+      observerFactory: scriptedObserver([], (plan) => {
+        dropped = plan.items.slice(0, 2).map((item) => item.itemId)
+        return {
+          experimentId: plan.executionId,
+          traceIds: Object.fromEntries(
+            plan.items
+              .filter((item) => !dropped.includes(item.itemId))
+              .map((item) => [item.itemId, `trace-${item.itemId}`]),
+          ),
+        }
+      }),
+      noExport: false,
+      requireExport: false,
+    })
+
+    const message = `export returned no trace id for 2 item(s): ${dropped.join(', ')}`
+    expect(artifact.status).toBe('failed')
+    expect(artifact.error).toBe(message)
+    expect(io.err).toStrictEqual([`langfuse: export failed: ${message}`])
+  })
+
+  it('records a shutdown failure without losing the failed artifact', async () => {
+    const runDir = await exportDir()
+    const io = captureIo()
+
+    const artifact = await exportRun({
+      execution: fixtureRun,
+      grades: fixtureGrades,
+      runDir,
+      repoRoot,
+      io: io.io,
+      env: OBSERVER_ENV,
+      observerFactory: scriptedObserver([], fullReceipt, async () => {
+        throw new Error('flush failed')
+      }),
+      noExport: false,
+      requireExport: false,
+    })
+
+    expect(artifact.status).toBe('failed')
+    expect(artifact.error).toBe('langfuse shutdown failed: flush failed')
+    expect(io.err).toStrictEqual(['langfuse: shutdown failed: flush failed'])
+  })
+
+  it('shuts the observer down after a successful export', async () => {
+    const runDir = await exportDir()
+    const shutdown = vi.fn(async () => {})
+
+    const artifact = await exportRun({
+      execution: fixtureRun,
+      grades: fixtureGrades,
+      runDir,
+      repoRoot,
+      io: captureIo().io,
+      env: OBSERVER_ENV,
+      observerFactory: scriptedObserver([], fullReceipt, shutdown),
+      noExport: false,
+      requireExport: false,
+    })
+
+    expect(shutdown).toHaveBeenCalledTimes(1)
+    expect(artifact.status).toBe('exported')
+  })
+
+  it.each([true, false])(
+    'maps includeScores=%s onto the observation plan',
+    async (includeScores) => {
+      const runDir = await exportDir()
+      const calls: ObserverCall[] = []
+
+      await exportRun({
+        execution: fixtureRun,
+        grades: fixtureGrades,
+        runDir,
+        repoRoot,
+        io: captureIo().io,
+        env: OBSERVER_ENV,
+        observerFactory: scriptedObserver(calls, fullReceipt),
+        noExport: false,
+        requireExport: false,
+        includeScores,
+      })
+
+      const items = calls[0]?.plan.items ?? []
+      expect(items).toHaveLength(12)
+      expect(items.every((item) => item.scores.length === 0)).toBe(!includeScores)
+    },
+  )
 })
