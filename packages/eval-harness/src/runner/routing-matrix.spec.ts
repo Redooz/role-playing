@@ -511,6 +511,23 @@ describe('buildRoutingMatrix per-arm record', () => {
       n: 8,
       completed: 7,
       incomplete: 1,
+      classes: {
+        speak: {
+          total: 6,
+          completed: 5,
+          incomplete: 1,
+          appropriate: 2,
+          rate: 2 / 5,
+        },
+        silence: {
+          total: 0,
+          completed: 0,
+          incomplete: 0,
+          appropriate: 0,
+          rate: null,
+        },
+        mixed: { total: 2, completed: 2, incomplete: 0 },
+      },
       acceptable: 4,
       acceptableOutcomeRate: 4 / 7,
       falseSpeak: 2,
@@ -573,6 +590,11 @@ describe('buildRoutingMatrix per-arm record', () => {
       n: 3,
       completed: 3,
       incomplete: 0,
+      classes: {
+        speak: { total: 3, completed: 3, incomplete: 0, appropriate: 3, rate: 1 },
+        silence: { total: 0, completed: 0, incomplete: 0, appropriate: 0, rate: null },
+        mixed: { total: 0, completed: 0, incomplete: 0 },
+      },
       acceptable: 3,
       acceptableOutcomeRate: 1,
       falseSpeak: 0,
@@ -605,6 +627,11 @@ describe('buildRoutingMatrix per-arm record', () => {
       n: 2,
       completed: 1,
       incomplete: 1,
+      classes: {
+        speak: { total: 1, completed: 1, incomplete: 0, appropriate: 1, rate: 1 },
+        silence: { total: 0, completed: 0, incomplete: 0, appropriate: 0, rate: null },
+        mixed: { total: 1, completed: 0, incomplete: 1 },
+      },
       acceptable: 1,
       acceptableOutcomeRate: 1,
       falseSpeak: 0,
@@ -680,6 +707,163 @@ describe('buildRoutingMatrix usage completeness', () => {
       inputTokens: 14,
       outputTokens: 3,
       costUsd: 0.0015,
+    })
+  })
+})
+
+const requireSilence = {
+  intent: 'no contribution',
+  acceptablePersonaIds: [],
+  allowUserYield: true,
+  labelSource: 'agent' as const,
+}
+
+const acceptBoth = {
+  intent: 'either',
+  acceptablePersonaIds: ['peer'],
+  allowUserYield: true,
+  labelSource: 'agent' as const,
+}
+
+describe('buildRoutingMatrix label classes', () => {
+  it('gives each class its own denominator and counts incomplete decisions separately', () => {
+    const report = buildRoutingMatrix([
+      {
+        armId: 'classes',
+        lang: 'en',
+        artifact: artifactFor({ ...speak, policyLatencyMs: 25 }, 'classes', 'speak-ok'),
+        label: acceptPeer,
+      },
+      {
+        armId: 'classes',
+        lang: 'en',
+        artifact: artifactFor({ ...speak, policyLatencyMs: 25 }, 'classes', 'speak-wrong'),
+        label: label('manager'),
+      },
+      {
+        armId: 'classes',
+        lang: 'en',
+        artifact: failedArtifact(25),
+        label: acceptPeer,
+      },
+      {
+        armId: 'classes',
+        lang: 'en',
+        artifact: artifactFor({ ...noContribution, policyLatencyMs: 25 }, 'classes', 'silence-ok'),
+        label: requireSilence,
+      },
+      {
+        armId: 'classes',
+        lang: 'en',
+        artifact: artifactFor(
+          { ...noContribution, policyLatencyMs: 25 },
+          'classes',
+          'silence-ok-2',
+        ),
+        label: requireSilence,
+      },
+      {
+        armId: 'classes',
+        lang: 'en',
+        artifact: artifactFor({ ...speak, policyLatencyMs: 25 }, 'classes', 'silence-wrong'),
+        label: requireSilence,
+      },
+      {
+        armId: 'classes',
+        lang: 'en',
+        artifact: failedArtifact(25),
+        label: requireSilence,
+      },
+      {
+        armId: 'classes',
+        lang: 'en',
+        artifact: artifactFor({ ...noContribution, policyLatencyMs: 25 }, 'classes', 'mixed-ok'),
+        label: acceptBoth,
+      },
+      {
+        armId: 'classes',
+        lang: 'en',
+        artifact: failedArtifact(25),
+        label: acceptBoth,
+      },
+    ])
+
+    const arm = report.arms[0]!
+    expect(arm.classes).toStrictEqual({
+      speak: { total: 3, completed: 2, incomplete: 1, appropriate: 1, rate: 1 / 2 },
+      silence: { total: 4, completed: 3, incomplete: 1, appropriate: 2, rate: 2 / 3 },
+      mixed: { total: 2, completed: 1, incomplete: 1 },
+    })
+    expect(arm).toMatchObject({
+      n: 9,
+      completed: 6,
+      incomplete: 3,
+      acceptable: 4,
+      acceptableOutcomeRate: 4 / 6,
+      falseSpeak: 2,
+      falseSpeakRate: 2 / 6,
+      falseYield: 0,
+      falseYieldRate: 0,
+    })
+  })
+
+  it('excludes a mixed label from both class rates and counts it', () => {
+    const report = buildRoutingMatrix([
+      {
+        armId: 'mixed',
+        lang: 'en',
+        artifact: artifactFor({ ...speak, policyLatencyMs: 25 }, 'mixed', 'mixed-label'),
+        label: acceptBoth,
+      },
+      {
+        armId: 'mixed',
+        lang: 'en',
+        artifact: artifactFor({ ...speak, policyLatencyMs: 25 }, 'mixed', 'speak-label'),
+        label: acceptPeer,
+      },
+    ])
+
+    expect(report.arms[0]?.classes).toStrictEqual({
+      speak: { total: 1, completed: 1, incomplete: 0, appropriate: 1, rate: 1 },
+      silence: { total: 0, completed: 0, incomplete: 0, appropriate: 0, rate: null },
+      mixed: { total: 1, completed: 1, incomplete: 0 },
+    })
+  })
+
+  it('reports null for a class with no completed decision, never zero', () => {
+    const report = buildRoutingMatrix([
+      { armId: 'empty', lang: 'en', artifact: failedArtifact(25), label: acceptPeer },
+    ])
+
+    expect(report.arms[0]?.classes).toStrictEqual({
+      speak: { total: 1, completed: 0, incomplete: 1, appropriate: 0, rate: null },
+      silence: { total: 0, completed: 0, incomplete: 0, appropriate: 0, rate: null },
+      mixed: { total: 0, completed: 0, incomplete: 0 },
+    })
+  })
+
+  it('accepts a speak by either of two acceptable personas', () => {
+    const report = buildRoutingMatrix([
+      {
+        armId: 'two',
+        lang: 'en',
+        artifact: artifactFor({ ...speak, policyLatencyMs: 25 }, 'two', 'one'),
+        label: { ...acceptPeer, acceptablePersonaIds: ['manager', 'peer'] },
+      },
+      {
+        armId: 'two',
+        lang: 'en',
+        artifact: artifactFor({ ...speak, policyLatencyMs: 25 }, 'two', 'two'),
+        label: { ...acceptPeer, acceptablePersonaIds: ['manager', 'peer'] },
+      },
+    ])
+
+    expect(report.arms[0]?.classes.speak).toStrictEqual({
+      total: 2,
+      completed: 2,
+      incomplete: 0,
+      appropriate: 2,
+      rate: 1,
     })
   })
 })
