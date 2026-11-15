@@ -15,6 +15,10 @@ Rules:
 - **No composite scores.** Per-axis deltas are reported as-is (§4.1.7).
 - **Name the purpose.** A capability eval proves new behaviour; a regression eval protects existing behaviour. One does not substitute for the other.
 
+Analysis notes referenced below moved to Notion on 2026-11-15 and are no longer
+committed. `evals/analysis/` is git-ignored; path references in older rows are
+historical.
+
 ## M0 gates
 
 M0 is scaffolding, so these gates are about reproducibility and workflow
