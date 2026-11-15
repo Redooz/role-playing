@@ -1226,6 +1226,44 @@ describe('speakerLabelSchema contract', () => {
   })
 })
 
+describe('label family and distractor fields (M3c P2)', () => {
+  it('accepts a family and a distractor flag on a routing outcome', () => {
+    const parsed = routingOutcomeLabelSchema.safeParse(
+      routingOutcome({ family: 'state-negative', distractor: true }),
+    )
+
+    expect(parsed.success).toBe(true)
+    if (parsed.success) {
+      expect(parsed.data.family).toBe('state-negative')
+      expect(parsed.data.distractor).toBe(true)
+    }
+  })
+
+  it('accepts a family and a false distractor flag on a speaker label', () => {
+    const parsed = speakerLabelSchema.safeParse(
+      speakerLabel({ family: 'open-question', distractor: false }),
+    )
+
+    expect(parsed.success).toBe(true)
+    if (parsed.success) expect(parsed.data.distractor).toBe(false)
+  })
+
+  it('keeps both fields optional', () => {
+    const parsed = routingOutcomeLabelSchema.parse(routingOutcome())
+
+    expect(parsed.family).toBeUndefined()
+    expect(parsed.distractor).toBeUndefined()
+  })
+
+  it.each([
+    ['an empty family', { family: '' }],
+    ['a non-boolean distractor', { distractor: 'yes' }],
+  ])('rejects %s', (_name, patch) => {
+    expect(routingOutcomeLabelSchema.safeParse(routingOutcome(patch)).success).toBe(false)
+    expect(speakerLabelSchema.safeParse(speakerLabel(patch)).success).toBe(false)
+  })
+})
+
 describe('goldenEntrySchema field rules', () => {
   it('accepts a legacy draft with routing labels and dimension scores', () => {
     expect(goldenEntrySchema.safeParse(goldenEntry()).success).toBe(true)

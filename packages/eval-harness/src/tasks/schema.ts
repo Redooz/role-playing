@@ -315,6 +315,10 @@ export function hasMeasuredAgreement(value: unknown): boolean {
  * A label is a set, not one exact speaker. `allowUserYield` covers the valid
  * no-contribution case. The annotation source is explicit so an LLM pass can
  * never be mistaken for human ground truth.
+ *
+ * `family` and `distractor` are optional (M3c P2). A composition declares how
+ * many families and distractors a version needs; the label declares which family
+ * it belongs to and whether the named persona is deliberately not the owner.
  */
 export const routingOutcomeLabelSchema = z
   .strictObject({
@@ -322,6 +326,10 @@ export const routingOutcomeLabelSchema = z
     acceptablePersonaIds: z.array(z.string().min(1)),
     allowUserYield: z.boolean(),
     labelSource: z.enum(['agent', 'human']),
+    /** Silence or speak family, from the frozen taxonomy. Required by `minFamilies`. */
+    family: z.string().min(1).optional(),
+    /** Marks a speak-required decision whose named persona is a decoy. */
+    distractor: z.boolean().optional(),
     note: z.string().min(1).optional(),
   })
   .superRefine((label, ctx) => {
@@ -356,6 +364,10 @@ export const speakerLabelSchema = z
     acceptablePersonaIds: z.array(z.string().min(1)),
     allowUserYield: z.boolean(),
     labelSource: z.enum(['agent', 'human']),
+    /** Silence or speaker family, from the frozen taxonomy. Required by `minFamilies`. */
+    family: z.string().min(1).optional(),
+    /** Marks a speaker-required turn whose named persona is a decoy. */
+    distractor: z.boolean().optional(),
     note: z.string().min(1).optional(),
   })
   .superRefine((label, ctx) => {

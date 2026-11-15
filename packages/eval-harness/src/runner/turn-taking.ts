@@ -1,6 +1,6 @@
 import type { TranscriptRecord } from '@rp/session-core'
 import { createDeterministicInvariantGrader, type Grader, type TrialRecord } from './grader.js'
-import { labelClass, type LabelClass } from './label-class.js'
+import { labelClass, type LabelClass } from '../tasks/label-class.js'
 
 /**
  * Code grader for M3b turn-taking.

@@ -1,6 +1,6 @@
 import { routingDecisionSchema, type RoutingDecision } from '@rp/routing-policy'
 import { routingOutcomeLabelSchema } from '../tasks/schema.js'
-import { labelClass, type LabelClass } from './label-class.js'
+import { labelClass, type LabelClass } from '../tasks/label-class.js'
 import type { RoutingDecisionArtifact } from './routing.js'
 
 /**
