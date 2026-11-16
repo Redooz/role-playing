@@ -18,13 +18,14 @@ Rules from the M0 plan (D4, D5, D6):
 
 ## Current versions
 
-| File                                | Covers                                                        |
-| ----------------------------------- | ------------------------------------------------------------- |
-| `m2-persona-rubric-v2.md`           | M2 semantic axes                                              |
-| `m2-annotation-guideline-v2.md`     | M2 human annotation                                           |
-| `m3b-turn-taking-rubric-v1.md`      | M3b interjection warrant                                      |
-| `m3b-speaker-label-guideline-v1.md` | M3b speaker ownership, `m3b-v2` and later                     |
-| `m3a-routing-label-v2.md`           | M3a routing ownership and visible coverage, `1.1.0` and later |
+| File                                | Covers                                                                              |
+| ----------------------------------- | ----------------------------------------------------------------------------------- |
+| `m2-persona-rubric-v2.md`           | M2 semantic axes                                                                    |
+| `m2-annotation-guideline-v2.md`     | M2 human annotation                                                                 |
+| `m3b-turn-taking-rubric-v1.md`      | M3b interjection warrant                                                            |
+| `m3b-speaker-label-guideline-v1.md` | M3b speaker ownership, `m3b-v2` and later                                           |
+| `m3a-routing-label-v2.md`           | M3a routing ownership and visible coverage, before the mixed test; kept for history |
+| `m3a-routing-label-v3.md`           | M3a routing ownership, visible coverage and the mixed test, `1.1.0` and later       |
 
-Older versions stay in place for the runs that reference them. `m3b-v1` and
-`synthetic-routing/1.0.0` are frozen on their original rules.
+Older versions stay in place for history and for the runs that reference them.
+`m3b-v1` and `synthetic-routing/1.0.0` are frozen on their original rules.

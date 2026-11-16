@@ -39,7 +39,7 @@ Authoring is deterministic:
 node scripts/generate-routing-1.1.0.mjs
 ```
 
-Labels use `m3a-routing-label-v2` and `annotationVersions.annotationGuideline`
+Labels use `m3a-routing-label-v3` and `annotationVersions.annotationGuideline`
 names it. They are agent labels: provisional, not human ground truth.
 
 `1.0.0` stays frozen on `m3a-routing-label-v1`. The two versions are not
@@ -53,7 +53,7 @@ Build one bundle from a version directory:
 node tools/annotation-kit/routing-bundle.mjs \
   --tasks evals/tasks/synthetic-routing/1.1.0 \
   --out evals/results/annotation-kit-m3c \
-  --guideline m3a-routing-label-v2
+  --guideline m3a-routing-label-v3
 ```
 
 The bundle contains only an opaque `caseId`, the learner-visible transcript,
