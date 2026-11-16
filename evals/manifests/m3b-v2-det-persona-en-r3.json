@@ -1,0 +1,85 @@
+{
+  "schemaVersion": "3.0.0",
+  "run": {
+    "runId": "m3b-v2-det-persona-en-r3",
+    "suite": "m3b-turn-taking",
+    "purpose": "capability",
+    "description": "det-persona candidate over the same m3b-v2 EN holdout tasks as m3b-v2-baseline-en-r3. Three rounds, pre-registered speak-class MDE 0.15; silence is reported, not gated, because its baseline is a structural zero."
+  },
+  "tasks": {
+    "dataset": "synthetic-multi-persona-session",
+    "version": "m3b-v2",
+    "languages": ["en"],
+    "locales": ["en", "en-GB"],
+    "splits": ["holdout"]
+  },
+  "seeds": {
+    "master": 20261116,
+    "algorithm": "mulberry32"
+  },
+  "grader": {
+    "id": "turn-taking-speakers",
+    "kind": "code",
+    "version": "1.1.0"
+  },
+  "rubric": {
+    "version": "m3b-turn-taking-rubric-v1"
+  },
+  "limits": {
+    "rounds": 3,
+    "maxFailureRate": 0
+  },
+  "target": {
+    "metric": "turn_taking.required_speaker_rate",
+    "direction": "increase",
+    "minimumDetectableEffect": 0.15
+  },
+  "guardrails": [
+    {
+      "metric": "run.failure_rate",
+      "direction": "decrease",
+      "tolerance": 0
+    },
+    {
+      "metric": "transcript.guard_violations",
+      "direction": "decrease",
+      "tolerance": 0
+    },
+    {
+      "metric": "response.plain_text_rate",
+      "direction": "increase",
+      "tolerance": 0
+    }
+  ],
+  "invariants": [
+    "transcript.schema_valid",
+    "transcript.guard_clean",
+    "transcript.seq_monotonic",
+    "transcript.content_class",
+    "response.plain_text"
+  ],
+  "provider": {
+    "mode": "live",
+    "label": "livekit/google/gemma-4-31b-it",
+    "allowLive": true
+  },
+  "prompt": {
+    "version": "m2-prompt-gemma-v2",
+    "mode": "persona",
+    "style": "gemma",
+    "currentDate": "2026-11-16"
+  },
+  "multiPersona": {
+    "policy": "det-persona"
+  },
+  "baseline": {
+    "runId": "m3b-v2-baseline-en-r3",
+    "metrics": {
+      "turn_taking.required_speaker_rate": 0.6764705882352942,
+      "turn_taking.silence_appropriate_rate": 0,
+      "run.failure_rate": 0,
+      "transcript.guard_violations": 0,
+      "response.plain_text_rate": 1
+    }
+  }
+}
