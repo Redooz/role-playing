@@ -1,0 +1,27 @@
+{
+  "id": "golden-routing-fr-110-cal-028",
+  "lang": "fr",
+  "split": "calibration",
+  "taskId": "routing-fr-110-cal-028",
+  "routingOutcome": {
+    "intent": "rt-q2-learner",
+    "acceptablePersonaIds": [],
+    "allowUserYield": true,
+    "labelSource": "agent",
+    "family": "RT-Q2",
+    "note": "visible: transcript[2] \"La revue de l'incident est planifiée.\"; covered: manager_goal"
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "La revue de l'incident est planifiée."
+    },
+    {
+      "turnIndex": 3,
+      "textRef": "Quelle est la conclusion sur la revue de l'incident ?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v3. Provisional, not human ground truth."
+}

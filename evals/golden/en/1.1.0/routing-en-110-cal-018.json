@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-en-110-cal-018",
+  "lang": "en",
+  "split": "calibration",
+  "taskId": "routing-en-110-cal-018",
+  "routingOutcome": {
+    "intent": "rt-s4-manager",
+    "acceptablePersonaIds": ["manager"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "family": "RT-S4",
+    "note": "owner: manager.objectives[manager_goal] \"incident review\""
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Can we confirm the incident review before the meeting?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v3. Provisional, not human ground truth."
+}

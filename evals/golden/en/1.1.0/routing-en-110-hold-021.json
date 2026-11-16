@@ -1,0 +1,24 @@
+{
+  "id": "golden-routing-en-110-hold-021",
+  "lang": "en",
+  "split": "holdout",
+  "taskId": "routing-en-110-hold-021",
+  "routingOutcome": {
+    "intent": "rt-d1-client",
+    "acceptablePersonaIds": ["client"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "family": "RT-D1",
+    "distractor": true,
+    "note": "owner: client.objectives[client_goal] \"start date\"; named: peer"
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Sam, do you want to sign off on the start date?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v3. Provisional, not human ground truth."
+}

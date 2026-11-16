@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-en-110-cal-038",
+  "lang": "en",
+  "split": "calibration",
+  "taskId": "routing-en-110-cal-038",
+  "routingOutcome": {
+    "intent": "mixed-peer",
+    "acceptablePersonaIds": ["peer"],
+    "allowUserYield": true,
+    "labelSource": "agent",
+    "family": "mixed",
+    "note": "owner: peer.objectives[peer_goal] \"incident log\"; learner may proceed"
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "I have the incident log ready whenever you want it."
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v3. Provisional, not human ground truth."
+}

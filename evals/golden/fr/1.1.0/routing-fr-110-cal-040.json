@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-fr-110-cal-040",
+  "lang": "fr",
+  "split": "calibration",
+  "taskId": "routing-fr-110-cal-040",
+  "routingOutcome": {
+    "intent": "mixed-manager",
+    "acceptablePersonaIds": ["manager"],
+    "allowUserYield": true,
+    "labelSource": "agent",
+    "family": "mixed",
+    "note": "owner: manager.objectives[manager_goal] \"budget voyage\"; learner may proceed"
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Je peux préparer une note sur le budget voyage et la partager, si c'est utile."
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v3. Provisional, not human ground truth."
+}

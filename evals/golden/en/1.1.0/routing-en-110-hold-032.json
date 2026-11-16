@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-en-110-hold-032",
+  "lang": "en",
+  "split": "holdout",
+  "taskId": "routing-en-110-hold-032",
+  "routingOutcome": {
+    "intent": "rt-q3-learner",
+    "acceptablePersonaIds": [],
+    "allowUserYield": true,
+    "labelSource": "agent",
+    "family": "RT-Q3",
+    "note": "self-directed: no addressee; mentions client_goal"
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "The service update feels like the risky part."
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v3. Provisional, not human ground truth."
+}

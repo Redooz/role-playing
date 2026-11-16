@@ -1,0 +1,27 @@
+{
+  "id": "golden-routing-en-110-cal-030",
+  "lang": "en",
+  "split": "calibration",
+  "taskId": "routing-en-110-cal-030",
+  "routingOutcome": {
+    "intent": "rt-q2-learner",
+    "acceptablePersonaIds": [],
+    "allowUserYield": true,
+    "labelSource": "agent",
+    "family": "RT-Q2",
+    "note": "visible: transcript[2] \"The visit agenda is agreed.\"; covered: client_goal"
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "The visit agenda is agreed."
+    },
+    {
+      "turnIndex": 3,
+      "textRef": "Has the visit agenda been settled?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v3. Provisional, not human ground truth."
+}

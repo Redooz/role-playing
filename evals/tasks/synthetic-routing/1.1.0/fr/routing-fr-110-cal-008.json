@@ -1,0 +1,94 @@
+{
+  "id": "routing-fr-110-cal-008",
+  "lang": "fr",
+  "mode": "routing",
+  "domain": "workplace",
+  "scenarioType": "incident",
+  "cefrBand": "B1",
+  "speakerId": "speaker-routing-110-fr-calibration",
+  "split": "calibration",
+  "provenance": {
+    "source": "synthetic",
+    "note": "M3c routing replay decision point"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "routingRubric": "m3a-routing-rubric-v1",
+    "annotationGuideline": "m3a-routing-label-v3"
+  },
+  "content": {
+    "scenarioBrief": "L'apprenant participe à une conversation professionnelle sur la revue de l'incident.",
+    "turns": []
+  },
+  "routing": {
+    "context": {
+      "decisionId": "routing-fr-110-cal-008",
+      "turnId": "routing-fr-110-cal-008-turn",
+      "lang": "fr",
+      "transcript": [
+        {
+          "speaker": {
+            "kind": "persona",
+            "personaId": "manager"
+          },
+          "text": "Il faut faire avancer la revue de l'incident."
+        },
+        {
+          "speaker": {
+            "kind": "persona",
+            "personaId": "peer"
+          },
+          "text": "J'ai repris les notes d'hier."
+        },
+        {
+          "speaker": {
+            "kind": "user"
+          },
+          "text": "Peut-on confirmer le journal de l'incident ?"
+        }
+      ],
+      "personas": [
+        {
+          "id": "manager",
+          "displayName": "Katherine Brooks",
+          "aliases": ["Katherine", "Kate"],
+          "role": "responsable",
+          "objectives": [
+            {
+              "id": "manager_goal",
+              "description": "Piloter la revue de l'incident.",
+              "keywords": ["revue de l'incident"]
+            }
+          ]
+        },
+        {
+          "id": "peer",
+          "displayName": "Sam Carter",
+          "aliases": ["Sam"],
+          "role": "collègue",
+          "objectives": [
+            {
+              "id": "peer_goal",
+              "description": "Suivre le journal de l'incident.",
+              "keywords": ["journal de l'incident"]
+            }
+          ]
+        },
+        {
+          "id": "client",
+          "displayName": "Julian Moore",
+          "aliases": ["Julian", "Mr Moore"],
+          "role": "client externe",
+          "objectives": [
+            {
+              "id": "client_goal",
+              "description": "Régler la mise à jour du service.",
+              "keywords": ["mise à jour du service"]
+            }
+          ]
+        }
+      ],
+      "coveredObjectiveIds": []
+    }
+  }
+}

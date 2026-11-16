@@ -1,0 +1,27 @@
+{
+  "id": "golden-routing-en-110-hold-030",
+  "lang": "en",
+  "split": "holdout",
+  "taskId": "routing-en-110-hold-030",
+  "routingOutcome": {
+    "intent": "rt-q2-learner",
+    "acceptablePersonaIds": [],
+    "allowUserYield": true,
+    "labelSource": "agent",
+    "family": "RT-Q2",
+    "note": "visible: transcript[2] \"The budget is approved for this quarter.\"; covered: manager_goal"
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "The budget is approved for this quarter."
+    },
+    {
+      "turnIndex": 3,
+      "textRef": "What was the final word on the budget?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v3. Provisional, not human ground truth."
+}

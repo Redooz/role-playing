@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-en-110-hold-037",
+  "lang": "en",
+  "split": "holdout",
+  "taskId": "routing-en-110-hold-037",
+  "routingOutcome": {
+    "intent": "mixed-peer",
+    "acceptablePersonaIds": ["peer"],
+    "allowUserYield": true,
+    "labelSource": "agent",
+    "family": "mixed",
+    "note": "owner: peer.objectives[peer_goal] \"incident log\"; learner may proceed"
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "I can wait for the incident log before I send anything."
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v3. Provisional, not human ground truth."
+}

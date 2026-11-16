@@ -83,9 +83,14 @@ routing tasks:
 
 ```sh
 node tools/annotation-kit/routing-bundle.mjs \
-  --tasks evals/tasks/synthetic-routing/1.0.0 \
-  --out evals/results/annotation-kit-m3a
+  --tasks evals/tasks/synthetic-routing/1.1.0 \
+  --out evals/results/annotation-kit-m3c \
+  --guideline m3a-routing-label-v3
 ```
+
+`--guideline` and `--rubric` default to the `1.0.0` versions; name the new
+guideline when the tasks pin it. The version defaults to the task directory
+name.
 
 `cases.jsonl` contains only an opaque `caseId`, the learner-visible transcript,
 personas, objectives and covered ids. It excludes the real task id, split, speaker
@@ -110,12 +115,15 @@ Compare the two passes:
 ```sh
 node tools/annotation-kit/routing-analyze-agreement.mjs \
   --a /path/to/pass-a/labels --b /path/to/pass-b/labels \
-  --min 0.8
+  --classes /path/to/bundle-operator/manifest.json \
+  --min 0.8 --min-per-class 0.8
 ```
 
-The report gives exact accepted-outcome agreement overall and per language. A
-missing case in either pass exits 2. Any language below `--min` (default 0.8)
-exits 3, so the pre-registered bar is enforced. This is agent/provisional
+Without `--classes` the report gives exact accepted-outcome agreement overall
+and per language. With it, the report adds agreement per class and per
+language × class, plus two directional counts: `aSilenceBSpoke` (pass A said
+silence while pass B said speak) and `aSpokeBSilence`. A missing case exits 2.
+Any language, class or cell below its bar exits 3. This is agent/provisional
 annotation unless the labels come from blind human double-labelling.
 
 ## The human-label rule

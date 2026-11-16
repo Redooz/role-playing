@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-en-110-hold-038",
+  "lang": "en",
+  "split": "holdout",
+  "taskId": "routing-en-110-hold-038",
+  "routingOutcome": {
+    "intent": "mixed-manager",
+    "acceptablePersonaIds": ["manager"],
+    "allowUserYield": true,
+    "labelSource": "agent",
+    "family": "mixed",
+    "note": "owner: manager.objectives[manager_goal] \"feedback summary\"; learner may proceed"
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "I can start work on the feedback summary now, unless you want to add something."
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v3. Provisional, not human ground truth."
+}

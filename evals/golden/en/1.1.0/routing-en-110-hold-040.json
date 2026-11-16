@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-en-110-hold-040",
+  "lang": "en",
+  "split": "holdout",
+  "taskId": "routing-en-110-hold-040",
+  "routingOutcome": {
+    "intent": "mixed-client",
+    "acceptablePersonaIds": ["client"],
+    "allowUserYield": true,
+    "labelSource": "agent",
+    "family": "mixed",
+    "note": "owner: client.objectives[client_goal] \"pricing\"; learner may proceed"
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "I can send the pricing today if that works."
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v3. Provisional, not human ground truth."
+}

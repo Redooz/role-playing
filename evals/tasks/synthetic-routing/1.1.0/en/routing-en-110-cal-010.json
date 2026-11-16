@@ -1,0 +1,94 @@
+{
+  "id": "routing-en-110-cal-010",
+  "lang": "en",
+  "mode": "routing",
+  "domain": "workplace",
+  "scenarioType": "travel",
+  "cefrBand": "B1",
+  "speakerId": "speaker-routing-110-en-calibration",
+  "split": "calibration",
+  "provenance": {
+    "source": "synthetic",
+    "note": "M3c routing replay decision point"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "routingRubric": "m3a-routing-rubric-v1",
+    "annotationGuideline": "m3a-routing-label-v3"
+  },
+  "content": {
+    "scenarioBrief": "The learner is in a workplace conversation about the travel budget.",
+    "turns": []
+  },
+  "routing": {
+    "context": {
+      "decisionId": "routing-en-110-cal-010",
+      "turnId": "routing-en-110-cal-010-turn",
+      "lang": "en",
+      "transcript": [
+        {
+          "speaker": {
+            "kind": "persona",
+            "personaId": "manager"
+          },
+          "text": "We need to keep the travel budget moving."
+        },
+        {
+          "speaker": {
+            "kind": "persona",
+            "personaId": "peer"
+          },
+          "text": "I picked up the notes from yesterday."
+        },
+        {
+          "speaker": {
+            "kind": "user"
+          },
+          "text": "Actually, the travel budget was approved yesterday, not last week."
+        }
+      ],
+      "personas": [
+        {
+          "id": "manager",
+          "displayName": "Katherine Brooks",
+          "aliases": ["Katherine", "Kate"],
+          "role": "manager",
+          "objectives": [
+            {
+              "id": "manager_goal",
+              "description": "Own the travel budget.",
+              "keywords": ["travel budget"]
+            }
+          ]
+        },
+        {
+          "id": "peer",
+          "displayName": "Sam Carter",
+          "aliases": ["Sam"],
+          "role": "peer colleague",
+          "objectives": [
+            {
+              "id": "peer_goal",
+              "description": "Handle the booking sheet.",
+              "keywords": ["booking sheet"]
+            }
+          ]
+        },
+        {
+          "id": "client",
+          "displayName": "Julian Moore",
+          "aliases": ["Julian", "Mr Moore"],
+          "role": "external client",
+          "objectives": [
+            {
+              "id": "client_goal",
+              "description": "Resolve the visit agenda.",
+              "keywords": ["visit agenda"]
+            }
+          ]
+        }
+      ],
+      "coveredObjectiveIds": []
+    }
+  }
+}

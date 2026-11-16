@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-en-110-cal-032",
+  "lang": "en",
+  "split": "calibration",
+  "taskId": "routing-en-110-cal-032",
+  "routingOutcome": {
+    "intent": "rt-q3-learner",
+    "acceptablePersonaIds": [],
+    "allowUserYield": true,
+    "labelSource": "agent",
+    "family": "RT-Q3",
+    "note": "self-directed: no addressee; mentions manager_goal"
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "I think the onboarding plan is the real problem here."
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v3. Provisional, not human ground truth."
+}

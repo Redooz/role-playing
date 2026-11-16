@@ -38,7 +38,7 @@ export function parseRoutingLabel(raw) {
   if (acceptablePersonaIds.length === 0 && !allowUserYield) {
     throw new Error('a label must accept at least one persona or learner yield')
   }
-  if (typeof lang !== 'string' || !LANGS.has(lang)) {
+  if (!LANGS.has(lang)) {
     throw new Error('lang must be "en" or "fr"')
   }
 
@@ -62,8 +62,49 @@ export function labelsAgree(left, right) {
   return outcomeSignature(left) === outcomeSignature(right)
 }
 
-export function summarizeRoutingAgreement(leftLabels, rightLabels) {
+/** The three label classes, in report order. */
+export const ROUTING_CLASSES = ['speak', 'silence', 'mixed']
+
+/** Classify one label by who is allowed to speak. */
+export function routingLabelClass(label) {
+  if (label.acceptablePersonaIds.length === 0) return 'silence'
+  return label.allowUserYield ? 'mixed' : 'speak'
+}
+
+/**
+ * Compare two independent passes.
+ *
+ * Pass `{ classByCase }` (a `Map` or plain object from an operator manifest) to
+ * add per-class agreement and the two directional disagreement counts. Without
+ * it the summary is exactly the per-language shape older callers expect.
+ */
+function classLookup(options) {
+  const value = options.classByCase
+  if (value === undefined) return undefined
+  return value instanceof Map ? value : new Map(Object.entries(value))
+}
+
+function emptyCounts() {
+  return { n: 0, exact: 0, exactRate: 0 }
+}
+
+/** Add one pair to a counter. The caller only passes counted pairs, so n >= 1. */
+function addCount(counts, agree) {
+  counts.n += 1
+  if (agree) counts.exact += 1
+  counts.exactRate = counts.exact / counts.n
+}
+
+/** The directional name of a silence/speaker disagreement, if it is one. */
+function directionOf(leftClass, rightClass) {
+  if (leftClass === 'silence' && rightClass === 'speak') return 'aSilenceBSpoke'
+  if (leftClass === 'speak' && rightClass === 'silence') return 'aSpokeBSilence'
+  return undefined
+}
+
+export function summarizeRoutingAgreement(leftLabels, rightLabels, options = {}) {
   const rightByCase = new Map(rightLabels.map((label) => [label.caseId, label]))
+  const classes = classLookup(options)
   const pairs = []
   for (const left of leftLabels) {
     const right = rightByCase.get(left.caseId)
@@ -71,23 +112,27 @@ export function summarizeRoutingAgreement(leftLabels, rightLabels) {
     if (left.lang !== right.lang) {
       throw new Error(`language mismatch for ${left.caseId}: ${left.lang} vs ${right.lang}`)
     }
-    pairs.push({ caseId: left.caseId, lang: left.lang, agree: labelsAgree(left, right) })
+    const expectedClass = classes?.get(left.caseId)
+    if (classes !== undefined && expectedClass === undefined) {
+      throw new Error(`missing expected class for ${left.caseId}`)
+    }
+    pairs.push({
+      caseId: left.caseId,
+      lang: left.lang,
+      agree: labelsAgree(left, right),
+      leftClass: routingLabelClass(left),
+      rightClass: routingLabelClass(right),
+      expectedClass,
+    })
   }
 
   const summary = { n: pairs.length, exact: 0, exactRate: 0, byLang: {} }
   for (const pair of pairs) {
-    const lang = pair.lang
-    summary.byLang[lang] ??= { n: 0, exact: 0, exactRate: 0 }
-    summary.byLang[lang].n += 1
-    if (pair.agree) {
-      summary.exact += 1
-      summary.byLang[lang].exact += 1
-    }
+    summary.byLang[pair.lang] ??= emptyCounts()
+    addCount(summary.byLang[pair.lang], pair.agree)
   }
+  summary.exact = pairs.filter((pair) => pair.agree).length
   summary.exactRate = summary.n === 0 ? 0 : summary.exact / summary.n
-  for (const entry of Object.values(summary.byLang)) {
-    entry.exactRate = entry.n === 0 ? 0 : entry.exact / entry.n
-  }
 
   const unmatched = [
     ...leftLabels.filter((label) => !rightByCase.has(label.caseId)).map((label) => label.caseId),
@@ -96,7 +141,31 @@ export function summarizeRoutingAgreement(leftLabels, rightLabels) {
       .map((label) => label.caseId),
   ].sort()
 
-  return { ...summary, unmatched }
+  if (classes === undefined) return { ...summary, unmatched }
+
+  const classValues = new Set(classes.values())
+  for (const klass of classValues) {
+    if (!ROUTING_CLASSES.includes(klass)) {
+      throw new Error(`unknown expected class "${klass}"`)
+    }
+  }
+  const declaredClasses = ROUTING_CLASSES.filter((klass) => classValues.has(klass))
+  const byClass = {}
+  for (const klass of declaredClasses) byClass[klass] = emptyCounts()
+  const byClassAndLang = {}
+  const directions = { aSilenceBSpoke: 0, aSpokeBSilence: 0 }
+  for (const pair of pairs) {
+    byClassAndLang[pair.lang] ??= {}
+    for (const klass of declaredClasses) {
+      byClassAndLang[pair.lang][klass] ??= emptyCounts()
+    }
+    addCount(byClass[pair.expectedClass], pair.agree)
+    addCount(byClassAndLang[pair.lang][pair.expectedClass], pair.agree)
+    const direction = directionOf(pair.leftClass, pair.rightClass)
+    if (direction !== undefined) directions[direction] += 1
+  }
+
+  return { ...summary, byClass, byClassAndLang, directions, unmatched }
 }
 
 /** Return every language below the pre-registered exact-agreement bar. */
@@ -106,6 +175,34 @@ export function agreementFailures(summary, minimum) {
     if (entry.n === 0) failures.push(`${lang}: no matched cases`)
     else if (entry.exactRate < minimum) {
       failures.push(`${lang}: ${entry.exactRate.toFixed(3)} < ${minimum.toFixed(3)}`)
+    }
+  }
+  return failures
+}
+
+/** Return every class below the pre-registered exact-agreement bar. */
+export function agreementFailuresByClass(summary, minimum) {
+  const failures = []
+  if (summary.byClass === undefined) return failures
+  for (const [klass, entry] of Object.entries(summary.byClass)) {
+    if (entry.n === 0) failures.push(`${klass}: no matched cases`)
+    else if (entry.exactRate < minimum) {
+      failures.push(`${klass}: ${entry.exactRate.toFixed(3)} < ${minimum.toFixed(3)}`)
+    }
+  }
+  return failures
+}
+
+/** Return every language × class cell below the pre-registered bar. */
+export function agreementFailuresByClassAndLanguage(summary, minimum) {
+  const failures = []
+  if (summary.byClassAndLang === undefined) return failures
+  for (const [lang, perClass] of Object.entries(summary.byClassAndLang)) {
+    for (const [klass, entry] of Object.entries(perClass)) {
+      if (entry.n === 0) failures.push(`${lang}/${klass}: no matched cases`)
+      else if (entry.exactRate < minimum) {
+        failures.push(`${lang}/${klass}: ${entry.exactRate.toFixed(3)} < ${minimum.toFixed(3)}`)
+      }
     }
   }
   return failures

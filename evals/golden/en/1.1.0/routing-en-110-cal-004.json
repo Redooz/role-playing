@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-en-110-cal-004",
+  "lang": "en",
+  "split": "calibration",
+  "taskId": "routing-en-110-cal-004",
+  "routingOutcome": {
+    "intent": "rt-s1-client",
+    "acceptablePersonaIds": ["client"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "family": "RT-S1",
+    "note": "owner: client.objectives[client_goal] \"pilot review\""
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Julian, is the pilot review ready?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v3. Provisional, not human ground truth."
+}

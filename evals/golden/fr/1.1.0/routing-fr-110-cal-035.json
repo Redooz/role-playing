@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-fr-110-cal-035",
+  "lang": "fr",
+  "split": "calibration",
+  "taskId": "routing-fr-110-cal-035",
+  "routingOutcome": {
+    "intent": "rt-q4-learner",
+    "acceptablePersonaIds": [],
+    "allowUserYield": true,
+    "labelSource": "agent",
+    "family": "RT-Q4",
+    "note": "aside: no eligible addressee"
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Le train était encore en retard ce matin."
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v3. Provisional, not human ground truth."
+}

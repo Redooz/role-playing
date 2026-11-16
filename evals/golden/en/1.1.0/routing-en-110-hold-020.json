@@ -1,0 +1,24 @@
+{
+  "id": "golden-routing-en-110-hold-020",
+  "lang": "en",
+  "split": "holdout",
+  "taskId": "routing-en-110-hold-020",
+  "routingOutcome": {
+    "intent": "rt-d1-peer",
+    "acceptablePersonaIds": ["peer"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "family": "RT-D1",
+    "distractor": true,
+    "note": "owner: peer.objectives[peer_goal] \"cost forecast\"; named: client"
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Julian, is the cost forecast ready?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v3. Provisional, not human ground truth."
+}

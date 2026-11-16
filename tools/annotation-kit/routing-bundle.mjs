@@ -11,7 +11,7 @@
  */
 import { createHash } from 'node:crypto'
 import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { annotatorCase } from './routing-labels.mjs'
 
 function arg(name, fallback) {
@@ -25,6 +25,20 @@ function arg(name, fallback) {
 const repo = resolve(arg('--repo', process.cwd()))
 const tasksRoot = resolve(repo, arg('--tasks', 'evals/tasks/synthetic-routing/1.0.0'))
 const out = resolve(repo, arg('--out', 'evals/results/annotation-kit-m3a'))
+const version = arg('--version', null) ?? basename(tasksRoot)
+const goldensRoot = resolve(repo, arg('--goldens', 'evals/golden'))
+const rubric = arg('--rubric', 'm3a-routing-rubric-v1')
+const guideline = arg('--guideline', 'm3a-routing-label-v1')
+
+/** The expected class comes from the golden, and stays operator-only. */
+function expectedClassOf(task) {
+  const path = join(goldensRoot, task.lang, version, `${task.id}.json`)
+  const golden = JSON.parse(readFileSync(path, 'utf8'))
+  const label = golden.routingOutcome
+  if (label === undefined) throw new Error(`${path} has no routingOutcome label`)
+  if (label.acceptablePersonaIds.length === 0) return 'silence'
+  return label.allowUserYield ? 'mixed' : 'speak'
+}
 
 function jsonFiles(directory) {
   const files = []
@@ -33,7 +47,9 @@ function jsonFiles(directory) {
   )) {
     const path = join(directory, entry.name)
     if (entry.isDirectory()) files.push(...jsonFiles(path))
-    else if (entry.isFile() && entry.name.endsWith('.json')) files.push(path)
+    else if (entry.isFile() && entry.name.endsWith('.json') && entry.name !== 'composition.json') {
+      files.push(path)
+    }
   }
   return files
 }
@@ -48,7 +64,12 @@ const rows = jsonFiles(tasksRoot)
   .map((file) => JSON.parse(readFileSync(file, 'utf8')))
   .map((task) => {
     const caseId = opaqueCaseId(task.id)
-    return { task, caseId, caseData: annotatorCase(task, caseId) }
+    return {
+      task,
+      caseId,
+      caseData: annotatorCase(task, caseId),
+      expectedClass: expectedClassOf(task),
+    }
   })
 rows.sort(
   (a, b) =>
@@ -69,8 +90,8 @@ writeFileSync(
     {
       defaultPass: 'p1',
       labelsDir: 'labels',
-      rubric: 'm3a-routing-rubric-v1',
-      annotationGuideline: 'm3a-routing-label-v1',
+      rubric,
+      annotationGuideline: guideline,
       labelShape: {
         caseId: 'opaque case id from cases.jsonl',
         lang: 'en | fr',
@@ -91,6 +112,7 @@ writeFileSync(
       taskId: row.task.id,
       lang: row.task.lang,
       split: row.task.split,
+      expectedClass: row.expectedClass,
     })),
     null,
     2,

@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-fr-110-cal-025",
+  "lang": "fr",
+  "split": "calibration",
+  "taskId": "routing-fr-110-cal-025",
+  "routingOutcome": {
+    "intent": "rt-q1-learner",
+    "acceptablePersonaIds": [],
+    "allowUserYield": true,
+    "labelSource": "agent",
+    "family": "RT-Q1",
+    "note": "closing: no request; no owner"
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Très bien, j'ai ce qu'il me faut."
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v3. Provisional, not human ground truth."
+}
