@@ -5,11 +5,17 @@
  * Example:
  *   node tools/annotation-kit/routing-analyze-agreement.mjs \
  *     --a /path/to/pass-a/labels --b /path/to/pass-b/labels
+ *
+ * Pass `--classes <operator-manifest.json>` to add per-class agreement and the
+ * two directional silence/speaker disagreement counts. The manifest is the one
+ * `routing-bundle.mjs` writes next to the bundle; keep it away from annotators.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import {
   agreementFailures,
+  agreementFailuresByClass,
+  agreementFailuresByClassAndLanguage,
   parseRoutingLabel,
   summarizeRoutingAgreement,
 } from './routing-labels.mjs'
@@ -34,19 +40,44 @@ function labels(directory) {
     .map((name) => parseRoutingLabel(JSON.parse(readFileSync(join(root, name), 'utf8'))))
 }
 
+function classMap(path) {
+  const manifest = JSON.parse(readFileSync(resolve(path), 'utf8'))
+  if (!Array.isArray(manifest)) {
+    throw new Error('--classes must point at the operator manifest array')
+  }
+  const map = {}
+  for (const entry of manifest) {
+    if (typeof entry.caseId !== 'string' || typeof entry.expectedClass !== 'string') {
+      throw new Error('every operator manifest entry needs caseId and expectedClass')
+    }
+    map[entry.caseId] = entry.expectedClass
+  }
+  return map
+}
+
 const minimum = Number(arg('--min', '0.8'))
 if (!Number.isFinite(minimum) || minimum < 0 || minimum > 1) {
   throw new Error('--min must be a number in [0, 1]')
 }
+const minimumPerClass = Number(arg('--min-per-class', String(minimum)))
+if (!Number.isFinite(minimumPerClass) || minimumPerClass < 0 || minimumPerClass > 1) {
+  throw new Error('--min-per-class must be a number in [0, 1]')
+}
+const classesPath = arg('--classes', null)
+const options = classesPath === null ? {} : { classByCase: classMap(classesPath) }
 
-const summary = summarizeRoutingAgreement(labels(arg('--a')), labels(arg('--b')))
+const summary = summarizeRoutingAgreement(labels(arg('--a')), labels(arg('--b')), options)
 console.log(JSON.stringify(summary, null, 2))
 if (summary.unmatched.length > 0) {
   console.error(`unmatched case ids: ${summary.unmatched.join(', ')}`)
   process.exitCode = 2
 }
-const failures = agreementFailures(summary, minimum)
+const failures = [
+  ...agreementFailures(summary, minimum),
+  ...agreementFailuresByClass(summary, minimumPerClass),
+  ...agreementFailuresByClassAndLanguage(summary, minimumPerClass),
+]
 if (failures.length > 0) {
-  console.error(`agreement below ${minimum}: ${failures.join('; ')}`)
+  console.error(`agreement below the pre-registered bar: ${failures.join('; ')}`)
   process.exitCode = 3
 }
