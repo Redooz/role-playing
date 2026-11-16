@@ -26,9 +26,14 @@ import { aggregate, costOf, loadHoldoutTasks } from './m3b-shadow-summary.js'
  * event; they go to `shadow.jsonl` and a summary. No policy is adopted.
  */
 const REPO_ROOT = fileURLToPath(new URL('../../../', import.meta.url))
-const TASKS_ROOT = join(REPO_ROOT, 'evals/tasks/synthetic-multi-persona-session/m3b-v1')
-const RESULTS_ROOT = join(REPO_ROOT, 'evals/results/m3b-shadow')
-const CURRENT_DATE = '2026-11-12'
+const TASKS_ROOT =
+  process.env.M3B_TASKS_ROOT?.trim() ||
+  join(REPO_ROOT, 'evals/tasks/synthetic-multi-persona-session/m3b-v2')
+const RESULTS_ROOT = join(
+  REPO_ROOT,
+  process.env.M3B_SHADOW_DIR?.trim() || 'evals/results/m3b-v2-shadow',
+)
+const CURRENT_DATE = process.env.M3B_CURRENT_DATE?.trim() || '2026-11-16'
 const SEED = 20261112
 const DEADLINE_MS = 2_500
 const COST_CAP_USD = 5
@@ -78,7 +83,7 @@ async function main(): Promise<void> {
     const provider = liveProvider()
     try {
       const result = await runSessionTask({
-        runId: 'm3b-shadow',
+        runId: 'm3b-v2-shadow',
         executionId: `${task.id}-shadow`,
         task,
         clock: new SystemClock(),
@@ -111,7 +116,7 @@ async function main(): Promise<void> {
   const shadowCost = costOf(records)
   const combined = {
     schemaVersion: 1,
-    suite: 'm3b-shadow',
+    suite: 'm3b-v2-shadow',
     note: 'Eval-only shadow comparison over holdout tasks. No policy is adopted.',
     capUsd: COST_CAP_USD,
     capScope: 'shadow records only; capability spend is recorded separately',
