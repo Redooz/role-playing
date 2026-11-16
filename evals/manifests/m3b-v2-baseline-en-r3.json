@@ -36,11 +36,6 @@
   },
   "guardrails": [
     {
-      "metric": "turn_taking.silence_appropriate_rate",
-      "direction": "increase",
-      "tolerance": 0
-    },
-    {
       "metric": "run.failure_rate",
       "direction": "decrease",
       "tolerance": 0

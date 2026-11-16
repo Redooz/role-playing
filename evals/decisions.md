@@ -366,4 +366,10 @@ with the M3a routing numbers or the M3b `m3b-v1` numbers: the dataset, the class
 axes and the grader version all changed. `pass^3` uses `k = 3`; with `n = 3` it
 is descriptive only, and the independence gap (shared process, provider and
 filesystem) remains. Live Gemma spend is unmeasured: the run records usage but
-not a priced total, so the $5 cap is not claimed.
+not a priced total, so the $5 cap is not claimed. The French det-persona run
+uses 250 ms provider pacing after two attempts failed on transient provider
+calls; the failed attempts are not evidence.
+
+Silence is reported, not registered as a guardrail: its baseline is 0, so a
+baseline-relative guardrail could never fail. It improves by +0.667 in both
+languages, above the pre-registered 0.25 reading.
