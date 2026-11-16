@@ -915,7 +915,7 @@ function buildSlice(lang, split, offset) {
         consentScope: 'synthetic-no-consent-required',
         annotationVersions: {
           routingRubric: 'm3a-routing-rubric-v1',
-          annotationGuideline: 'm3a-routing-label-v2',
+          annotationGuideline: 'm3a-routing-label-v3',
         },
         content: { scenarioBrief, turns: [] },
         routing: {
@@ -949,7 +949,7 @@ function buildSlice(lang, split, offset) {
         pairwisePreferences: [],
         status: 'draft',
         notes:
-          'Agent label authored against m3a-routing-label-v2. Provisional, not human ground truth.',
+          'Agent label authored against m3a-routing-label-v3. Provisional, not human ground truth.',
       })
     }
   }

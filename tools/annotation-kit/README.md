@@ -85,7 +85,7 @@ routing tasks:
 node tools/annotation-kit/routing-bundle.mjs \
   --tasks evals/tasks/synthetic-routing/1.1.0 \
   --out evals/results/annotation-kit-m3c \
-  --guideline m3a-routing-label-v2
+  --guideline m3a-routing-label-v3
 ```
 
 `--guideline` and `--rubric` default to the `1.0.0` versions; name the new
