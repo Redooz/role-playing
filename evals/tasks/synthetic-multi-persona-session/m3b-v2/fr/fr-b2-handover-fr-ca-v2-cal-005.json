@@ -1,0 +1,37 @@
+{
+  "id": "fr-b2-handover-fr-ca-v2-cal-005",
+  "lang": "fr",
+  "locale": "fr-CA",
+  "mode": "session",
+  "domain": "workplace",
+  "scenarioType": "post-demo-handover",
+  "cefrBand": "B2",
+  "speakerId": "syn-v2-fr-handover-fr-ca-calibration-005",
+  "split": "calibration",
+  "provenance": {
+    "source": "synthetic",
+    "note": "M3c two-persona speaker-label decision points"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "rubric": "m3b-turn-taking-rubric-v1",
+    "annotationGuideline": "m3b-speaker-label-guideline-v1"
+  },
+  "content": {
+    "scenarioBrief": "Après la démonstration client, la responsable et le collègue se répartissent le suivi ; l’apprenant confirme les responsables et les prochaines étapes.",
+    "turns": []
+  },
+  "session": {
+    "personaId": "manager",
+    "personaIds": ["manager", "peer"],
+    "personaVersion": "1.0.0",
+    "scenarioId": "post-demo-handover",
+    "scenarioVersion": "1.0.0",
+    "scriptedUserTurns": [
+      "Je ne suis pas sûr que l'export soit si petit que ça.",
+      "Dois-je prévenir le client ? Non, Catherine s'en occupe.",
+      "La salle est chaude après la démo.",
+      "Mon café a encore refroidi."
+    ]
+  }
+}
