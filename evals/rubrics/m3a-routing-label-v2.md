@@ -58,6 +58,35 @@ the answer is visible.
 - **R9 — Mixed.** Label `mixed` only when both a persona reply and learner yield
   are genuinely acceptable. Do not use it to avoid deciding ownership.
 
+## Mixed test
+
+`mixed` is a property of the **acceptable outcome set**, not of whether a reply
+is expected. Apply two questions, in order:
+
+1. **Delete the persona's next turn.** Does the learner's move still stand on
+   its own? If yes, learner yield is acceptable.
+2. **Would a persona reply add** information, a decision, or an acknowledgment
+   the learner does not already have? If yes, a persona reply is acceptable.
+
+Both yes → `mixed`, with the owner in `acceptablePersonaIds` and
+`allowUserYield: true`. Only one yes → the matching single class.
+
+Do not label `speak` merely because a reply would be useful. `speak` requires
+that the learner cannot continue alone. Do not label `silence` when the learner
+has addressed the owner and a reply would add something.
+
+| Learner turn                                                               | Delete the reply                              | Reply adds                                 | Label                |
+| -------------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------ | -------------------- |
+| "I can take the first draft today; tell me if you want a different split." | The learner takes the draft; the move stands. | A different split or an approval.          | `mixed` to `manager` |
+| "The draft is on the shared drive."                                        | The learner continues; nothing is requested.  | Nothing the learner does not already have. | `silence`            |
+| "Could you check the draft before Thursday?"                               | The learner has no answer.                    | The check.                                 | `speak` to `peer`    |
+| "I might rework the introduction."                                         | The learner continues alone.                  | No owner is addressed.                     | `silence`            |
+| "I can either send it now or wait; both work."                             | The learner has a plan.                       | A preference or an approval.               | `mixed` to the owner |
+| "Which version should we send?"                                            | The learner has not decided.                  | The decision.                              | `speak` to the owner |
+
+The rule was clarified on 2026-11-15, before any run referenced this version.
+The class definition did not change; the test makes it decidable.
+
 ## Closing moves
 
 A closing move is a speech act with no request for information or action. Tests:
