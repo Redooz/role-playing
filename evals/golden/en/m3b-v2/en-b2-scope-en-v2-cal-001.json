@@ -1,0 +1,45 @@
+{
+  "id": "golden-en-b2-scope-en-v2-cal-001",
+  "lang": "en",
+  "locale": "en",
+  "split": "calibration",
+  "taskId": "en-b2-scope-en-v2-cal-001",
+  "speakerLabels": [
+    {
+      "turnIndex": 0,
+      "acceptablePersonaIds": ["peer"],
+      "allowUserYield": false,
+      "family": "TT-S1",
+      "labelSource": "agent",
+      "note": "owner: objectives[assess-impact].personaIds=[peer]"
+    },
+    {
+      "turnIndex": 1,
+      "acceptablePersonaIds": ["peer"],
+      "allowUserYield": false,
+      "family": "TT-S1",
+      "labelSource": "agent",
+      "note": "owner: objectives[assess-impact].personaIds=[peer]"
+    },
+    {
+      "turnIndex": 2,
+      "acceptablePersonaIds": ["manager"],
+      "allowUserYield": false,
+      "family": "TT-S2",
+      "labelSource": "agent",
+      "note": "owner: objectives[agree-priority].personaIds=[manager]"
+    },
+    {
+      "turnIndex": 3,
+      "acceptablePersonaIds": ["peer"],
+      "allowUserYield": false,
+      "family": "TT-S2",
+      "labelSource": "agent",
+      "note": "owner: objectives[assess-impact].personaIds=[peer]"
+    }
+  ],
+  "evidenceSpans": [],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent labels authored against m3b-speaker-label-guideline-v1. Provisional, not human ground truth."
+}

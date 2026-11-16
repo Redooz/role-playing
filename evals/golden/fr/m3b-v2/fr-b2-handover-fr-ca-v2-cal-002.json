@@ -1,0 +1,45 @@
+{
+  "id": "golden-fr-b2-handover-fr-ca-v2-cal-002",
+  "lang": "fr",
+  "locale": "fr-CA",
+  "split": "calibration",
+  "taskId": "fr-b2-handover-fr-ca-v2-cal-002",
+  "speakerLabels": [
+    {
+      "turnIndex": 0,
+      "acceptablePersonaIds": ["manager"],
+      "allowUserYield": false,
+      "family": "TT-S5",
+      "labelSource": "agent",
+      "note": "owner: facts[2] \"Catherine est responsable de la communication client après la démo.\""
+    },
+    {
+      "turnIndex": 1,
+      "acceptablePersonaIds": ["manager"],
+      "allowUserYield": false,
+      "family": "TT-S6",
+      "labelSource": "agent",
+      "note": "owner: facts[3] \"Catherine est responsable du résumé de déploiement.\""
+    },
+    {
+      "turnIndex": 2,
+      "acceptablePersonaIds": ["peer"],
+      "allowUserYield": true,
+      "family": "mixed",
+      "labelSource": "agent",
+      "note": "owner: facts[1] \"Samir est responsable des notes de suivi de la démo.\"; learner may proceed"
+    },
+    {
+      "turnIndex": 3,
+      "acceptablePersonaIds": ["peer"],
+      "allowUserYield": true,
+      "family": "mixed",
+      "labelSource": "agent",
+      "note": "owner: facts[5] \"Samir est responsable de la liste d’actions.\"; learner may proceed"
+    }
+  ],
+  "evidenceSpans": [],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent labels authored against m3b-speaker-label-guideline-v1. Provisional, not human ground truth."
+}

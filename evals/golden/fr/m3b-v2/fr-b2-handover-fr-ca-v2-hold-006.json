@@ -1,0 +1,45 @@
+{
+  "id": "golden-fr-b2-handover-fr-ca-v2-hold-006",
+  "lang": "fr",
+  "locale": "fr-CA",
+  "split": "holdout",
+  "taskId": "fr-b2-handover-fr-ca-v2-hold-006",
+  "speakerLabels": [
+    {
+      "turnIndex": 0,
+      "acceptablePersonaIds": [],
+      "allowUserYield": true,
+      "family": "TT-Q3",
+      "labelSource": "agent",
+      "note": "self-answer; no owner"
+    },
+    {
+      "turnIndex": 1,
+      "acceptablePersonaIds": [],
+      "allowUserYield": true,
+      "family": "TT-Q4",
+      "labelSource": "agent",
+      "note": "side comment; no owner"
+    },
+    {
+      "turnIndex": 2,
+      "acceptablePersonaIds": ["manager"],
+      "allowUserYield": true,
+      "family": "mixed",
+      "labelSource": "agent",
+      "note": "owner: facts[3] \"Catherine est responsable du résumé de déploiement.\"; learner may proceed"
+    },
+    {
+      "turnIndex": 3,
+      "acceptablePersonaIds": ["manager"],
+      "allowUserYield": true,
+      "family": "mixed",
+      "labelSource": "agent",
+      "note": "owner: facts[2] \"Catherine est responsable de la communication client après la démo.\"; learner may proceed"
+    }
+  ],
+  "evidenceSpans": [],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent labels authored against m3b-speaker-label-guideline-v1. Provisional, not human ground truth."
+}

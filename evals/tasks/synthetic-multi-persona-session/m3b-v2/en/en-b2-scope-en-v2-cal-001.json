@@ -1,0 +1,37 @@
+{
+  "id": "en-b2-scope-en-v2-cal-001",
+  "lang": "en",
+  "locale": "en",
+  "mode": "session",
+  "domain": "workplace",
+  "scenarioType": "standup-scope-change",
+  "cefrBand": "B2",
+  "speakerId": "syn-v2-en-scope-en-calibration-001",
+  "split": "calibration",
+  "provenance": {
+    "source": "synthetic",
+    "note": "M3c two-persona speaker-label decision points"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "rubric": "m3b-turn-taking-rubric-v1",
+    "annotationGuideline": "m3b-speaker-label-guideline-v1"
+  },
+  "content": {
+    "scenarioBrief": "The manager changes the release scope at stand-up; the learner clarifies impact and priority.",
+    "turns": []
+  },
+  "session": {
+    "personaId": "manager",
+    "personaIds": ["manager", "peer"],
+    "personaVersion": "1.0.0",
+    "scenarioId": "standup-scope-change",
+    "scenarioVersion": "1.0.0",
+    "scriptedUserTurns": [
+      "Sam, how much of the notification work is already finished?",
+      "Sam, what is still at risk in the notification impact?",
+      "Katherine, can you confirm the Friday priority?",
+      "Sam, can you take the impact check?"
+    ]
+  }
+}

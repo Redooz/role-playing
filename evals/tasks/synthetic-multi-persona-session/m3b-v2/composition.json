@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "dataset": "synthetic-multi-persona-session",
+  "version": "m3b-v2",
+  "unit": "speaker_label",
+  "splits": {
+    "calibration": {
+      "en": {
+        "classes": {
+          "speak": 28,
+          "silence": 10,
+          "mixed": 2
+        },
+        "minFamilies": 12,
+        "maxPerFamily": 6,
+        "minDistractors": 4
+      },
+      "fr": {
+        "classes": {
+          "speak": 28,
+          "silence": 10,
+          "mixed": 2
+        },
+        "minFamilies": 12,
+        "maxPerFamily": 6,
+        "minDistractors": 4
+      }
+    },
+    "holdout": {
+      "en": {
+        "classes": {
+          "speak": 34,
+          "silence": 12,
+          "mixed": 2
+        },
+        "minFamilies": 12,
+        "maxPerFamily": 8,
+        "minDistractors": 8
+      },
+      "fr": {
+        "classes": {
+          "speak": 34,
+          "silence": 12,
+          "mixed": 2
+        },
+        "minFamilies": 12,
+        "maxPerFamily": 8,
+        "minDistractors": 8
+      }
+    }
+  }
+}
