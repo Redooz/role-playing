@@ -361,7 +361,10 @@ with the capability run and must not call the agent labels stable.
 | 2026-11-16 | M3c P6 capability — French  | `m3b-v2-det-persona-fr-r3` vs `m3b-v2-baseline-fr-r3` | **inconclusive** (below MDE)    | 36/36 trials, 0 failures; required speaker 0.647 vs 0.618 (+0.029, MDE 0.15), silence 0.667 vs 0.000 (+0.667), acceptable 0.667; invariants and `pass^3` hold. No policy adopted.                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | 2026-11-16 | M3c P6 shadow comparison    | `m3b-v2-shadow`                                       | recorded, no adoption           | 288 records over 12 holdout tasks per language; agreement `det-central` 1.000, `jev-persona` 0.719, `jev-central` 0.635; shadow cost $0.0112. Shadow records never changed a session event.                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
-The P6 readings are on `m3b-v2` with grader `1.1.0`. They are not comparable
+The P6 readings are on `m3b-v2` with grader `1.1.0`. The class MDEs are
+registered in the M3c plan (Metrics and MDE): **0.15 speak-required** and
+**0.25 silence-required**. The M3b 0.20 figure was the acceptable-speaker axis on
+`m3b-v1`; it does not govern these class axes. They are not comparable
 with the M3a routing numbers or the M3b `m3b-v1` numbers: the dataset, the class
 axes and the grader version all changed. `pass^3` uses `k = 3`; with `n = 3` it
 is descriptive only, and the independence gap (shared process, provider and
@@ -372,4 +375,4 @@ calls; the failed attempts are not evidence.
 
 Silence is reported, not registered as a guardrail: its baseline is 0, so a
 baseline-relative guardrail could never fail. It improves by +0.667 in both
-languages, above the pre-registered 0.25 reading.
+languages, above the 0.25 silence-required MDE registered in the M3c plan.
