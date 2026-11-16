@@ -4,7 +4,7 @@
     "runId": "m3b-v2-det-persona-fr-r3",
     "suite": "m3b-turn-taking",
     "purpose": "capability",
-    "description": "det-persona candidate over the same m3b-v2 FR holdout tasks as m3b-v2-baseline-fr-r3. Three rounds, pre-registered speak-class MDE 0.15; silence is a non-regression guardrail."
+    "description": "det-persona candidate over the same m3b-v2 FR holdout tasks as m3b-v2-baseline-fr-r3. Three rounds with 250 ms provider pacing after transient call failures, pre-registered speak-class MDE 0.15; silence is reported, not gated, because its baseline is a structural zero."
   },
   "tasks": {
     "dataset": "synthetic-multi-persona-session",
@@ -36,11 +36,6 @@
   },
   "guardrails": [
     {
-      "metric": "turn_taking.silence_appropriate_rate",
-      "direction": "increase",
-      "tolerance": 0
-    },
-    {
       "metric": "run.failure_rate",
       "direction": "decrease",
       "tolerance": 0
@@ -66,7 +61,8 @@
   "provider": {
     "mode": "live",
     "label": "livekit/google/gemma-4-31b-it",
-    "allowLive": true
+    "allowLive": true,
+    "paceMs": 250
   },
   "prompt": {
     "version": "m2-prompt-gemma-v2",
