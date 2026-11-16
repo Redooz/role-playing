@@ -4,7 +4,7 @@
     "runId": "m3b-v2-det-persona-en-r3",
     "suite": "m3b-turn-taking",
     "purpose": "capability",
-    "description": "det-persona candidate over the same m3b-v2 EN holdout tasks as m3b-v2-baseline-en-r3. Three rounds, pre-registered speak-class MDE 0.15; silence is a non-regression guardrail."
+    "description": "det-persona candidate over the same m3b-v2 EN holdout tasks as m3b-v2-baseline-en-r3. Three rounds, pre-registered speak-class MDE 0.15; silence is reported, not gated, because its baseline is a structural zero."
   },
   "tasks": {
     "dataset": "synthetic-multi-persona-session",
@@ -35,11 +35,6 @@
     "minimumDetectableEffect": 0.15
   },
   "guardrails": [
-    {
-      "metric": "turn_taking.silence_appropriate_rate",
-      "direction": "increase",
-      "tolerance": 0
-    },
     {
       "metric": "run.failure_rate",
       "direction": "decrease",
