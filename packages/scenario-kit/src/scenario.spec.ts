@@ -10,7 +10,7 @@ import {
 
 describe('scenario data', () => {
   it('ships every scenario with every seeded locale', () => {
-    expect(SCENARIOS).toHaveLength(4)
+    expect(SCENARIOS).toHaveLength(5)
     for (const scenario of SCENARIOS) {
       expect(Object.keys(scenario.variants).sort()).toEqual(['en', 'en-GB', 'fr', 'fr-CA'])
       for (const variant of Object.values(scenario.variants)) {
@@ -20,19 +20,22 @@ describe('scenario data', () => {
     }
   })
 
-  it('keeps one persona in the M2 scenarios and two in the scope-change scenario', () => {
-    const singlePersona = SCENARIOS.filter((scenario) => scenario.id !== 'standup-scope-change')
+  it('keeps one persona in the M2 scenarios and two in the M3b/M3c scenarios', () => {
+    const twoPersonaIds = new Set(['standup-scope-change', 'post-demo-handover'])
+    const singlePersona = SCENARIOS.filter((scenario) => !twoPersonaIds.has(scenario.id))
     for (const scenario of singlePersona) {
       for (const variant of Object.values(scenario.variants)) {
         expect(variant.personaIds).toHaveLength(1)
       }
     }
 
-    const scopeChange = scenarioById('standup-scope-change')
-    for (const locale of ['en', 'en-GB', 'fr', 'fr-CA'] as const) {
-      const variant = scenarioVariant(scopeChange, locale)
-      expect(variant.personaIds).toEqual(['manager', 'peer'])
-      expect(variant.opening.personaId).toBe('manager')
+    for (const scenarioId of twoPersonaIds) {
+      const scenario = scenarioById(scenarioId)
+      for (const locale of ['en', 'en-GB', 'fr', 'fr-CA'] as const) {
+        const variant = scenarioVariant(scenario, locale)
+        expect(variant.personaIds).toEqual(['manager', 'peer'])
+        expect(variant.opening.personaId).toBe('manager')
+      }
     }
   })
 
@@ -50,6 +53,36 @@ describe('scenario data', () => {
         for (const personaId of objective.personaIds ?? []) {
           expect(variant.personaIds).toContain(personaId)
         }
+      }
+    }
+  })
+
+  it('names every handover owner in one fact and scopes both personas', () => {
+    const scenario = scenarioById('post-demo-handover')
+    for (const locale of ['en', 'en-GB', 'fr', 'fr-CA'] as const) {
+      const variant = scenarioVariant(scenario, locale)
+      expect(variant.personaIds).toEqual(['manager', 'peer'])
+      expect(
+        variant.objectives.filter((objective) => objective.personaIds !== undefined),
+      ).toHaveLength(2)
+      const ownershipFacts = variant.facts.filter((fact) => /owns|responsable/u.test(fact))
+      expect(ownershipFacts.length).toBeGreaterThanOrEqual(4)
+      for (const personaId of variant.personaIds) {
+        expect(
+          variant.facts.some(
+            (fact) =>
+              /owns|responsable/u.test(fact) &&
+              fact.includes(
+                personaId === 'manager'
+                  ? locale.startsWith('fr')
+                    ? 'Catherine'
+                    : 'Katherine'
+                  : locale.startsWith('fr')
+                    ? 'Samir'
+                    : 'Sam',
+              ),
+          ),
+        ).toBe(true)
       }
     }
   })
