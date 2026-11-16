@@ -1,7 +1,8 @@
 # M3b speaker-label guideline v1
 
 Version: `m3b-speaker-label-guideline-v1`
-Applies to: `m3b-v2` and later.
+Applies to: no dataset. It is superseded by `m3b-speaker-label-guideline-v2` for
+`m3b-v2` and later; v1 is kept for history.
 Frozen: `m3b-v1` never uses this guideline and is never edited.
 
 This is the missing rule the M3c P3 taxonomy identified. It defines **who owns a
@@ -145,8 +146,8 @@ These are illustrative, not tasks. Each shows the decision the rule forces.
 
 `m3b-v1` and its goldens stay exactly as they are, including the labels the P3
 taxonomy found ambiguous. This guideline applies to `m3b-v2` and later. A task's
-`annotationVersions` must name `m3b-speaker-label-guideline-v1` when it uses this
-rule.
+`annotationVersions` must name `m3b-speaker-label-guideline-v2` when it uses this
+rule; v1 is kept for history and no task pins it.
 
 ## Conformance checklist
 
