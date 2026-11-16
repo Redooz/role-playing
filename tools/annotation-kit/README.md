@@ -126,6 +126,39 @@ silence while pass B said speak) and `aSpokeBSilence`. A missing case exits 2.
 Any language, class or cell below its bar exits 3. This is agent/provisional
 annotation unless the labels come from blind human double-labelling.
 
+## Speaker labels (M3b)
+
+Session tasks do not use Langfuse queues either. Build a local bundle with one
+case per learner turn:
+
+```sh
+node tools/annotation-kit/speaker-bundle.mjs \
+  --tasks evals/tasks/synthetic-multi-persona-session/m3b-v2 \
+  --out evals/results/annotation-kit-m3c-speakers \
+  --guideline m3b-speaker-label-guideline-v1
+```
+
+`cases.jsonl` contains an opaque `caseId`, the locale, the scenario state
+(setting, facts, objectives), the eligible personas and the learner turns up to
+the turn being labelled. It excludes the task id, split, speaker id, authored
+labels, run ids, arms and scores. The opaque-to-real mapping, with the expected
+class, is written operator-only to `<out>-operator/manifest.json`.
+
+An annotator writes one JSON file per case:
+
+```json
+{
+  "caseId": "case-0123456789abcdef",
+  "lang": "en",
+  "intent": "answer-manager",
+  "acceptablePersonaIds": ["manager"],
+  "allowUserYield": false
+}
+```
+
+Compare the passes with `routing-analyze-agreement.mjs` and `--classes`; a
+speaker label uses the same fields as a routing label.
+
 ## The human-label rule
 
 An LLM pass (the M2 pass used OpenCode) is not a human and is not a
