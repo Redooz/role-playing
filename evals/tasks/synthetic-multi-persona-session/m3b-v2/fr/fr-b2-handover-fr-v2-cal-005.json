@@ -1,12 +1,12 @@
 {
-  "id": "fr-b2-handover-fr-ca-v2-cal-003",
+  "id": "fr-b2-handover-fr-v2-cal-005",
   "lang": "fr",
-  "locale": "fr-CA",
+  "locale": "fr",
   "mode": "session",
   "domain": "workplace",
   "scenarioType": "post-demo-handover",
   "cefrBand": "B2",
-  "speakerId": "syn-v2-fr-handover-fr-ca-calibration-003",
+  "speakerId": "syn-v2-fr-handover-fr-calibration-005",
   "split": "calibration",
   "provenance": {
     "source": "synthetic",
@@ -15,7 +15,7 @@
   "consentScope": "synthetic-no-consent-required",
   "annotationVersions": {
     "rubric": "m3b-turn-taking-rubric-v1",
-    "annotationGuideline": "m3b-speaker-label-guideline-v1"
+    "annotationGuideline": "m3b-speaker-label-guideline-v2"
   },
   "content": {
     "scenarioBrief": "Après la démonstration client, la responsable et le collègue se répartissent le suivi ; l’apprenant confirme les responsables et les prochaines étapes.",
@@ -28,10 +28,10 @@
     "scenarioId": "post-demo-handover",
     "scenarioVersion": "1.0.0",
     "scriptedUserTurns": [
-      "Comment répondre aux questions de suivi du client ?",
-      "À qui dois-je demander les notes de suivi ?",
-      "Catherine, quelles actions de suivi sont encore ouvertes ?",
-      "Catherine, compris, merci."
+      "Je ne suis pas sûr que l'export soit si petit que ça.",
+      "Dois-je prévenir le client ? Non, Catherine s'en occupe.",
+      "La salle est chaude après la démo.",
+      "Mon café a encore refroidi."
     ]
   }
 }

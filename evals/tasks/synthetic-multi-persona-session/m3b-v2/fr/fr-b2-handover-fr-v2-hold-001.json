@@ -1,13 +1,13 @@
 {
-  "id": "fr-b2-handover-fr-ca-v2-cal-001",
+  "id": "fr-b2-handover-fr-v2-hold-001",
   "lang": "fr",
-  "locale": "fr-CA",
+  "locale": "fr",
   "mode": "session",
   "domain": "workplace",
   "scenarioType": "post-demo-handover",
   "cefrBand": "B2",
-  "speakerId": "syn-v2-fr-handover-fr-ca-calibration-001",
-  "split": "calibration",
+  "speakerId": "syn-v2-fr-handover-fr-holdout-001",
+  "split": "holdout",
   "provenance": {
     "source": "synthetic",
     "note": "M3c two-persona speaker-label decision points"
@@ -15,7 +15,7 @@
   "consentScope": "synthetic-no-consent-required",
   "annotationVersions": {
     "rubric": "m3b-turn-taking-rubric-v1",
-    "annotationGuideline": "m3b-speaker-label-guideline-v1"
+    "annotationGuideline": "m3b-speaker-label-guideline-v2"
   },
   "content": {
     "scenarioBrief": "Après la démonstration client, la responsable et le collègue se répartissent le suivi ; l’apprenant confirme les responsables et les prochaines étapes.",
@@ -28,10 +28,10 @@
     "scenarioId": "post-demo-handover",
     "scenarioVersion": "1.0.0",
     "scriptedUserTurns": [
-      "Comment tenir le client informé du déploiement ?",
-      "Qui doit mettre le client à jour après la démo ?",
-      "Catherine, qu'est-ce que je dois faire avant la prochaine démo ?",
-      "Samir, qu'est-ce que je dois faire pour la liste d'actions ?"
+      "Quand faut-il envoyer une mise à jour au client ?",
+      "Comment expliquer le plan de déploiement au client ?",
+      "Quelle est la prochaine étape pour la liste d'actions ?",
+      "Catherine, qu'est-ce que je dois préparer pour l'appel client ?"
     ]
   }
 }

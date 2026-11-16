@@ -1,9 +1,9 @@
 {
-  "id": "golden-fr-b2-scope-fr-ca-v2-cal-005",
+  "id": "golden-fr-b2-scope-fr-v2-cal-005",
   "lang": "fr",
-  "locale": "fr-CA",
+  "locale": "fr",
   "split": "calibration",
-  "taskId": "fr-b2-scope-fr-ca-v2-cal-005",
+  "taskId": "fr-b2-scope-fr-v2-cal-005",
   "speakerLabels": [
     {
       "turnIndex": 0,
@@ -41,5 +41,5 @@
   "evidenceSpans": [],
   "pairwisePreferences": [],
   "status": "draft",
-  "notes": "Agent labels authored against m3b-speaker-label-guideline-v1. Provisional, not human ground truth."
+  "notes": "Agent labels authored against m3b-speaker-label-guideline-v2. Provisional, not human ground truth."
 }

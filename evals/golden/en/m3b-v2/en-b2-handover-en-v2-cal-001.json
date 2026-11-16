@@ -41,5 +41,5 @@
   "evidenceSpans": [],
   "pairwisePreferences": [],
   "status": "draft",
-  "notes": "Agent labels authored against m3b-speaker-label-guideline-v1. Provisional, not human ground truth."
+  "notes": "Agent labels authored against m3b-speaker-label-guideline-v2. Provisional, not human ground truth."
 }

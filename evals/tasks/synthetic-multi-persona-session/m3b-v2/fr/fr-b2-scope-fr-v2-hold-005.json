@@ -1,12 +1,12 @@
 {
-  "id": "fr-b2-scope-fr-ca-v2-hold-003",
+  "id": "fr-b2-scope-fr-v2-hold-005",
   "lang": "fr",
-  "locale": "fr-CA",
+  "locale": "fr",
   "mode": "session",
   "domain": "workplace",
   "scenarioType": "standup-scope-change",
   "cefrBand": "B2",
-  "speakerId": "syn-v2-fr-scope-fr-ca-holdout-003",
+  "speakerId": "syn-v2-fr-scope-fr-holdout-005",
   "split": "holdout",
   "provenance": {
     "source": "synthetic",
@@ -15,7 +15,7 @@
   "consentScope": "synthetic-no-consent-required",
   "annotationVersions": {
     "rubric": "m3b-turn-taking-rubric-v1",
-    "annotationGuideline": "m3b-speaker-label-guideline-v1"
+    "annotationGuideline": "m3b-speaker-label-guideline-v2"
   },
   "content": {
     "scenarioBrief": "La responsable modifie le périmètre de la livraison au point du matin ; l’apprenant clarifie l’impact et la priorité.",
@@ -28,10 +28,10 @@
     "scenarioId": "standup-scope-change",
     "scenarioVersion": "1.0.0",
     "scriptedUserTurns": [
-      "Quelqu'un peut-il expliquer le risque sur les notifications pour vendredi ?",
-      "Qui possède la décision sur l'export ?",
-      "Catherine, qu'est-ce qui est risqué dans le travail sur les notifications ?",
-      "Samir, la livraison de vendredi est-elle maintenue ?"
+      "Samir, peux-tu revoir le risque sur les notifications ?",
+      "Qui suit l'évaluation d'impact ?",
+      "Catherine, où en est l'impact sur les notifications ?",
+      "Très bien, j'ai ce qu'il me faut."
     ]
   }
 }

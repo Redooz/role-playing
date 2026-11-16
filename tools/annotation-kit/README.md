@@ -135,7 +135,7 @@ case per learner turn:
 node tools/annotation-kit/speaker-bundle.mjs \
   --tasks evals/tasks/synthetic-multi-persona-session/m3b-v2 \
   --out evals/results/annotation-kit-m3c-speakers \
-  --guideline m3b-speaker-label-guideline-v1
+  --guideline m3b-speaker-label-guideline-v2
 ```
 
 `cases.jsonl` contains an opaque `caseId`, the locale, the scenario state
