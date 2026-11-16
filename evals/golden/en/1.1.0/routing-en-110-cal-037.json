@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-en-110-cal-037",
+  "lang": "en",
+  "split": "calibration",
+  "taskId": "routing-en-110-cal-037",
+  "routingOutcome": {
+    "intent": "mixed-manager",
+    "acceptablePersonaIds": ["manager"],
+    "allowUserYield": true,
+    "labelSource": "agent",
+    "family": "mixed",
+    "note": "owner: manager.objectives[manager_goal] \"onboarding plan\"; learner may proceed"
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "I can start work on the onboarding plan now, unless you want to add something."
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v2. Provisional, not human ground truth."
+}

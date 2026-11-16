@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-fr-110-cal-037",
+  "lang": "fr",
+  "split": "calibration",
+  "taskId": "routing-fr-110-cal-037",
+  "routingOutcome": {
+    "intent": "mixed-manager",
+    "acceptablePersonaIds": ["manager"],
+    "allowUserYield": true,
+    "labelSource": "agent",
+    "family": "mixed",
+    "note": "owner: manager.objectives[manager_goal] \"plan d'intégration\"; learner may proceed"
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Je peux commencer à travailler sur le plan d'intégration maintenant, sauf si vous voulez ajouter quelque chose."
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v2. Provisional, not human ground truth."
+}

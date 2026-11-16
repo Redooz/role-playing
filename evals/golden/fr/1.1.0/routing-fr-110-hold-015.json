@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-fr-110-hold-015",
+  "lang": "fr",
+  "split": "holdout",
+  "taskId": "routing-fr-110-hold-015",
+  "routingOutcome": {
+    "intent": "rt-s4-manager",
+    "acceptablePersonaIds": ["manager"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "family": "RT-S4",
+    "note": "owner: manager.objectives[manager_goal] \"budget\""
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Faut-il valider le budget avant la réunion ?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v2. Provisional, not human ground truth."
+}

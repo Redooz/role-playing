@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-fr-110-cal-012",
+  "lang": "fr",
+  "split": "calibration",
+  "taskId": "routing-fr-110-cal-012",
+  "routingOutcome": {
+    "intent": "rt-s3-client",
+    "acceptablePersonaIds": ["client"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "family": "RT-S3",
+    "note": "owner: client.objectives[client_goal] \"date de démarrage\""
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Ce n'est pas ce qui est convenu pour la date de démarrage : il faut corriger."
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v2. Provisional, not human ground truth."
+}

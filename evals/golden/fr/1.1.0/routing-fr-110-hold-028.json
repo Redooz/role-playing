@@ -1,0 +1,27 @@
+{
+  "id": "golden-routing-fr-110-hold-028",
+  "lang": "fr",
+  "split": "holdout",
+  "taskId": "routing-fr-110-hold-028",
+  "routingOutcome": {
+    "intent": "rt-q2-learner",
+    "acceptablePersonaIds": [],
+    "allowUserYield": true,
+    "labelSource": "agent",
+    "family": "RT-Q2",
+    "note": "visible: transcript[2] \"Les résultats de l'enquête sont arrivés.\"; covered: peer_goal"
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Les résultats de l'enquête sont arrivés."
+    },
+    {
+      "turnIndex": 3,
+      "textRef": "Quel est le point sur les résultats de l'enquête ?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v2. Provisional, not human ground truth."
+}

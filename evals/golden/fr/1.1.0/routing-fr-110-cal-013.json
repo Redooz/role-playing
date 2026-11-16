@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-fr-110-cal-013",
+  "lang": "fr",
+  "split": "calibration",
+  "taskId": "routing-fr-110-cal-013",
+  "routingOutcome": {
+    "intent": "rt-s3-manager",
+    "acceptablePersonaIds": ["manager"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "family": "RT-S3",
+    "note": "owner: manager.objectives[manager_goal] \"revue de l'incident\""
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Attention, il manque encore une validation sur la revue de l'incident, on ne peut pas promettre cette date."
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v2. Provisional, not human ground truth."
+}

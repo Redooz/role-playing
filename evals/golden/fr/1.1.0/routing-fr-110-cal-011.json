@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-fr-110-cal-011",
+  "lang": "fr",
+  "split": "calibration",
+  "taskId": "routing-fr-110-cal-011",
+  "routingOutcome": {
+    "intent": "rt-s3-peer",
+    "acceptablePersonaIds": ["peer"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "family": "RT-S3",
+    "note": "owner: peer.objectives[peer_goal] \"prévisions de coûts\""
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Non, il y a un problème avec les prévisions de coûts : la date a changé."
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v2. Provisional, not human ground truth."
+}

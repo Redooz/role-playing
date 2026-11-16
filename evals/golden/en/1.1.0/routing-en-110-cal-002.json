@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-en-110-cal-002",
+  "lang": "en",
+  "split": "calibration",
+  "taskId": "routing-en-110-cal-002",
+  "routingOutcome": {
+    "intent": "rt-s1-manager",
+    "acceptablePersonaIds": ["manager"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "family": "RT-S1",
+    "note": "owner: manager.objectives[manager_goal] \"onboarding plan\""
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Kate, where does the onboarding plan stand?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v2. Provisional, not human ground truth."
+}

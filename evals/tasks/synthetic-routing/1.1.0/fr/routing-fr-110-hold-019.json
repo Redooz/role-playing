@@ -1,0 +1,94 @@
+{
+  "id": "routing-fr-110-hold-019",
+  "lang": "fr",
+  "mode": "routing",
+  "domain": "workplace",
+  "scenarioType": "travel",
+  "cefrBand": "B1",
+  "speakerId": "speaker-routing-110-fr-holdout",
+  "split": "holdout",
+  "provenance": {
+    "source": "synthetic",
+    "note": "M3c routing replay decision point"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "routingRubric": "m3a-routing-rubric-v1",
+    "annotationGuideline": "m3a-routing-label-v2"
+  },
+  "content": {
+    "scenarioBrief": "L'apprenant participe à une conversation professionnelle sur le budget voyage.",
+    "turns": []
+  },
+  "routing": {
+    "context": {
+      "decisionId": "routing-fr-110-hold-019",
+      "turnId": "routing-fr-110-hold-019-turn",
+      "lang": "fr",
+      "transcript": [
+        {
+          "speaker": {
+            "kind": "persona",
+            "personaId": "manager"
+          },
+          "text": "Il faut faire avancer le budget voyage."
+        },
+        {
+          "speaker": {
+            "kind": "persona",
+            "personaId": "peer"
+          },
+          "text": "J'ai repris les notes d'hier."
+        },
+        {
+          "speaker": {
+            "kind": "user"
+          },
+          "text": "Katherine, pouvez-vous faire le point sur le tableau des réservations ?"
+        }
+      ],
+      "personas": [
+        {
+          "id": "manager",
+          "displayName": "Katherine Brooks",
+          "aliases": ["Katherine", "Kate"],
+          "role": "responsable",
+          "objectives": [
+            {
+              "id": "manager_goal",
+              "description": "Piloter le budget voyage.",
+              "keywords": ["budget voyage"]
+            }
+          ]
+        },
+        {
+          "id": "peer",
+          "displayName": "Sam Carter",
+          "aliases": ["Sam"],
+          "role": "collègue",
+          "objectives": [
+            {
+              "id": "peer_goal",
+              "description": "Suivre le tableau des réservations.",
+              "keywords": ["tableau des réservations"]
+            }
+          ]
+        },
+        {
+          "id": "client",
+          "displayName": "Julian Moore",
+          "aliases": ["Julian", "Mr Moore"],
+          "role": "client externe",
+          "objectives": [
+            {
+              "id": "client_goal",
+              "description": "Régler l'ordre du jour de la visite.",
+              "keywords": ["ordre du jour de la visite"]
+            }
+          ]
+        }
+      ],
+      "coveredObjectiveIds": []
+    }
+  }
+}

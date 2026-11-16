@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-fr-110-hold-012",
+  "lang": "fr",
+  "split": "holdout",
+  "taskId": "routing-fr-110-hold-012",
+  "routingOutcome": {
+    "intent": "rt-s3-manager",
+    "acceptablePersonaIds": ["manager"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "family": "RT-S3",
+    "note": "owner: manager.objectives[manager_goal] \"revue de l'incident\""
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "En fait, il y a une erreur sur la revue de l'incident : la décision date d'hier."
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v2. Provisional, not human ground truth."
+}

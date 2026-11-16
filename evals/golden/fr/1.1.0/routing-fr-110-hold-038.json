@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-fr-110-hold-038",
+  "lang": "fr",
+  "split": "holdout",
+  "taskId": "routing-fr-110-hold-038",
+  "routingOutcome": {
+    "intent": "mixed-manager",
+    "acceptablePersonaIds": ["manager"],
+    "allowUserYield": true,
+    "labelSource": "agent",
+    "family": "mixed",
+    "note": "owner: manager.objectives[manager_goal] \"synthèse des retours\"; learner may proceed"
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Je peux commencer à travailler sur la synthèse des retours maintenant, sauf si vous voulez ajouter quelque chose."
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v2. Provisional, not human ground truth."
+}

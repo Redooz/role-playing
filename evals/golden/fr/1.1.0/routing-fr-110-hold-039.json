@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-fr-110-hold-039",
+  "lang": "fr",
+  "split": "holdout",
+  "taskId": "routing-fr-110-hold-039",
+  "routingOutcome": {
+    "intent": "mixed-peer",
+    "acceptablePersonaIds": ["peer"],
+    "allowUserYield": true,
+    "labelSource": "agent",
+    "family": "mixed",
+    "note": "owner: peer.objectives[peer_goal] \"tableau des réservations\"; learner may proceed"
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "J'ai tout ce qu'il faut sur le tableau des réservations quand vous en avez besoin."
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v2. Provisional, not human ground truth."
+}
