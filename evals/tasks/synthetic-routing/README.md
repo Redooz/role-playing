@@ -24,10 +24,11 @@ policy cannot read the answer.
 - Every slice carries 22 speak-required, 14 silence-required and 4 mixed
   decisions. The ten frozen families all occur.
 - Holdout carries six named non-owner distractors, calibration four.
-- Five workplace topics; the regular families are topic templates, while the
-  state negatives (named non-owner, closing move with a name, covered question
-  with a visible answer, self-directed reasoning with a keyword) are written
-  out in full.
+- Five workplace topics. The regular families are topic templates. The state
+  negatives are hand-written forms in the generator's `FORMS` table: a named
+  non-owner, a closing move with a name, a covered question with a visible
+  answer, and self-directed reasoning with a keyword. They state the deciding
+  owner and state; most interpolate the topic noun, like the regular families.
 - `composition.json` is the pre-registered contract. `npm run validate:tasks`
   compares it with the tree; `scripts/generate-routing-1.1.0.spec.ts` proves the
   committed files equal the generator output.

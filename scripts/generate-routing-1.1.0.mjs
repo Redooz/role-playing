@@ -11,10 +11,11 @@
  *
  * - Topic templates (`TOPICS`) expand the regular families across five
  *   workplace topics and several surface forms.
- * - Hand-written negatives (`NEGATIVES`) carry the state that decides the
- *   label: a named non-owner, a closing move with a name inside it, a covered
- *   question whose answer is visible, and self-directed reasoning that mentions
- *   a topic keyword. The generator does not synthesise those states.
+ * - Negative forms in `FORMS` carry the state that decides the label: the
+ *   named non-owner (`RT-D1`), the named closing moves (`RT-Q1`), the covered
+ *   question (`RT-Q2`), and self-directed reasoning (`RT-Q3`). Each entry
+ *   states its owner and state; most interpolate the topic noun, like the
+ *   regular families.
  *
  * Run it with `node scripts/generate-routing-1.1.0.mjs`. It is deterministic:
  * no clock, no RNG, and it never rewrites `1.0.0`.
