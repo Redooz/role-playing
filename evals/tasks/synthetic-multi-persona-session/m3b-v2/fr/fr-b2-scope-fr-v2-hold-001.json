@@ -1,13 +1,13 @@
 {
-  "id": "fr-b2-scope-fr-ca-v2-cal-005",
+  "id": "fr-b2-scope-fr-v2-hold-001",
   "lang": "fr",
-  "locale": "fr-CA",
+  "locale": "fr",
   "mode": "session",
   "domain": "workplace",
   "scenarioType": "standup-scope-change",
   "cefrBand": "B2",
-  "speakerId": "syn-v2-fr-scope-fr-ca-calibration-005",
-  "split": "calibration",
+  "speakerId": "syn-v2-fr-scope-fr-holdout-001",
+  "split": "holdout",
   "provenance": {
     "source": "synthetic",
     "note": "M3c two-persona speaker-label decision points"
@@ -15,7 +15,7 @@
   "consentScope": "synthetic-no-consent-required",
   "annotationVersions": {
     "rubric": "m3b-turn-taking-rubric-v1",
-    "annotationGuideline": "m3b-speaker-label-guideline-v1"
+    "annotationGuideline": "m3b-speaker-label-guideline-v2"
   },
   "content": {
     "scenarioBrief": "La responsable modifie le périmètre de la livraison au point du matin ; l’apprenant clarifie l’impact et la priorité.",
@@ -28,10 +28,10 @@
     "scenarioId": "standup-scope-change",
     "scenarioVersion": "1.0.0",
     "scriptedUserTurns": [
-      "Catherine, la livraison de vendredi est-elle maintenue ?",
-      "Samir, peux-tu vérifier ce qui est risqué avant vendredi ?",
-      "Quelqu'un peut-il clarifier la priorité de vendredi ?",
-      "Qui décide de ce qui part vendredi ?"
+      "Samir, quelle partie du travail sur les notifications est déjà faite ?",
+      "Catherine, quelle est la priorité pour vendredi ?",
+      "Catherine, peux-tu prendre la décision sur la livraison ?",
+      "Samir, peux-tu prendre l'impact des notifications ?"
     ]
   }
 }

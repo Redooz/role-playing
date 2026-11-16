@@ -1,9 +1,9 @@
 {
-  "id": "golden-fr-b2-handover-fr-ca-v2-hold-001",
+  "id": "golden-fr-b2-handover-fr-v2-cal-001",
   "lang": "fr",
-  "locale": "fr-CA",
-  "split": "holdout",
-  "taskId": "fr-b2-handover-fr-ca-v2-hold-001",
+  "locale": "fr",
+  "split": "calibration",
+  "taskId": "fr-b2-handover-fr-v2-cal-001",
   "speakerLabels": [
     {
       "turnIndex": 0,
@@ -23,23 +23,23 @@
     },
     {
       "turnIndex": 2,
+      "acceptablePersonaIds": ["manager"],
+      "allowUserYield": false,
+      "family": "TT-S6",
+      "labelSource": "agent",
+      "note": "owner: facts[4] \"Catherine est responsable de la liste de contrôle avant la démo.\""
+    },
+    {
+      "turnIndex": 3,
       "acceptablePersonaIds": ["peer"],
       "allowUserYield": false,
       "family": "TT-S6",
       "labelSource": "agent",
       "note": "owner: facts[5] \"Samir est responsable de la liste d’actions.\""
-    },
-    {
-      "turnIndex": 3,
-      "acceptablePersonaIds": ["manager"],
-      "allowUserYield": false,
-      "family": "TT-S6",
-      "labelSource": "agent",
-      "note": "owner: facts[4] \"Catherine est responsable de la liste de vérification avant la démo.\""
     }
   ],
   "evidenceSpans": [],
   "pairwisePreferences": [],
   "status": "draft",
-  "notes": "Agent labels authored against m3b-speaker-label-guideline-v1. Provisional, not human ground truth."
+  "notes": "Agent labels authored against m3b-speaker-label-guideline-v2. Provisional, not human ground truth."
 }

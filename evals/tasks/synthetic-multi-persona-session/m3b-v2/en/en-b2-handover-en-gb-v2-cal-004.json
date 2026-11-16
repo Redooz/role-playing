@@ -15,7 +15,7 @@
   "consentScope": "synthetic-no-consent-required",
   "annotationVersions": {
     "rubric": "m3b-turn-taking-rubric-v1",
-    "annotationGuideline": "m3b-speaker-label-guideline-v1"
+    "annotationGuideline": "m3b-speaker-label-guideline-v2"
   },
   "content": {
     "scenarioBrief": "After the client demo, the manager and peer divide the follow-up; the learner confirms owners and next steps.",

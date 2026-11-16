@@ -107,6 +107,18 @@ describe('m3b-v2 dataset', () => {
     },
   )
 
+  it.each(LANGS.flatMap((lang) => SPLITS.map((split) => [lang, split] as const)))(
+    'covers the base locale and its variant in %s/%s',
+    (lang, split) => {
+      const locales = new Set(
+        tasks
+          .filter((task) => task.lang === lang && task.split === split)
+          .map((task) => task.locale),
+      )
+      expect([...locales].sort()).toEqual(lang === 'en' ? ['en', 'en-GB'] : ['fr', 'fr-CA'])
+    },
+  )
+
   it('uses every frozen family in every slice, with no family above six or eight', () => {
     for (const lang of LANGS) {
       for (const split of SPLITS) {

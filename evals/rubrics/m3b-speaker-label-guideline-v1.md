@@ -75,7 +75,8 @@ because a persona "could" answer.
 - **R4 — A named non-owner is a distractor.** If the learner names a persona who
   is not the owner, `acceptablePersonaIds` names the owner, not the persona the
   learner named. The named persona is the distractor. The owner must be eligible;
-  otherwise the task is invalid.- **R5 — Closing moves are silent.** "Thanks, noted", "understood", "right",
+  otherwise the task is invalid.
+- **R5 — Closing moves are silent.** "Thanks, noted", "understood", "right",
   "merci, je prends note" close the turn. A name inside a closing move does not
   make it `speak`.
 - **R6 — Thinking aloud, self-answer and side comments are silent.** The learner
@@ -85,61 +86,6 @@ because a persona "could" answer.
 - **R8 — Name the owner, not the topic.** `acceptablePersonaIds` is the set of
   personas who may produce the next turn. It is not the set of personas who know
   about the topic.
-
-## Next-step test
-
-R3 and TT-S6 meet at "what should I do about X?". Decide it with two questions,
-in order:
-
-1. **Does a persona own the artifact or responsibility named in the turn?** An
-   owner exists when a fact names the persona and the artifact in one sentence
-   ("Sam owns the travel booking"), or a persona-scoped objective's keywords cover
-   the artifact. If yes, the turn is `speak` to that owner, even when the learner
-   phrases it as "what should I do" or "what should I update".
-2. **If no persona owns the artifact**, the next step belongs to the learner:
-   `silence`.
-
-| Learner turn                                 | Scenario state                      | Label                |
-| -------------------------------------------- | ----------------------------------- | -------------------- |
-| "What should I do about the travel booking?" | "Sam owns the travel booking."      | `speak` to `peer`    |
-| "What should I update on the risk register?" | "Katherine owns the risk register." | `speak` to `manager` |
-| "Who should I ask about the supplier notes?" | "Sam owns the supplier notes."      | `speak` to `peer`    |
-| "What should I do next?"                     | no persona owns the next step       | `silence`            |
-| "How do I update the noticeboard?"           | no persona owns the noticeboard     | `silence`            |
-| "Who will write the summary?"                | no persona owns the summary         | `silence`            |
-
-The test was added on 2026-11-16 before `m3b-v2` was accepted; no earlier
-dataset used this guideline. The class definition did not change.
-
-## Mixed test
-
-`mixed` is a property of the acceptable outcome set, not of whether a reply is
-expected. Apply two questions, in order:
-
-1. **Delete the persona's next turn.** Does the learner's move still stand on its
-   own? If yes, learner yield is acceptable.
-2. **Would a persona reply add** information, a decision, or an acknowledgment
-   the learner does not already have? If yes, a persona reply is acceptable.
-
-Both yes → `mixed`, with the owner in `acceptablePersonaIds` and
-`allowUserYield: true`. Only one yes → the matching single class.
-
-Do not label `speak` merely because a reply would be useful. `speak` requires
-that the learner cannot continue alone. A conditional or readiness offer about a
-persona-owned artifact is the normal `mixed` case: the learner can proceed, and
-the owner can accept, decline or add a condition.
-
-| Learner turn                                                                  | Delete the reply               | Reply adds                     | Label                |
-| ----------------------------------------------------------------------------- | ------------------------------ | ------------------------------ | -------------------- |
-| "I can take the supplier notes today; tell me if you want a different split." | The learner takes the notes.   | A different split or approval. | `mixed` to `peer`    |
-| "I have the supplier list ready when you need it."                            | The learner waits or proceeds. | A request or a thank-you.      | `mixed` to `peer`    |
-| "I can circulate the risk register this afternoon if that suits."             | The learner circulates it.     | A yes or a condition.          | `mixed` to `manager` |
-| "The draft is on the shared drive."                                           | The learner continues.         | Nothing new.                   | `silence`            |
-| "Could you check the risk register?"                                          | The learner has no answer.     | The check.                     | `speak` to `manager` |
-| "I might rework the introduction."                                            | The learner continues alone.   | No owner is addressed.         | `silence`            |
-
-The test was added on 2026-11-16 before `m3b-v2` was accepted. It makes the
-existing class definition decidable; it does not add a class.
 
 ## Family map
 
@@ -208,8 +154,6 @@ rule.
 - [ ] Every `silence` label has a reason: no owner, closing move, thinking
       aloud, self-answer or side comment.
 - [ ] Every collective request either names an owner or is `silence`.
-- [ ] Every "what should I do about X" turn names the owner of X, or is
-      `silence` when no persona owns X.
 - [ ] Every named non-owner task names the owner, not the named persona.
 - [ ] No `mixed` label lacks both a persona reply and learner yield.
 - [ ] `m3b-v1` is untouched.

@@ -1,12 +1,12 @@
 {
-  "id": "fr-b2-scope-fr-ca-v2-cal-003",
+  "id": "fr-b2-scope-fr-v2-cal-001",
   "lang": "fr",
-  "locale": "fr-CA",
+  "locale": "fr",
   "mode": "session",
   "domain": "workplace",
   "scenarioType": "standup-scope-change",
   "cefrBand": "B2",
-  "speakerId": "syn-v2-fr-scope-fr-ca-calibration-003",
+  "speakerId": "syn-v2-fr-scope-fr-calibration-001",
   "split": "calibration",
   "provenance": {
     "source": "synthetic",
@@ -15,7 +15,7 @@
   "consentScope": "synthetic-no-consent-required",
   "annotationVersions": {
     "rubric": "m3b-turn-taking-rubric-v1",
-    "annotationGuideline": "m3b-speaker-label-guideline-v1"
+    "annotationGuideline": "m3b-speaker-label-guideline-v2"
   },
   "content": {
     "scenarioBrief": "La responsable modifie le périmètre de la livraison au point du matin ; l’apprenant clarifie l’impact et la priorité.",
@@ -28,10 +28,10 @@
     "scenarioId": "standup-scope-change",
     "scenarioVersion": "1.0.0",
     "scriptedUserTurns": [
-      "Catherine, est-ce que l'export part toujours vendredi ?",
-      "Catherine, peux-tu confirmer la priorité de l'export pour vendredi ?",
-      "Catherine, quelle part du travail sur les notifications est déjà terminée ?",
-      "Merci, c'est noté."
+      "Samir, quelle part du travail sur les notifications est déjà terminée ?",
+      "Samir, qu'est-ce qui reste risqué dans l'impact sur les notifications ?",
+      "Catherine, peux-tu confirmer la priorité de vendredi ?",
+      "Samir, peux-tu vérifier l'impact ?"
     ]
   }
 }

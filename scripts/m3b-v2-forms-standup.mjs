@@ -78,7 +78,7 @@ export const standupForms = {
         evidence: OBJECTIVE('assess-impact', ['peer']),
       },
       {
-        text: 'Katherine, can you take the release decision?',
+        text: 'Katherine, can you take the Friday priority decision?',
         owner: 'manager',
         evidence: OBJECTIVE('agree-priority', ['manager']),
       },
@@ -130,7 +130,7 @@ export const standupForms = {
         evidence: OBJECTIVE('assess-impact', ['peer']),
       },
       {
-        text: 'Can someone confirm the release date?',
+        text: 'Can someone confirm the Friday priority?',
         owner: 'manager',
         evidence: OBJECTIVE('agree-priority', ['manager']),
       },
@@ -177,7 +177,7 @@ export const standupForms = {
         evidence: OBJECTIVE('assess-impact', ['peer']),
       },
       {
-        text: 'Whose call is the release date?',
+        text: 'Who settles the Friday priority?',
         owner: 'manager',
         evidence: OBJECTIVE('agree-priority', ['manager']),
       },
@@ -303,7 +303,7 @@ export const standupForms = {
         evidence: OBJECTIVE('assess-impact', ['peer']),
       },
       {
-        text: 'Catherine, peux-tu prendre la décision sur la livraison ?',
+        text: 'Catherine, peux-tu prendre la décision sur la priorité de vendredi ?',
         owner: 'manager',
         evidence: OBJECTIVE('agree-priority', ['manager']),
       },
@@ -355,7 +355,7 @@ export const standupForms = {
         evidence: OBJECTIVE('assess-impact', ['peer']),
       },
       {
-        text: "Quelqu'un peut-il confirmer la date de livraison ?",
+        text: "Quelqu'un peut-il confirmer la priorité de vendredi ?",
         owner: 'manager',
         evidence: OBJECTIVE('agree-priority', ['manager']),
       },
@@ -402,7 +402,7 @@ export const standupForms = {
         evidence: OBJECTIVE('assess-impact', ['peer']),
       },
       {
-        text: 'À qui revient la date de livraison ?',
+        text: 'Qui tranche la priorité de vendredi ?',
         owner: 'manager',
         evidence: OBJECTIVE('agree-priority', ['manager']),
       },

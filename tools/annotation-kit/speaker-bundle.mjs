@@ -6,7 +6,7 @@
  *   node tools/annotation-kit/speaker-bundle.mjs \
  *     --tasks evals/tasks/synthetic-multi-persona-session/m3b-v2 \
  *     --out /tmp/m3c-p5-bundle \
- *     --guideline m3b-speaker-label-guideline-v1
+ *     --guideline m3b-speaker-label-guideline-v2
  *
  * The bundle has one case per learner turn. It contains no split, task id,
  * authored label, score, arm or run identity. The real task, turn and expected
@@ -81,7 +81,7 @@ const out = resolve(repo, arg('--out', 'evals/results/annotation-kit-m3c-speaker
 const version = arg('--version', basename(tasksRoot))
 const goldensRoot = resolve(repo, arg('--goldens', 'evals/golden'))
 const rubric = arg('--rubric', 'm3b-turn-taking-rubric-v1')
-const guideline = arg('--guideline', 'm3b-speaker-label-guideline-v1')
+const guideline = arg('--guideline', 'm3b-speaker-label-guideline-v2')
 
 if (!statSync(tasksRoot).isDirectory()) throw new Error(`${tasksRoot} is not a directory`)
 
