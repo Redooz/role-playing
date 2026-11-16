@@ -133,6 +133,11 @@ Three rules bind both:
 3. A covered-topic `silence` label needs a prior transcript span that states the
    answer. `coveredObjectiveIds` alone is bookkeeping, not visible evidence.
 
+Routing adds a fourth: `mixed` is decided by the two-question test in
+`m3a-routing-label-v2.md` (delete the reply, then ask what the reply adds), not
+used as a fallback. A status question whose answer is visible is `silence`; a
+confirmation request about a new proposition is `speak`.
+
 `m3b-v1` and `synthetic-routing/1.0.0` are frozen on their old rules; a changed
 label set gets a new version. New tasks name the applicable guideline in
 `annotationVersions`.
