@@ -1,0 +1,37 @@
+{
+  "id": "en-b2-handover-en-gb-v2-hold-004",
+  "lang": "en",
+  "locale": "en-GB",
+  "mode": "session",
+  "domain": "workplace",
+  "scenarioType": "post-demo-handover",
+  "cefrBand": "B2",
+  "speakerId": "syn-v2-en-handover-en-gb-holdout-004",
+  "split": "holdout",
+  "provenance": {
+    "source": "synthetic",
+    "note": "M3c two-persona speaker-label decision points"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "rubric": "m3b-turn-taking-rubric-v1",
+    "annotationGuideline": "m3b-speaker-label-guideline-v2"
+  },
+  "content": {
+    "scenarioBrief": "After the client demo, the manager and peer divide the follow-up; the learner confirms owners and next steps.",
+    "turns": []
+  },
+  "session": {
+    "personaId": "manager",
+    "personaIds": ["manager", "peer"],
+    "personaVersion": "1.0.0",
+    "scenarioId": "post-demo-handover",
+    "scenarioVersion": "1.0.0",
+    "scriptedUserTurns": [
+      "What is the next step on the follow-up notes?",
+      "Katherine, what is the next step on the action list?",
+      "I think the demo went better than expected.",
+      "Should I wait for the notes? I think I should wait."
+    ]
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "id": "golden-fr-b2-scope-fr-v2-cal-003",
+  "lang": "fr",
+  "locale": "fr",
+  "split": "calibration",
+  "taskId": "fr-b2-scope-fr-v2-cal-003",
+  "speakerLabels": [
+    {
+      "turnIndex": 0,
+      "acceptablePersonaIds": ["manager"],
+      "allowUserYield": false,
+      "family": "TT-S1",
+      "labelSource": "agent",
+      "note": "owner: objectives[agree-priority].personaIds=[manager]"
+    },
+    {
+      "turnIndex": 1,
+      "acceptablePersonaIds": ["manager"],
+      "allowUserYield": false,
+      "family": "TT-S2",
+      "labelSource": "agent",
+      "note": "owner: objectives[agree-priority].personaIds=[manager]"
+    },
+    {
+      "turnIndex": 2,
+      "acceptablePersonaIds": ["peer"],
+      "allowUserYield": false,
+      "family": "TT-D1",
+      "labelSource": "agent",
+      "note": "owner: objectives[assess-impact].personaIds=[peer]; named: manager",
+      "distractor": true
+    },
+    {
+      "turnIndex": 3,
+      "acceptablePersonaIds": [],
+      "allowUserYield": true,
+      "family": "TT-Q1",
+      "labelSource": "agent",
+      "note": "closing move; no owner"
+    }
+  ],
+  "evidenceSpans": [],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent labels authored against m3b-speaker-label-guideline-v2. Provisional, not human ground truth."
+}

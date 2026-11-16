@@ -1,0 +1,47 @@
+{
+  "id": "golden-en-b2-scope-en-gb-v2-hold-004",
+  "lang": "en",
+  "locale": "en-GB",
+  "split": "holdout",
+  "taskId": "en-b2-scope-en-gb-v2-hold-004",
+  "speakerLabels": [
+    {
+      "turnIndex": 0,
+      "acceptablePersonaIds": ["manager"],
+      "allowUserYield": false,
+      "family": "TT-S1",
+      "labelSource": "agent",
+      "note": "owner: objectives[agree-priority].personaIds=[manager]"
+    },
+    {
+      "turnIndex": 1,
+      "acceptablePersonaIds": ["manager"],
+      "allowUserYield": false,
+      "family": "TT-S3",
+      "labelSource": "agent",
+      "note": "owner: objectives[agree-priority].personaIds=[manager]"
+    },
+    {
+      "turnIndex": 2,
+      "acceptablePersonaIds": ["peer"],
+      "allowUserYield": false,
+      "family": "TT-D1",
+      "labelSource": "agent",
+      "note": "owner: objectives[assess-impact].personaIds=[peer]; named: manager",
+      "distractor": true
+    },
+    {
+      "turnIndex": 3,
+      "acceptablePersonaIds": ["manager"],
+      "allowUserYield": false,
+      "family": "TT-D1",
+      "labelSource": "agent",
+      "note": "owner: objectives[agree-priority].personaIds=[manager]; named: peer",
+      "distractor": true
+    }
+  ],
+  "evidenceSpans": [],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent labels authored against m3b-speaker-label-guideline-v2. Provisional, not human ground truth."
+}

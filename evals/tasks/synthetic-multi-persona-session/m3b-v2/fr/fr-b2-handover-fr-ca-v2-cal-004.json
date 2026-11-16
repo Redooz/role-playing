@@ -1,0 +1,37 @@
+{
+  "id": "fr-b2-handover-fr-ca-v2-cal-004",
+  "lang": "fr",
+  "locale": "fr-CA",
+  "mode": "session",
+  "domain": "workplace",
+  "scenarioType": "post-demo-handover",
+  "cefrBand": "B2",
+  "speakerId": "syn-v2-fr-handover-fr-ca-calibration-004",
+  "split": "calibration",
+  "provenance": {
+    "source": "synthetic",
+    "note": "M3c two-persona speaker-label decision points"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "rubric": "m3b-turn-taking-rubric-v1",
+    "annotationGuideline": "m3b-speaker-label-guideline-v2"
+  },
+  "content": {
+    "scenarioBrief": "Après la démonstration client, la responsable et le collègue se répartissent le suivi ; l’apprenant confirme les responsables et les prochaines étapes.",
+    "turns": []
+  },
+  "session": {
+    "personaId": "manager",
+    "personaIds": ["manager", "peer"],
+    "personaVersion": "1.0.0",
+    "scenarioId": "post-demo-handover",
+    "scenarioVersion": "1.0.0",
+    "scriptedUserTurns": [
+      "Samir, qui est responsable de la communication client ?",
+      "Je me demande si le client va remarquer le changement.",
+      "La date de livraison risque de glisser si on accélère.",
+      "Je dois mettre la liste d'actions à jour ? Oui, je le fais maintenant."
+    ]
+  }
+}

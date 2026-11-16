@@ -1,0 +1,37 @@
+{
+  "id": "fr-b2-handover-fr-ca-v2-hold-002",
+  "lang": "fr",
+  "locale": "fr-CA",
+  "mode": "session",
+  "domain": "workplace",
+  "scenarioType": "post-demo-handover",
+  "cefrBand": "B2",
+  "speakerId": "syn-v2-fr-handover-fr-ca-holdout-002",
+  "split": "holdout",
+  "provenance": {
+    "source": "synthetic",
+    "note": "M3c two-persona speaker-label decision points"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "rubric": "m3b-turn-taking-rubric-v1",
+    "annotationGuideline": "m3b-speaker-label-guideline-v2"
+  },
+  "content": {
+    "scenarioBrief": "Après la démonstration client, la responsable et le collègue se répartissent le suivi ; l’apprenant confirme les responsables et les prochaines étapes.",
+    "turns": []
+  },
+  "session": {
+    "personaId": "manager",
+    "personaIds": ["manager", "peer"],
+    "personaVersion": "1.0.0",
+    "scenarioId": "post-demo-handover",
+    "scenarioVersion": "1.0.0",
+    "scriptedUserTurns": [
+      "Qui parle au client des prochaines étapes ?",
+      "Samir, qu'est-ce que je dois faire pour les actions ouvertes ?",
+      "Catherine, quel est le statut des notes de suivi ?",
+      "D'accord, merci."
+    ]
+  }
+}

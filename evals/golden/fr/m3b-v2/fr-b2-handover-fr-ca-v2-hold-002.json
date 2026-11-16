@@ -1,0 +1,46 @@
+{
+  "id": "golden-fr-b2-handover-fr-ca-v2-hold-002",
+  "lang": "fr",
+  "locale": "fr-CA",
+  "split": "holdout",
+  "taskId": "fr-b2-handover-fr-ca-v2-hold-002",
+  "speakerLabels": [
+    {
+      "turnIndex": 0,
+      "acceptablePersonaIds": ["manager"],
+      "allowUserYield": false,
+      "family": "TT-S5",
+      "labelSource": "agent",
+      "note": "owner: facts[2] \"Catherine est responsable de la communication client après la démo.\""
+    },
+    {
+      "turnIndex": 1,
+      "acceptablePersonaIds": ["peer"],
+      "allowUserYield": false,
+      "family": "TT-S6",
+      "labelSource": "agent",
+      "note": "owner: facts[5] \"Samir est responsable de la liste d’actions.\""
+    },
+    {
+      "turnIndex": 2,
+      "acceptablePersonaIds": ["peer"],
+      "allowUserYield": false,
+      "family": "TT-D1",
+      "labelSource": "agent",
+      "note": "owner: facts[1] \"Samir est responsable des notes de suivi de la démo.\"; named: manager",
+      "distractor": true
+    },
+    {
+      "turnIndex": 3,
+      "acceptablePersonaIds": [],
+      "allowUserYield": true,
+      "family": "TT-Q1",
+      "labelSource": "agent",
+      "note": "closing move; no owner"
+    }
+  ],
+  "evidenceSpans": [],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent labels authored against m3b-speaker-label-guideline-v2. Provisional, not human ground truth."
+}

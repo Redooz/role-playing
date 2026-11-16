@@ -1,0 +1,37 @@
+{
+  "id": "fr-b2-scope-fr-v2-cal-005",
+  "lang": "fr",
+  "locale": "fr",
+  "mode": "session",
+  "domain": "workplace",
+  "scenarioType": "standup-scope-change",
+  "cefrBand": "B2",
+  "speakerId": "syn-v2-fr-scope-fr-calibration-005",
+  "split": "calibration",
+  "provenance": {
+    "source": "synthetic",
+    "note": "M3c two-persona speaker-label decision points"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "rubric": "m3b-turn-taking-rubric-v1",
+    "annotationGuideline": "m3b-speaker-label-guideline-v2"
+  },
+  "content": {
+    "scenarioBrief": "La responsable modifie le périmètre de la livraison au point du matin ; l’apprenant clarifie l’impact et la priorité.",
+    "turns": []
+  },
+  "session": {
+    "personaId": "manager",
+    "personaIds": ["manager", "peer"],
+    "personaVersion": "1.0.0",
+    "scenarioId": "standup-scope-change",
+    "scenarioVersion": "1.0.0",
+    "scriptedUserTurns": [
+      "Catherine, la livraison de vendredi est-elle maintenue ?",
+      "Samir, peux-tu vérifier ce qui est risqué avant vendredi ?",
+      "Quelqu'un peut-il clarifier la priorité de vendredi ?",
+      "Qui décide de ce qui part vendredi ?"
+    ]
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "id": "en-b2-handover-en-gb-v2-cal-004",
+  "lang": "en",
+  "locale": "en-GB",
+  "mode": "session",
+  "domain": "workplace",
+  "scenarioType": "post-demo-handover",
+  "cefrBand": "B2",
+  "speakerId": "syn-v2-en-handover-en-gb-calibration-004",
+  "split": "calibration",
+  "provenance": {
+    "source": "synthetic",
+    "note": "M3c two-persona speaker-label decision points"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "rubric": "m3b-turn-taking-rubric-v1",
+    "annotationGuideline": "m3b-speaker-label-guideline-v2"
+  },
+  "content": {
+    "scenarioBrief": "After the client demo, the manager and peer divide the follow-up; the learner confirms owners and next steps.",
+    "turns": []
+  },
+  "session": {
+    "personaId": "manager",
+    "personaIds": ["manager", "peer"],
+    "personaVersion": "1.0.0",
+    "scenarioId": "post-demo-handover",
+    "scenarioVersion": "1.0.0",
+    "scriptedUserTurns": [
+      "Sam, who owns client communication?",
+      "I wonder whether the client will notice the change.",
+      "The release date might slip if we rush this.",
+      "Should I update the action list? Yes, I will do that now."
+    ]
+  }
+}

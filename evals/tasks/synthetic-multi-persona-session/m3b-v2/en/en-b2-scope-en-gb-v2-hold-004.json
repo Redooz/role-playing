@@ -1,0 +1,37 @@
+{
+  "id": "en-b2-scope-en-gb-v2-hold-004",
+  "lang": "en",
+  "locale": "en-GB",
+  "mode": "session",
+  "domain": "workplace",
+  "scenarioType": "standup-scope-change",
+  "cefrBand": "B2",
+  "speakerId": "syn-v2-en-scope-en-gb-holdout-004",
+  "split": "holdout",
+  "provenance": {
+    "source": "synthetic",
+    "note": "M3c two-persona speaker-label decision points"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "rubric": "m3b-turn-taking-rubric-v1",
+    "annotationGuideline": "m3b-speaker-label-guideline-v2"
+  },
+  "content": {
+    "scenarioBrief": "The manager changes the release scope at stand-up; the learner clarifies impact and priority.",
+    "turns": []
+  },
+  "session": {
+    "personaId": "manager",
+    "personaIds": ["manager", "peer"],
+    "personaVersion": "1.0.0",
+    "scenarioId": "standup-scope-change",
+    "scenarioVersion": "1.0.0",
+    "scriptedUserTurns": [
+      "Katherine, is the release date still Friday?",
+      "Can someone confirm the Friday priority?",
+      "Katherine, which part of the notification work is done?",
+      "Sam, what is the Friday priority?"
+    ]
+  }
+}

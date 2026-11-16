@@ -1,0 +1,46 @@
+{
+  "id": "golden-en-b2-handover-en-gb-v2-hold-004",
+  "lang": "en",
+  "locale": "en-GB",
+  "split": "holdout",
+  "taskId": "en-b2-handover-en-gb-v2-hold-004",
+  "speakerLabels": [
+    {
+      "turnIndex": 0,
+      "acceptablePersonaIds": ["peer"],
+      "allowUserYield": false,
+      "family": "TT-S6",
+      "labelSource": "agent",
+      "note": "owner: facts[1] \"Sam owns the follow-up notes from the demo.\""
+    },
+    {
+      "turnIndex": 1,
+      "acceptablePersonaIds": ["peer"],
+      "allowUserYield": false,
+      "family": "TT-D1",
+      "labelSource": "agent",
+      "note": "owner: facts[5] \"Sam owns the action list.\"; named: manager",
+      "distractor": true
+    },
+    {
+      "turnIndex": 2,
+      "acceptablePersonaIds": [],
+      "allowUserYield": true,
+      "family": "TT-Q2",
+      "labelSource": "agent",
+      "note": "thinking aloud; no owner"
+    },
+    {
+      "turnIndex": 3,
+      "acceptablePersonaIds": [],
+      "allowUserYield": true,
+      "family": "TT-Q3",
+      "labelSource": "agent",
+      "note": "self-answer; no owner"
+    }
+  ],
+  "evidenceSpans": [],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent labels authored against m3b-speaker-label-guideline-v2. Provisional, not human ground truth."
+}

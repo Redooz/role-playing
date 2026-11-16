@@ -1,0 +1,45 @@
+{
+  "id": "golden-en-b2-handover-en-gb-v2-hold-006",
+  "lang": "en",
+  "locale": "en-GB",
+  "split": "holdout",
+  "taskId": "en-b2-handover-en-gb-v2-hold-006",
+  "speakerLabels": [
+    {
+      "turnIndex": 0,
+      "acceptablePersonaIds": [],
+      "allowUserYield": true,
+      "family": "TT-Q3",
+      "labelSource": "agent",
+      "note": "self-answer; no owner"
+    },
+    {
+      "turnIndex": 1,
+      "acceptablePersonaIds": [],
+      "allowUserYield": true,
+      "family": "TT-Q4",
+      "labelSource": "agent",
+      "note": "side comment; no owner"
+    },
+    {
+      "turnIndex": 2,
+      "acceptablePersonaIds": ["manager"],
+      "allowUserYield": true,
+      "family": "mixed",
+      "labelSource": "agent",
+      "note": "owner: facts[3] \"Katherine owns the rollout summary.\"; learner may proceed"
+    },
+    {
+      "turnIndex": 3,
+      "acceptablePersonaIds": ["manager"],
+      "allowUserYield": true,
+      "family": "mixed",
+      "labelSource": "agent",
+      "note": "owner: facts[2] \"Katherine owns client communication after the demo.\"; learner may proceed"
+    }
+  ],
+  "evidenceSpans": [],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent labels authored against m3b-speaker-label-guideline-v2. Provisional, not human ground truth."
+}

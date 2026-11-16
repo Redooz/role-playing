@@ -121,7 +121,8 @@ which is how the grandfathered versions keep running. The guard is
 New versions decide a label by **ownership**, not by topic. The versioned rules
 are:
 
-- `evals/rubrics/m3b-speaker-label-guideline-v1.md` for `m3b-v2` and later.
+- `evals/rubrics/m3b-speaker-label-guideline-v2.md` for `m3b-v2` and later.
+  v1 is the P3.5 rule without the next-step and mixed tests and stays for history.
 - `evals/rubrics/m3a-routing-label-v3.md` for `synthetic-routing/1.1.0` and later.
   v2 is the P3.5 rule without the mixed test and stays for history.
 
@@ -176,10 +177,13 @@ storing persona turns:
 `session.personaIds` is optional and additive. When present it lists the
 eligible personas in driver order; the first entry must equal the opening
 `personaId`. Every listed persona must resolve, match `personaVersion`, have a
-locale variant, and belong to the scenario variant. The M3b data lives in
-`synthetic-multi-persona-session/m3b-v1`, separate from the M2
-`synthetic-workplace-session` dataset, so the M2 canned regression still selects
-only its original six tasks.
+locale variant, and belong to the scenario variant. The M3b data lives in `synthetic-multi-persona-session/m3b-v1` and is frozen.
+M3c adds `synthetic-multi-persona-session/m3b-v2`: two two-persona scenarios,
+`standup-scope-change` and `post-demo-handover`, 10 calibration and 12 holdout
+tasks per language, and `m3b-speaker-label-guideline-v2`. Its `composition.json`
+declares 28/10/2 (calibration) and 34/12/2 (holdout) speaker-required,
+silence-required and mixed labels per language. The M2 canned regression still
+selects only its original six tasks.
 
 A golden entry for a multi-persona session uses `speakerLabels` instead of the
 routing labels: one entry per scripted user turn, with an acceptable persona set

@@ -1,0 +1,46 @@
+{
+  "id": "golden-en-b2-handover-en-v2-hold-003",
+  "lang": "en",
+  "locale": "en",
+  "split": "holdout",
+  "taskId": "en-b2-handover-en-v2-hold-003",
+  "speakerLabels": [
+    {
+      "turnIndex": 0,
+      "acceptablePersonaIds": ["manager"],
+      "allowUserYield": false,
+      "family": "TT-S5",
+      "labelSource": "agent",
+      "note": "owner: facts[2] \"Katherine owns client communication after the demo.\""
+    },
+    {
+      "turnIndex": 1,
+      "acceptablePersonaIds": ["manager"],
+      "allowUserYield": false,
+      "family": "TT-S6",
+      "labelSource": "agent",
+      "note": "owner: facts[3] \"Katherine owns the rollout summary.\""
+    },
+    {
+      "turnIndex": 2,
+      "acceptablePersonaIds": ["manager"],
+      "allowUserYield": false,
+      "family": "TT-D1",
+      "labelSource": "agent",
+      "note": "owner: facts[2] \"Katherine owns client communication after the demo.\"; named: peer",
+      "distractor": true
+    },
+    {
+      "turnIndex": 3,
+      "acceptablePersonaIds": [],
+      "allowUserYield": true,
+      "family": "TT-Q2",
+      "labelSource": "agent",
+      "note": "thinking aloud; no owner"
+    }
+  ],
+  "evidenceSpans": [],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent labels authored against m3b-speaker-label-guideline-v2. Provisional, not human ground truth."
+}

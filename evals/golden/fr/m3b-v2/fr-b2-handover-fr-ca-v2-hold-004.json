@@ -1,0 +1,46 @@
+{
+  "id": "golden-fr-b2-handover-fr-ca-v2-hold-004",
+  "lang": "fr",
+  "locale": "fr-CA",
+  "split": "holdout",
+  "taskId": "fr-b2-handover-fr-ca-v2-hold-004",
+  "speakerLabels": [
+    {
+      "turnIndex": 0,
+      "acceptablePersonaIds": ["peer"],
+      "allowUserYield": false,
+      "family": "TT-S6",
+      "labelSource": "agent",
+      "note": "owner: facts[1] \"Samir est responsable des notes de suivi de la démo.\""
+    },
+    {
+      "turnIndex": 1,
+      "acceptablePersonaIds": ["peer"],
+      "allowUserYield": false,
+      "family": "TT-D1",
+      "labelSource": "agent",
+      "note": "owner: facts[5] \"Samir est responsable de la liste d’actions.\"; named: manager",
+      "distractor": true
+    },
+    {
+      "turnIndex": 2,
+      "acceptablePersonaIds": [],
+      "allowUserYield": true,
+      "family": "TT-Q2",
+      "labelSource": "agent",
+      "note": "thinking aloud; no owner"
+    },
+    {
+      "turnIndex": 3,
+      "acceptablePersonaIds": [],
+      "allowUserYield": true,
+      "family": "TT-Q3",
+      "labelSource": "agent",
+      "note": "self-answer; no owner"
+    }
+  ],
+  "evidenceSpans": [],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent labels authored against m3b-speaker-label-guideline-v2. Provisional, not human ground truth."
+}

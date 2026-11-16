@@ -1,0 +1,37 @@
+{
+  "id": "fr-b2-scope-fr-ca-v2-hold-002",
+  "lang": "fr",
+  "locale": "fr-CA",
+  "mode": "session",
+  "domain": "workplace",
+  "scenarioType": "standup-scope-change",
+  "cefrBand": "B2",
+  "speakerId": "syn-v2-fr-scope-fr-ca-holdout-002",
+  "split": "holdout",
+  "provenance": {
+    "source": "synthetic",
+    "note": "M3c two-persona speaker-label decision points"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "rubric": "m3b-turn-taking-rubric-v1",
+    "annotationGuideline": "m3b-speaker-label-guideline-v2"
+  },
+  "content": {
+    "scenarioBrief": "La responsable modifie le périmètre de la livraison au point du matin ; l’apprenant clarifie l’impact et la priorité.",
+    "turns": []
+  },
+  "session": {
+    "personaId": "manager",
+    "personaIds": ["manager", "peer"],
+    "personaVersion": "1.0.0",
+    "scenarioId": "standup-scope-change",
+    "scenarioVersion": "1.0.0",
+    "scriptedUserTurns": [
+      "Samir, que reste-t-il à faire sur l'impact des alertes ?",
+      "Catherine, peux-tu confirmer le périmètre de l'export ?",
+      "Quelqu'un peut-il expliquer ce qui est risqué dans la livraison ?",
+      "Qui est responsable du risque sur les notifications ?"
+    ]
+  }
+}
