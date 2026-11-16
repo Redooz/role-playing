@@ -1,0 +1,24 @@
+{
+  "id": "golden-routing-en-110-hold-022",
+  "lang": "en",
+  "split": "holdout",
+  "taskId": "routing-en-110-hold-022",
+  "routingOutcome": {
+    "intent": "rt-d1-client",
+    "acceptablePersonaIds": ["client"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "family": "RT-D1",
+    "distractor": true,
+    "note": "owner: client.objectives[client_goal] \"service update\"; named: manager"
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Katherine, should we move the service update to Friday?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v2. Provisional, not human ground truth."
+}

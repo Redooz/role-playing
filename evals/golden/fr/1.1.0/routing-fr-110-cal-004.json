@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-fr-110-cal-004",
+  "lang": "fr",
+  "split": "calibration",
+  "taskId": "routing-fr-110-cal-004",
+  "routingOutcome": {
+    "intent": "rt-s1-client",
+    "acceptablePersonaIds": ["client"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "family": "RT-S1",
+    "note": "owner: client.objectives[client_goal] \"revue du pilote\""
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Julian, pouvez-vous confirmer la revue du pilote ?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v2. Provisional, not human ground truth."
+}

@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-fr-110-cal-002",
+  "lang": "fr",
+  "split": "calibration",
+  "taskId": "routing-fr-110-cal-002",
+  "routingOutcome": {
+    "intent": "rt-s1-manager",
+    "acceptablePersonaIds": ["manager"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "family": "RT-S1",
+    "note": "owner: manager.objectives[manager_goal] \"plan d'intégration\""
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Kate, où en est le plan d'intégration ?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v2. Provisional, not human ground truth."
+}

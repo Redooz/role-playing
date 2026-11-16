@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-fr-110-cal-006",
+  "lang": "fr",
+  "split": "calibration",
+  "taskId": "routing-fr-110-cal-006",
+  "routingOutcome": {
+    "intent": "rt-s2-manager",
+    "acceptablePersonaIds": ["manager"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "family": "RT-S2",
+    "note": "owner: manager.objectives[manager_goal] \"budget\""
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Où en est le budget ?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v2. Provisional, not human ground truth."
+}

@@ -1,0 +1,27 @@
+{
+  "id": "golden-routing-en-110-hold-031",
+  "lang": "en",
+  "split": "holdout",
+  "taskId": "routing-en-110-hold-031",
+  "routingOutcome": {
+    "intent": "rt-q2-learner",
+    "acceptablePersonaIds": [],
+    "allowUserYield": true,
+    "labelSource": "agent",
+    "family": "RT-Q2",
+    "note": "visible: transcript[2] \"The onboarding checklist is complete.\"; covered: peer_goal"
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "The onboarding checklist is complete."
+    },
+    {
+      "turnIndex": 3,
+      "textRef": "What is the latest on the onboarding checklist?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v2. Provisional, not human ground truth."
+}

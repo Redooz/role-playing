@@ -1,0 +1,24 @@
+{
+  "id": "golden-routing-en-110-cal-020",
+  "lang": "en",
+  "split": "calibration",
+  "taskId": "routing-en-110-cal-020",
+  "routingOutcome": {
+    "intent": "rt-d1-manager",
+    "acceptablePersonaIds": ["manager"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "family": "RT-D1",
+    "distractor": true,
+    "note": "owner: manager.objectives[manager_goal] \"travel budget\"; named: client"
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Julian, can you confirm the travel budget?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v2. Provisional, not human ground truth."
+}

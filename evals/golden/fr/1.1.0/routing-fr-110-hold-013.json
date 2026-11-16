@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-fr-110-hold-013",
+  "lang": "fr",
+  "split": "holdout",
+  "taskId": "routing-fr-110-hold-013",
+  "routingOutcome": {
+    "intent": "rt-s4-manager",
+    "acceptablePersonaIds": ["manager"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "family": "RT-S4",
+    "note": "owner: manager.objectives[manager_goal] \"synthèse des retours\""
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Faut-il valider la synthèse des retours cette semaine ?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v2. Provisional, not human ground truth."
+}
