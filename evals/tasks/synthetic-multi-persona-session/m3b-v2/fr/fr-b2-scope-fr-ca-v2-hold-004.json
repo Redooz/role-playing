@@ -29,7 +29,7 @@
     "scenarioVersion": "1.0.0",
     "scriptedUserTurns": [
       "Catherine, la date de livraison est-elle toujours vendredi ?",
-      "Quelqu'un peut-il confirmer la date de livraison ?",
+      "Quelqu'un peut-il confirmer la priorité de vendredi ?",
       "Catherine, quelle partie du travail sur les notifications est faite ?",
       "Samir, quelle est la priorité de vendredi ?"
     ]
