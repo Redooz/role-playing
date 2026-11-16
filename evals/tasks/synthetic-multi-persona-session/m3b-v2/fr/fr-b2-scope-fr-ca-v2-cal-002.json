@@ -1,0 +1,37 @@
+{
+  "id": "fr-b2-scope-fr-ca-v2-cal-002",
+  "lang": "fr",
+  "locale": "fr-CA",
+  "mode": "session",
+  "domain": "workplace",
+  "scenarioType": "standup-scope-change",
+  "cefrBand": "B2",
+  "speakerId": "syn-v2-fr-scope-fr-ca-calibration-002",
+  "split": "calibration",
+  "provenance": {
+    "source": "synthetic",
+    "note": "M3c two-persona speaker-label decision points"
+  },
+  "consentScope": "synthetic-no-consent-required",
+  "annotationVersions": {
+    "rubric": "m3b-turn-taking-rubric-v1",
+    "annotationGuideline": "m3b-speaker-label-guideline-v1"
+  },
+  "content": {
+    "scenarioBrief": "La responsable modifie le périmètre de la livraison au point du matin ; l’apprenant clarifie l’impact et la priorité.",
+    "turns": []
+  },
+  "session": {
+    "personaId": "manager",
+    "personaIds": ["manager", "peer"],
+    "personaVersion": "1.0.0",
+    "scenarioId": "standup-scope-change",
+    "scenarioVersion": "1.0.0",
+    "scriptedUserTurns": [
+      "Quelqu'un peut-il confirmer la priorité de l'export pour vendredi ?",
+      "Quelqu'un peut-il confirmer si l'export part toujours vendredi ?",
+      "Qui est responsable de l'évaluation d'impact ?",
+      "À qui revient la priorité de vendredi ?"
+    ]
+  }
+}
