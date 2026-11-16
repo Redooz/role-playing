@@ -15,7 +15,7 @@
   "consentScope": "synthetic-no-consent-required",
   "annotationVersions": {
     "rubric": "m3b-turn-taking-rubric-v1",
-    "annotationGuideline": "m3b-speaker-label-guideline-v1"
+    "annotationGuideline": "m3b-speaker-label-guideline-v2"
   },
   "content": {
     "scenarioBrief": "Après la démonstration client, la responsable et le collègue se répartissent le suivi ; l’apprenant confirme les responsables et les prochaines étapes.",

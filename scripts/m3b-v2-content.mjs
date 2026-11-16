@@ -91,7 +91,7 @@ export const PATTERNS = {
   },
 }
 
-/** Locale order per scenario and split. The first three get the base locale. */
+/** English locale pattern. `en` maps to the base locale, `en-GB` to the variant. */
 export const LOCALE_ORDER = ['en', 'en-GB', 'en', 'en-GB', 'en', 'en-GB']
 
 export const SCENARIOS = {

@@ -10,7 +10,7 @@
  * Run it with `node scripts/generate-m3b-v2.mjs`. It is deterministic: no
  * clock, no RNG, and it never rewrites `m3b-v1`.
  */
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { format } from 'prettier'
@@ -36,7 +36,7 @@ export function labelClass(label) {
 }
 
 function localeFor(lang, index) {
-  return LOCALE_ORDER[index] === BASE_LOCALE[lang] ? BASE_LOCALE[lang] : OTHER_LOCALE[lang]
+  return LOCALE_ORDER[index] === 'en' ? BASE_LOCALE[lang] : OTHER_LOCALE[lang]
 }
 
 function localeSlug(locale) {
@@ -140,7 +140,7 @@ function buildTask(lang, split, scenario, pattern, index, cursors) {
     consentScope: 'synthetic-no-consent-required',
     annotationVersions: {
       rubric: 'm3b-turn-taking-rubric-v1',
-      annotationGuideline: 'm3b-speaker-label-guideline-v1',
+      annotationGuideline: 'm3b-speaker-label-guideline-v2',
     },
     content: {
       scenarioBrief: briefFor(scenario, lang),
@@ -166,7 +166,7 @@ function buildTask(lang, split, scenario, pattern, index, cursors) {
     pairwisePreferences: [],
     status: 'draft',
     notes:
-      'Agent labels authored against m3b-speaker-label-guideline-v1. Provisional, not human ground truth.',
+      'Agent labels authored against m3b-speaker-label-guideline-v2. Provisional, not human ground truth.',
   }
   return { task, golden }
 }
@@ -312,6 +312,11 @@ export async function writeDataset(repoRoot) {
   checkDataset(tasks, goldens)
   const taskRoot = join(repoRoot, 'evals/tasks', DATASET, VERSION)
   const goldenRoot = join(repoRoot, 'evals/golden')
+  // Remove the previous version tree so a locale or id change cannot leave an
+  // orphan task behind. Never touches another version.
+  rmSync(taskRoot, { recursive: true, force: true })
+  for (const lang of LANGS)
+    rmSync(join(goldenRoot, lang, VERSION), { recursive: true, force: true })
   for (const task of tasks) {
     const path = join(taskRoot, task.lang, `${task.id}.json`)
     mkdirSync(dirname(path), { recursive: true })

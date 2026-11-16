@@ -37,7 +37,7 @@ Authoring is deterministic:
 node scripts/generate-m3b-v2.mjs
 ```
 
-Labels use `m3b-speaker-label-guideline-v1`; each task names it in
+Labels use `m3b-speaker-label-guideline-v2`; each task names it in
 `annotationVersions.annotationGuideline`. They are agent labels: provisional, not
 human ground truth.
 
@@ -49,7 +49,7 @@ One case per learner turn:
 node tools/annotation-kit/speaker-bundle.mjs \
   --tasks evals/tasks/synthetic-multi-persona-session/m3b-v2 \
   --out /tmp/m3c-p5-bundle \
-  --guideline m3b-speaker-label-guideline-v1
+  --guideline m3b-speaker-label-guideline-v2
 ```
 
 The bundle carries the scenario facts, objectives, personas and the learner
