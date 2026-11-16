@@ -1,0 +1,27 @@
+{
+  "id": "golden-routing-fr-110-hold-029",
+  "lang": "fr",
+  "split": "holdout",
+  "taskId": "routing-fr-110-hold-029",
+  "routingOutcome": {
+    "intent": "rt-q2-learner",
+    "acceptablePersonaIds": [],
+    "allowUserYield": true,
+    "labelSource": "agent",
+    "family": "RT-Q2",
+    "note": "visible: transcript[2] \"Le budget voyage est validé.\"; covered: manager_goal"
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Le budget voyage est validé."
+    },
+    {
+      "turnIndex": 3,
+      "textRef": "Quel est le dernier point sur le budget voyage ?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v2. Provisional, not human ground truth."
+}

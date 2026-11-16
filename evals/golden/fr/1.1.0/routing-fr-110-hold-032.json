@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-fr-110-hold-032",
+  "lang": "fr",
+  "split": "holdout",
+  "taskId": "routing-fr-110-hold-032",
+  "routingOutcome": {
+    "intent": "rt-q3-learner",
+    "acceptablePersonaIds": [],
+    "allowUserYield": true,
+    "labelSource": "agent",
+    "family": "RT-Q3",
+    "note": "self-directed: no addressee; mentions client_goal"
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "La mise à jour du service, c'est la partie risquée."
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v2. Provisional, not human ground truth."
+}

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "dataset": "synthetic-routing",
+  "version": "1.1.0",
+  "unit": "routing_outcome",
+  "splits": {
+    "calibration": {
+      "en": {
+        "classes": { "speak": 22, "silence": 14, "mixed": 4 },
+        "minFamilies": 10,
+        "maxPerFamily": 6,
+        "minDistractors": 4
+      },
+      "fr": {
+        "classes": { "speak": 22, "silence": 14, "mixed": 4 },
+        "minFamilies": 10,
+        "maxPerFamily": 6,
+        "minDistractors": 4
+      }
+    },
+    "holdout": {
+      "en": {
+        "classes": { "speak": 22, "silence": 14, "mixed": 4 },
+        "minFamilies": 10,
+        "maxPerFamily": 6,
+        "minDistractors": 6
+      },
+      "fr": {
+        "classes": { "speak": 22, "silence": 14, "mixed": 4 },
+        "minFamilies": 10,
+        "maxPerFamily": 6,
+        "minDistractors": 6
+      }
+    }
+  }
+}

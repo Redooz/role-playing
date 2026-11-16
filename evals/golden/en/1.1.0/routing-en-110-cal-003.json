@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-en-110-cal-003",
+  "lang": "en",
+  "split": "calibration",
+  "taskId": "routing-en-110-cal-003",
+  "routingOutcome": {
+    "intent": "rt-s1-peer",
+    "acceptablePersonaIds": ["peer"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "family": "RT-S1",
+    "note": "owner: peer.objectives[peer_goal] \"incident log\""
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Sam, can you update the incident log?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v2. Provisional, not human ground truth."
+}

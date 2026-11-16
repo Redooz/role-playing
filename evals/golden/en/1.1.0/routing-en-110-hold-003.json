@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-en-110-hold-003",
+  "lang": "en",
+  "split": "holdout",
+  "taskId": "routing-en-110-hold-003",
+  "routingOutcome": {
+    "intent": "rt-s1-manager",
+    "acceptablePersonaIds": ["manager"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "family": "RT-S1",
+    "note": "owner: manager.objectives[manager_goal] \"feedback summary\""
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Kate, where does the feedback summary stand?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v2. Provisional, not human ground truth."
+}

@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-en-110-cal-036",
+  "lang": "en",
+  "split": "calibration",
+  "taskId": "routing-en-110-cal-036",
+  "routingOutcome": {
+    "intent": "rt-q4-learner",
+    "acceptablePersonaIds": [],
+    "allowUserYield": true,
+    "labelSource": "agent",
+    "family": "RT-Q4",
+    "note": "aside: no eligible addressee"
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "My coffee has gone cold."
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v2. Provisional, not human ground truth."
+}

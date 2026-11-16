@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-en-110-hold-002",
+  "lang": "en",
+  "split": "holdout",
+  "taskId": "routing-en-110-hold-002",
+  "routingOutcome": {
+    "intent": "rt-s1-manager",
+    "acceptablePersonaIds": ["manager"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "family": "RT-S1",
+    "note": "owner: manager.objectives[manager_goal] \"incident review\""
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Katherine, can you confirm the incident review?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v2. Provisional, not human ground truth."
+}

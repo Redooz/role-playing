@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-fr-110-hold-037",
+  "lang": "fr",
+  "split": "holdout",
+  "taskId": "routing-fr-110-hold-037",
+  "routingOutcome": {
+    "intent": "mixed-peer",
+    "acceptablePersonaIds": ["peer"],
+    "allowUserYield": true,
+    "labelSource": "agent",
+    "family": "mixed",
+    "note": "owner: peer.objectives[peer_goal] \"journal de l'incident\"; learner may proceed"
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Je peux attendre le journal de l'incident avant d'envoyer quoi que ce soit."
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v2. Provisional, not human ground truth."
+}

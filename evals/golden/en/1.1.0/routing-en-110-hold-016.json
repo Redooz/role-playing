@@ -1,0 +1,23 @@
+{
+  "id": "golden-routing-en-110-hold-016",
+  "lang": "en",
+  "split": "holdout",
+  "taskId": "routing-en-110-hold-016",
+  "routingOutcome": {
+    "intent": "rt-s4-client",
+    "acceptablePersonaIds": ["client"],
+    "allowUserYield": false,
+    "labelSource": "agent",
+    "family": "RT-S4",
+    "note": "owner: client.objectives[client_goal] \"start date\""
+  },
+  "evidenceSpans": [
+    {
+      "turnIndex": 2,
+      "textRef": "Do you want to sign off on the start date?"
+    }
+  ],
+  "pairwisePreferences": [],
+  "status": "draft",
+  "notes": "Agent label authored against m3a-routing-label-v2. Provisional, not human ground truth."
+}
