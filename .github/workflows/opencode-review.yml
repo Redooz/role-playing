@@ -162,7 +162,17 @@ jobs:
         run: |
           set -euo pipefail
           echo ".pr.diff" >> .git/info/exclude
-          gh pr diff "${{ github.event.pull_request.number }}" > .pr.diff
+          # `gh pr diff` fails above 300 changed files, and a data layer can add
+          # hundreds of task and golden files. The files API paginates to 3000
+          # and returns the same per-file patch, so build the diff from it.
+          gh api --paginate \
+            "repos/${GITHUB_REPOSITORY}/pulls/${{ github.event.pull_request.number }}/files?per_page=100" \
+            --jq '.[] | select(.patch != null) | (
+              "diff --git a/\(.filename) b/\(.filename)\n" +
+              (if .status == "added" then "--- /dev/null\n" else "--- a/\(.filename)\n" end) +
+              (if .status == "removed" then "+++ /dev/null\n" else "+++ b/\(.filename)\n" end) +
+              .patch + "\n"
+            )' > .pr.diff
           test -s .pr.diff
 
       - name: Run OpenCode
