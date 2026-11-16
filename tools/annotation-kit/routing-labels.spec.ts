@@ -525,6 +525,41 @@ describe('per-class agreement', () => {
     expect(summary.directions).toEqual({ aSilenceBSpoke: 1, aSpokeBSilence: 1 })
   })
 
+  it('fails a declared class that has no matched pair', () => {
+    const speakOnly = [label({ caseId: 'case-a', acceptablePersonaIds: ['peer'] })]
+    const summary = summarizeRoutingAgreement(speakOnly, speakOnly, {
+      classByCase: { 'case-a': 'speak', 'case-b': 'silence', 'case-c': 'mixed' },
+    })
+    expect(summary.byClass.silence).toEqual({ n: 0, exact: 0, exactRate: 0 })
+    expect(summary.byClass.mixed).toEqual({ n: 0, exact: 0, exactRate: 0 })
+    expect(agreementFailuresByClass(summary, 0.8)).toEqual([
+      'silence: no matched cases',
+      'mixed: no matched cases',
+    ])
+    expect(summary.byClassAndLang.en.silence).toEqual({ n: 0, exact: 0, exactRate: 0 })
+    expect(agreementFailuresByClassAndLanguage(summary, 0.8)).toEqual([
+      'en/silence: no matched cases',
+      'en/mixed: no matched cases',
+    ])
+  })
+
+  it('does not invent a class the manifest never declares', () => {
+    const speakOnly = [label({ caseId: 'case-a' })]
+    const summary = summarizeRoutingAgreement(speakOnly, speakOnly, {
+      classByCase: { 'case-a': 'speak' },
+    })
+    expect(summary.byClass).toEqual({ speak: { n: 1, exact: 1, exactRate: 1 } })
+    expect(agreementFailuresByClass(summary, 0.8)).toEqual([])
+  })
+
+  it('rejects an unknown declared class', () => {
+    expect(() =>
+      summarizeRoutingAgreement([label()], [label()], {
+        classByCase: { 'case-a': 'other' },
+      }),
+    ).toThrow(/unknown expected class "other"/)
+  })
+
   it('treats the class bar as inclusive', () => {
     expect(
       agreementFailuresByClass({ byClass: { speak: { n: 5, exact: 4, exactRate: 0.8 } } }, 0.8),

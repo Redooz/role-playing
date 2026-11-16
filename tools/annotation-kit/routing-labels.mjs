@@ -143,14 +143,23 @@ export function summarizeRoutingAgreement(leftLabels, rightLabels, options = {})
 
   if (classes === undefined) return { ...summary, unmatched }
 
+  const classValues = new Set(classes.values())
+  for (const klass of classValues) {
+    if (!ROUTING_CLASSES.includes(klass)) {
+      throw new Error(`unknown expected class "${klass}"`)
+    }
+  }
+  const declaredClasses = ROUTING_CLASSES.filter((klass) => classValues.has(klass))
   const byClass = {}
+  for (const klass of declaredClasses) byClass[klass] = emptyCounts()
   const byClassAndLang = {}
   const directions = { aSilenceBSpoke: 0, aSpokeBSilence: 0 }
   for (const pair of pairs) {
-    byClass[pair.expectedClass] ??= emptyCounts()
-    addCount(byClass[pair.expectedClass], pair.agree)
     byClassAndLang[pair.lang] ??= {}
-    byClassAndLang[pair.lang][pair.expectedClass] ??= emptyCounts()
+    for (const klass of declaredClasses) {
+      byClassAndLang[pair.lang][klass] ??= emptyCounts()
+    }
+    addCount(byClass[pair.expectedClass], pair.agree)
     addCount(byClassAndLang[pair.lang][pair.expectedClass], pair.agree)
     const direction = directionOf(pair.leftClass, pair.rightClass)
     if (direction !== undefined) directions[direction] += 1
