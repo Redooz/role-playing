@@ -575,3 +575,36 @@ baseline changed. The French miss is a data-quality finding on the frozen
 contract; changing keywords after reading holdout labels would fit the data to
 the test. D5 is the live confirmation of the frozen contract, not a second
 selection attempt.
+
+### D5 close-out (2026-11-24)
+
+D4 adopted no arm, so the plan's live phase — "live run of the arms that passed
+D4" — has no candidate. No Jev live policy adapter was added, because nothing
+would call it: the architecture rule forbids speculative code, and the product
+default stays `det-persona`. `apps/cli` still wires `det-persona`, and no live
+routing policy is registered anywhere.
+
+**Result.** The M3d contract repair is complete and no routing policy is
+adopted. English clears the frozen floors on holdout; French misses the speak
+floor by four decisions. The P6 verdicts stand: English inconclusive, French
+inconclusive, no policy adopted. Only a new pre-registered run can change that.
+
+**Spend.** D3 and D4 were offline comparisons with the Jev cache disabled.
+Recorded Jev spend, all arms and both languages: D3 $0.00537 (en) + $0.00614
+(fr); D4 $0.01934 (en) + $0.02223 (fr); total **$0.05306**. D5 spends nothing on
+routing because no live arm ran, and the regression replays spend nothing
+because they read recorded transcripts. This is the recorded spend, not a claim
+about discarded development runs.
+
+**Regression floors, re-run on this branch:**
+
+| Suite                              | Run ID                 | Verdict  | Reading                                                                                                       |
+| ---------------------------------- | ---------------------- | -------- | ------------------------------------------------------------------------------------------------------------- |
+| `m0-canned-replay` (G1)            | `m0-canned-replay`     | accepted | deterministic 1.000 (delta 0), failure 0, plain text 1.000, 4 guardrails and all invariants hold              |
+| `m2-persona-replay-v2`             | `m2-persona-replay-v2` | accepted | deterministic 1.000 (delta 0), failure 0, plain text 1.000, 7 guardrails and all invariants hold              |
+| task validator (G3)                | —                      | pass     | 0 violations over `evals/`                                                                                    |
+| full mutation (`npm run mutation`) | —                      | pass     | every package at or above its recorded floor; `packages/eval-harness` 96.33 %/96.73 % against 96.18 %/96.60 % |
+
+The suites ran into `evals/results/m3d-d5-regressions/` so the accepted run
+directories stay untouched. No threshold, baseline, manifest or golden file
+changed in D5.
