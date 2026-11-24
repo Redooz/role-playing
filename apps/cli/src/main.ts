@@ -15,13 +15,11 @@ import {
   personaVariant,
 } from '@rp/persona-kit'
 import { createJevClient, createJevRoutingJudge } from '@rp/eval-harness'
-import type { RoutingContext } from '@rp/routing-policy'
 import { scenarioById } from '@rp/scenario-kit'
 import { INITIAL_ARBITER_STATE, parseTurnArbiterConfig, reduce } from '@rp/turn-arbiter'
 import {
   TRANSCRIPT_SCHEMA_VERSION,
   createTextSessionDriver,
-  type PersonaTurnPolicy,
   type SessionLanguage,
   type SessionLogHeader,
   type TextModelPort,
@@ -36,8 +34,8 @@ import {
   type Clock,
 } from '@rp/shared'
 import { createCannedDemoModel } from './canned-demo.adapter.js'
-import { routingChoiceFor, routingRequestFrom } from './routing-choice.js'
-import { createSessionRoutingPolicy } from './routing-policy.adapter.js'
+import { routingRequestFrom } from './routing-choice.js'
+import { createSessionRouting } from './routing-policy.adapter.js'
 import { USAGE } from './usage.js'
 import { runCli, type CliIo, type CliProvider } from './cli-main.js'
 import { createFileSessionLog, type SessionLog } from './session-log.adapter.js'
@@ -324,25 +322,19 @@ export async function main(argv: readonly string[]): Promise<number> {
   const arbiterConfig = parseTurnArbiterConfig()
   const random = createSeededRandom(0)
 
-  const openRouterKey = (process.env['OPENROUTER_API_KEY'] ?? '').trim()
-  const routing = routingChoiceFor({
+  const routing = createSessionRouting({
     requested: routingRequest,
     provider: provider.kind,
     lang,
     personaCount: personaSpecs.length,
-    hasRouterKey: openRouterKey !== '',
-  })
-  if (routing.warning === 'missing-openrouter-key') {
-    io.err('note: OPENROUTER_API_KEY is not set; this English session uses det-persona routing')
-  }
-  const policy: PersonaTurnPolicy<RoutingContext> = createSessionRoutingPolicy({
-    choice: routing.choice,
-    createJudge: () => createJevRoutingJudge(createJevClient({ apiKey: openRouterKey })),
+    env: process.env,
+    createJudge: (apiKey) => createJevRoutingJudge(createJevClient({ apiKey })),
     onFallback: (failure) =>
       io.err(
         `[routing] jev-central fell back to det-persona (${failure.cause}) on ${failure.turnId}`,
       ),
   })
+  if (routing.note !== undefined) io.err(`note: ${routing.note}`)
 
   const driver = multiPersona
     ? createTextSessionDriver({
@@ -361,7 +353,7 @@ export async function main(argv: readonly string[]): Promise<number> {
           initialState: INITIAL_ARBITER_STATE,
           reduce: (state, input) => reduce(state, input, arbiterConfig),
         },
-        policy,
+        policy: routing.policy,
         buildContext: ({ turnId, messages }) =>
           buildSessionRoutingContext({
             turnId,
@@ -442,10 +434,7 @@ export async function main(argv: readonly string[]): Promise<number> {
       provider,
       log,
       logPath,
-      routingLabel:
-        routing.choice === 'jev-central'
-          ? 'jev-central (English, det-persona fallback)'
-          : 'det-persona',
+      routingLabel: routing.label,
       selection: {
         personaId: persona.id,
         personaName: personaVariant(persona, locale).displayName,

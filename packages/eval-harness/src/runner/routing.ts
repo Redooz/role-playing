@@ -109,7 +109,7 @@ export function runDeterministicRoutingReplay(
   }
 }
 
-export async function withinDeadline<T>(
+async function withinDeadline<T>(
   work: Promise<T>,
   deadlineMs: number,
 ): Promise<{ kind: 'result'; value: T } | { kind: 'timeout' }> {
