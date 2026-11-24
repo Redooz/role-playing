@@ -14,12 +14,14 @@ import {
   personaById,
   personaVariant,
 } from '@rp/persona-kit'
-import { createDetPersonaLivePolicy } from '@rp/routing-policy'
+import { createJevClient, createJevRoutingJudge } from '@rp/eval-harness'
+import type { RoutingContext } from '@rp/routing-policy'
 import { scenarioById } from '@rp/scenario-kit'
 import { INITIAL_ARBITER_STATE, parseTurnArbiterConfig, reduce } from '@rp/turn-arbiter'
 import {
   TRANSCRIPT_SCHEMA_VERSION,
   createTextSessionDriver,
+  type PersonaTurnPolicy,
   type SessionLanguage,
   type SessionLogHeader,
   type TextModelPort,
@@ -34,6 +36,9 @@ import {
   type Clock,
 } from '@rp/shared'
 import { createCannedDemoModel } from './canned-demo.adapter.js'
+import { routingChoiceFor, routingRequestFrom } from './routing-choice.js'
+import { createSessionRoutingPolicy } from './routing-policy.adapter.js'
+import { USAGE } from './usage.js'
 import { runCli, type CliIo, type CliProvider } from './cli-main.js'
 import { createFileSessionLog, type SessionLog } from './session-log.adapter.js'
 
@@ -44,28 +49,6 @@ import { createFileSessionLog, type SessionLog } from './session-log.adapter.js'
  * and opens files. The driver, the REPL and the log codec stay provider- and
  * transport-agnostic.
  */
-
-const USAGE = `role-play - text session (M2/M3b)
-
-Usage:
-  npm run chat -- [options]
-
-Options:
-  --provider <canned|live>  canned is offline demo output; live calls LiveKit Gemma (default: canned)
-  --lang <en|fr>            base session language (default: en)
-  --locale <bcp47>          locale variant such as en-GB or fr-CA (default: the base lang)
-  --persona <id>            manager, peer or client (canned default: manager)
-  --personas <ids>          two comma-separated personas, e.g. manager,peer
-  --scenario <id>           scenario id (canned default: request-deadline-extension)
-  --log-dir <dir>           where session logs are written (default: sessions)
-  --session-id <id>         override the per-process session id (tests only)
-  --task <id>               record a task id in the log header
-  --prompt-date <date>      pinned YYYY-MM-DD for the prompt (default: today)
-  --help                    show this help
-
-Live mode requires LIVEKIT_API_KEY and LIVEKIT_API_SECRET in the environment
-(npm loads .env), and an explicit --persona or --personas plus --scenario. The
-credentials are never printed. The model is fixed to google/gemma-4-31b-it.`
 
 /**
  * A session id becomes a file name, so only path-safe characters are allowed.
@@ -127,6 +110,7 @@ export async function main(argv: readonly string[]): Promise<number> {
     locale?: string
     persona?: string
     personas?: string
+    routing?: string
     scenario?: string
     'log-dir'?: string
     'session-id'?: string
@@ -144,6 +128,7 @@ export async function main(argv: readonly string[]): Promise<number> {
         locale: { type: 'string' },
         persona: { type: 'string' },
         personas: { type: 'string' },
+        routing: { type: 'string' },
         scenario: { type: 'string' },
         'log-dir': { type: 'string', default: 'sessions' },
         'session-id': { type: 'string' },
@@ -174,6 +159,14 @@ export async function main(argv: readonly string[]): Promise<number> {
   const lang = values.lang ?? 'en'
   if (lang !== 'en' && lang !== 'fr') {
     io.err(`error: --lang must be "en" or "fr", got "${lang}"`)
+    return 2
+  }
+
+  let routingRequest
+  try {
+    routingRequest = routingRequestFrom(values.routing)
+  } catch (error) {
+    io.err(`error: ${error instanceof Error ? error.message : String(error)}`)
     return 2
   }
 
@@ -331,6 +324,26 @@ export async function main(argv: readonly string[]): Promise<number> {
   const arbiterConfig = parseTurnArbiterConfig()
   const random = createSeededRandom(0)
 
+  const openRouterKey = (process.env['OPENROUTER_API_KEY'] ?? '').trim()
+  const routing = routingChoiceFor({
+    requested: routingRequest,
+    provider: provider.kind,
+    lang,
+    personaCount: personaSpecs.length,
+    hasRouterKey: openRouterKey !== '',
+  })
+  if (routing.warning === 'missing-openrouter-key') {
+    io.err('note: OPENROUTER_API_KEY is not set; this English session uses det-persona routing')
+  }
+  const policy: PersonaTurnPolicy<RoutingContext> = createSessionRoutingPolicy({
+    choice: routing.choice,
+    createJudge: () => createJevRoutingJudge(createJevClient({ apiKey: openRouterKey })),
+    onFallback: (failure) =>
+      io.err(
+        `[routing] jev-central fell back to det-persona (${failure.cause}) on ${failure.turnId}`,
+      ),
+  })
+
   const driver = multiPersona
     ? createTextSessionDriver({
         sessionId,
@@ -348,7 +361,7 @@ export async function main(argv: readonly string[]): Promise<number> {
           initialState: INITIAL_ARBITER_STATE,
           reduce: (state, input) => reduce(state, input, arbiterConfig),
         },
-        policy: createDetPersonaLivePolicy(),
+        policy,
         buildContext: ({ turnId, messages }) =>
           buildSessionRoutingContext({
             turnId,
@@ -429,6 +442,10 @@ export async function main(argv: readonly string[]): Promise<number> {
       provider,
       log,
       logPath,
+      routingLabel:
+        routing.choice === 'jev-central'
+          ? 'jev-central (English, det-persona fallback)'
+          : 'det-persona',
       selection: {
         personaId: persona.id,
         personaName: personaVariant(persona, locale).displayName,

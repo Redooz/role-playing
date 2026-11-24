@@ -58,6 +58,8 @@ export interface RunCliOptions {
   readonly log?: CliLog
   readonly logPath?: string
   readonly selection?: CliSelection
+  /** Routing policy label for the header; absent in single-persona mode. */
+  readonly routingLabel?: string
   /** Injected for tests; defaults to `node:fs/promises` readFile. */
   readonly readFile?: (path: string) => Promise<string>
 }
@@ -93,6 +95,9 @@ export async function runCli(options: RunCliOptions): Promise<void> {
         `persona: ${options.selection.personaName} (${options.selection.personaId}), scenario: ${options.selection.scenarioId}, locale: ${options.selection.locale}`,
       )
     }
+  }
+  if (multiPersona && options.routingLabel !== undefined) {
+    io.out(`routing: ${options.routingLabel}`)
   }
   if (options.logPath !== undefined) io.out(`log: ${options.logPath}`)
   io.out('type /help for commands')

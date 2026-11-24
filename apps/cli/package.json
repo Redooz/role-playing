@@ -10,6 +10,7 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@rp/eval-harness": "*",
     "@rp/persona-kit": "*",
     "@rp/pipeline": "*",
     "@rp/routing-policy": "*",

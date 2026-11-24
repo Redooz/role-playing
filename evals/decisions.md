@@ -608,3 +608,55 @@ about discarded development runs.
 The suites ran into `evals/results/m3d-d5-regressions/` so the accepted run
 directories stay untouched. No threshold, baseline, manifest or golden file
 changed in D5.
+
+### D6 English-only adoption of `jev-central` (2026-11-24)
+
+The owner reset the scope: English is the product language; French is a
+secondary report. This row adopts a routing policy for English only. It is a new
+decision, not an edit to D4. The D4 row stays: under the both-language rule, no
+arm was adopted. This row supersedes the D5 line "the CLI default is not changed"
+for English, and gives the reason.
+
+**Pre-registered before the wiring and the live check.**
+
+**Evidence.** D4's holdout run `m3d-holdout-offline` (144 contexts per language,
+three rounds, zero incomplete decisions) gives, for English:
+
+| Arm           |          Speak | Floor 0.826 | Silence | Floor 0.75 | Incumbent 0.765 / 0.667 |
+| ------------- | -------------: | ----------- | ------: | ---------- | ----------------------- |
+| `jev-central` | 90/102 = 0.882 | pass        |   0.833 | pass       | pass                    |
+| `jev-persona` | 90/102 = 0.882 | pass        |   0.833 | pass       | pass                    |
+
+Both arms pass in English and tie on both class rates. The frozen ranking order
+puts cost before latency, so `jev-central` wins: one model batch per turn,
+$0.00634229 against $0.01299304, about half the cost. French is unchanged and
+stays on `det-persona`.
+
+**Decision.** English live two-persona text sessions route with `jev-central`.
+The policy is the rubric v2 central batch, mapped through the ownership-first
+move contract. `det-persona` remains the fallback and the canned-mode policy.
+
+**Failure and latency rules, fixed with the decision.**
+
+- The policy deadline is 1,200 ms, below the driver's 1,500 ms request window, so
+  a fallback still answers inside the window.
+- A timeout, transport error or invalid answer is never a decline. The turn is
+  answered by `det-persona` and the failure is reported once on stderr with its
+  cause and turn id.
+- A contract violation rejects instead of inventing an answer; the driver
+  records a failed policy call.
+- One Jev batch serves both persona calls in a turn; the turn id is the cache
+  key and only the current turn is kept.
+- Interjections go to `det-persona`; the move contract does not model them.
+- Canned mode never opens a Jev client. A missing `OPENROUTER_API_KEY` keeps the
+  session on `det-persona` and prints a note. `--routing det-persona` disables
+  the Jev path.
+
+**Gates.** This does not change a floor, a threshold, a golden label, a scenario
+fact or a baseline. It does not change the D4 verdict. It records an adoption,
+so the next step is the live check described below, and no further policy
+selection.
+
+**Live check.** After the wiring, one English live session records the transcript,
+the chosen speaker and any fallback line. It verifies the wiring only; the
+capability evidence stays D4.
