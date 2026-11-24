@@ -439,7 +439,8 @@ describe('runJevRoutingReplay persona requests', () => {
         return {
           ok: true as const,
           observation: personaObservation({
-            directlyAddressed: persona.id === 'peer' ? 0.9 : 0,
+            // Exactly at the settled-yes threshold: `>= 0.7` is a yes.
+            directlyAddressed: persona.id === 'peer' ? 0.7 : 0,
           }),
         }
       },
@@ -453,6 +454,9 @@ describe('runJevRoutingReplay persona requests', () => {
     expect(result.decision.outcome).toMatchObject({ kind: 'speak', personaId: 'peer' })
     expect(result.decision.policyVersion).toBe(JEV_PERSONA_POLICY_VERSION)
     expect(result.decision.moveJudgments).toMatchObject({ scope: 'persona' })
+    expect(
+      result.decision.requests.find((request) => request.personaId === 'peer')?.addressedByUser,
+    ).toBe(true)
   })
 
   it('takes the maximum move answer across personas', async () => {
@@ -475,6 +479,50 @@ describe('runJevRoutingReplay persona requests', () => {
       kind: 'user_yield',
       reason: 'all_declined',
     })
+  })
+
+  it('aggregates selfAnswer across personas by the maximum', async () => {
+    const judge = {
+      async judgeCentral() {
+        throw new Error('unexpected')
+      },
+      async judgePersona(_context: typeof context, persona: { id: string }) {
+        return {
+          ok: true as const,
+          observation: personaObservation(persona.id === 'manager' ? { selfAnswer: 0.5 } : {}),
+        }
+      },
+    }
+    const result = await runJevRoutingReplay(context, 'persona_requests', judge, {
+      seed: 1,
+      deadlineMs: 1000,
+    })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.decision.fallback).toEqual({ kind: 'deterministic', cause: 'unsettled' })
+    expect(result.decision.outcome).toMatchObject({ kind: 'speak', personaId: 'peer' })
+  })
+
+  it('aggregates thinkingAloud across personas by the maximum', async () => {
+    const judge = {
+      async judgeCentral() {
+        throw new Error('unexpected')
+      },
+      async judgePersona(_context: typeof context, persona: { id: string }) {
+        return {
+          ok: true as const,
+          observation: personaObservation(persona.id === 'manager' ? { thinkingAloud: 0.5 } : {}),
+        }
+      },
+    }
+    const result = await runJevRoutingReplay(context, 'persona_requests', judge, {
+      seed: 1,
+      deadlineMs: 1000,
+    })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.decision.fallback).toEqual({ kind: 'deterministic', cause: 'unsettled' })
+    expect(result.decision.outcome).toMatchObject({ kind: 'speak', personaId: 'peer' })
   })
 
   it('uses the owner rule when one persona move answer is unsettled', async () => {
@@ -563,6 +611,7 @@ describe('routing artifacts', () => {
   })
 
   it('records a timeout as incomplete without a decision', async () => {
+    freezeClock(5_000)
     const timeout = await runJevRoutingReplay(
       context,
       'persona_requests',
@@ -578,6 +627,9 @@ describe('routing artifacts', () => {
       { seed: 1, deadlineMs: 5 },
     )
     expect(timeout).toMatchObject({ ok: false, cause: 'timeout' })
+    if (timeout.ok) throw new Error('expected a timeout')
+    expect(timeout.questionIds).toEqual([])
+    expect(timeout.policyLatencyMs).toBe(0)
     const artifact = routingArtifact(context, timeout, {
       trialId: '0:en:decision-1',
       taskId: 'decision-1',
@@ -629,10 +681,10 @@ describe('routing artifacts', () => {
         },
       )
       const path = join(directory, 'routing', 'decisions.jsonl')
-      await writeRoutingArtifacts(path, [artifact])
+      await writeRoutingArtifacts(path, [artifact, artifact])
       await writeRoutingArtifacts(path, [artifact])
       const lines = (await readFile(path, 'utf8')).trim().split('\n')
-      expect(lines).toHaveLength(2)
+      expect(lines).toHaveLength(3)
       expect(JSON.parse(lines[0]!)).toMatchObject({
         kind: 'routing.decision',
         contentClass: 'restricted',
