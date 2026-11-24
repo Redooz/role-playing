@@ -28,8 +28,8 @@ function variant(locale: string): ScenarioVariant {
   return scenarioById('post-demo-handover').variants[locale]!
 }
 
-function withFacts(facts: readonly string[]): ScenarioVariant {
-  return { ...variant('en'), facts: [...facts] }
+function withFacts(facts: readonly string[], locale = 'en'): ScenarioVariant {
+  return { ...variant(locale), facts: [...facts] }
 }
 
 describe('ownershipFromFacts', () => {
@@ -67,6 +67,17 @@ describe('ownershipFromFacts', () => {
       expect(owners[3]?.topic).toContain('avant la démo')
       expect(owners[0]?.keywords).toContain('notes')
     }
+  })
+
+  it('strips an elided French article from the topic', () => {
+    const owners = ownershipFromFacts(
+      withFacts(
+        ['Samir est responsable de l’action.', "Catherine est en charge de l'export."],
+        'fr',
+      ),
+      personsFor('fr'),
+    )
+    expect(owners.map((owner) => owner.topic)).toEqual(['action', 'export'])
   })
 
   it('ignores context facts that assign no responsibility', () => {
