@@ -78,7 +78,7 @@ function classTotals(tally: ClassTally): ClassTotals {
 }
 
 /** True when a completed decision answers its own label class correctly. */
-function classAppropriate(
+export function classAppropriate(
   klass: 'speak' | 'silence',
   outcome: RoutingDecision['outcome'],
   acceptablePersonaIds: readonly string[],

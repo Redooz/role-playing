@@ -424,3 +424,53 @@ The M3d contract is frozen before any code or run:
 The plan is [M3d Plan: Routing Contract Repair and Jev Arm Comparison](https://app.notion.com/p/42283d257ddf811f909fd96e21494c30)
 in Notion, with a local copy at `docs/plans/m3d-plan-routing-contract.md`. Stack
 base is `feat/m3c-p6-rebaseline` at `bf60013`; D0 is docs only.
+
+### D3 offline calibration (2026-11-24)
+
+D3 compares the two Jev topology arms on calibration only. It changes no
+contract, label, data, threshold, manifest floor or gate.
+
+**Data-source finding.** The four `m3b-v2` P6 manifests are holdout-only and no
+calibration transcript was saved. The plan's "rebuild contexts from the saved P6
+transcripts" therefore had no calibration source. D3 produced one fixed-rotation
+reference round per language over the 10 calibration tasks
+(`m3d-cal-reference-en-r1`, `m3d-cal-reference-fr-r1`), then rebuilt every
+routing context from those saved transcripts. The reference is the reading the
+plan already keeps; the arms, labels, metrics, thresholds and selection rule are
+unchanged, and no holdout context was read.
+
+| Date       | Gate               | Run IDs                                                    | Verdict              | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ---------- | ------------------ | ---------------------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-11-24 | M3d D3 calibration | `m3d-calibration-offline-en`, `m3d-calibration-offline-fr` | complete, diagnostic | 40 contexts per language, 0 incomplete decisions, context and decision invariants hold. EN: speak 0.929 (26/28), silence 0.800 (8/10), acceptable 0.900; fallback `jev-central` 5%, `jev-persona` 2.5%; central $0.00176 and p95 241 ms vs persona $0.00361 and p95 994 ms. FR: speak 0.786 (22/28), silence 0.800 (8/10), acceptable 0.800; fallback central 30%, persona 50%; central $0.00200 and p95 507 ms vs persona $0.00413 and p95 1218 ms. The arms tie on every class in both languages; the central topology is cheaper and faster. Both runs disable the Jev cache, so the latency and cost readings are live and no answer was served from an earlier run. |
+
+Family diagnosis, recorded as findings and not fixed in D3:
+
+- `TT-Q2` is 1/3 in both languages. The learner muses ("I wonder whether…",
+  "Je me demande si…") and Jev answers all four move Nouls settled-no, so the
+  owner rule speaks. A model move error, not a contract gap.
+- `TT-S5` is 2/4 in both languages. Ownership keywords are coarse and shared:
+  `demo`/`démo` is a keyword of four handover owners, and `suivi` (peer) and
+  `client` (manager) co-occur, so several owners match. The contract then yields
+  or resolves by direct address, as `m3d-routing-rubric-v2` states.
+- French scope shares `notifications` between the peer impact objective and the
+  manager priority objective, so impact questions are unresolved or resolve to a
+  directly addressed non-owner.
+- `terminée` does not match `terminé`: whole-term matching is C4 and unchanged.
+
+No iteration was applied. Each observed decision is produced by a written rule;
+the residual misses are a model move error and coarse or shared ownership terms,
+which is a data-quality question rather than an open contract ambiguity.
+Changing owner keywords after reading calibration labels would fit the data to
+calibration, and D4 is the pre-registered holdout test. The D4 row records what
+the frozen contract does on holdout.
+
+Mutation scope: the two direct-execution entrypoints
+`tools/routing-bench/src/m3d-calibration.cli.ts` (resolve hook) and
+`tools/routing-bench/src/m3d-calibration.ts` (fs, environment and live Jev
+wiring) join the entrypoint exclusions, for the same reason as
+`m3b-shadow.cli.ts` and `m3b-shadow.ts`: they run in a separate Node process, so
+per-test coverage cannot see them. The pure modules stay scored:
+`packages/eval-harness/src/runner/calibration-contexts.ts`,
+`packages/eval-harness/src/runner/routing-families.ts` and
+`tools/routing-bench/src/m3d-calibration-summary.ts`. Remove the exclusion when
+the script becomes importable by a unit test without live wiring.
