@@ -1,5 +1,6 @@
 import { sessionLanguageSchema, turnRequestSchema } from '@rp/session-core'
 import { z } from 'zod'
+import { routingOwnerSchema } from './owner-state.js'
 
 /**
  * Offline routing contracts for M3a.
@@ -66,19 +67,8 @@ export const routingPersonaSchema = z.strictObject({
 
 export type RoutingPersona = z.infer<typeof routingPersonaSchema>
 
-/** One responsibility taken from a public scenario fact (M3d D1). */
-export const routingOwnerSchema = z.strictObject({
-  /** The responsibility phrase, for example "the action list". */
-  topic: textSchema,
-  /** Concrete terms used to match the learner's topic. */
-  keywords: z.array(textSchema).min(1),
-  /** The persona or declared pair that owns the topic. */
-  personaIds: z.array(entityIdSchema).min(1),
-  /** Index in the scenario variant's `facts`; the audit trail for the owner. */
-  sourceFactIndex: z.number().int().nonnegative(),
-})
-
-export type RoutingOwner = z.infer<typeof routingOwnerSchema>
+export { routingOwnerSchema } from './owner-state.js'
+export type { RoutingOwner } from './owner-state.js'
 
 export const routingContextSchema = z
   .strictObject({

@@ -129,7 +129,7 @@ describe('buildSessionRoutingContext', () => {
     ).toThrow(/must be unique/u)
   })
 
-  it('publishes owners parsed from the handover facts, with their source index', () => {
+  it('publishes fact owners with their source index and objective owners', () => {
     const context = buildSessionRoutingContext({
       turnId: 'turn-1',
       personas: [personaById('manager'), personaById('peer')],
@@ -137,16 +137,22 @@ describe('buildSessionRoutingContext', () => {
       locale: 'en',
       messages,
     })
-    expect(context.owners).toHaveLength(5)
-    expect(context.owners[0]).toMatchObject({
+    const facts = context.owners.filter((owner) => owner.source === 'fact')
+    const objectives = context.owners.filter((owner) => owner.source === 'objective')
+    expect(facts).toHaveLength(5)
+    expect(facts[0]).toMatchObject({
       personaIds: ['peer'],
       sourceFactIndex: 1,
       topic: 'the follow-up notes from the demo',
     })
-    expect(context.owners.map((owner) => owner.sourceFactIndex)).toEqual([1, 2, 3, 4, 5])
+    expect(facts.map((owner) => owner.sourceFactIndex)).toEqual([1, 2, 3, 4, 5])
+    expect(objectives.map((owner) => owner.objectiveId)).toEqual([
+      'agree-rollout',
+      'assess-actions',
+    ])
   })
 
-  it('publishes no owners when the scenario facts give context only', () => {
+  it('uses scoped objectives as owners when the scenario has no ownership facts', () => {
     const context = buildSessionRoutingContext({
       turnId: 'turn-1',
       personas: [personaById('manager'), personaById('peer')],
@@ -154,7 +160,10 @@ describe('buildSessionRoutingContext', () => {
       locale: 'en',
       messages,
     })
-    expect(context.owners).toEqual([])
+    expect(context.owners.map((owner) => [owner.source, owner.personaIds])).toEqual([
+      ['objective', ['peer']],
+      ['objective', ['manager']],
+    ])
   })
 
   it('localises owner names and topics for fr-CA', () => {
@@ -165,14 +174,16 @@ describe('buildSessionRoutingContext', () => {
       locale: 'fr-CA',
       messages,
     })
-    expect(context.owners.map((owner) => owner.personaIds)).toEqual([
+    const facts = context.owners.filter((owner) => owner.source === 'fact')
+    expect(facts.map((owner) => owner.personaIds)).toEqual([
       ['peer'],
       ['manager'],
       ['manager'],
       ['manager'],
       ['peer'],
     ])
-    expect(context.owners[0]?.topic).toContain('notes')
+    expect(facts[0]?.topic).toContain('notes')
+    expect(context.owners.filter((owner) => owner.source === 'objective')).toHaveLength(2)
   })
 })
 

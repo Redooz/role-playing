@@ -9,6 +9,7 @@ import {
   UnknownOwnershipPersonaError,
   type OwnershipPerson,
   ownershipFromFacts,
+  ownershipFromObjectives,
 } from './ownership.js'
 
 const localeByLanguage = {
@@ -102,6 +103,7 @@ describe('ownershipFromFacts', () => {
         topic: 'the action list',
         keywords: ['action', 'list'],
         personaIds: ['peer'],
+        source: 'fact',
         sourceFactIndex: 0,
       },
     ])
@@ -144,5 +146,47 @@ describe('ownershipFromFacts', () => {
     expect(() => ownershipFromFacts(withFacts(['Sam owns the action list.']), persons)).toThrow(
       AmbiguousOwnershipPersonaError,
     )
+  })
+})
+
+describe('ownershipFromObjectives', () => {
+  it('publishes only scoped objectives that belong to the session personas', () => {
+    expect(ownershipFromObjectives(variant('en'), ['manager', 'peer'])).toEqual([
+      {
+        topic: 'Agree the rollout date with the manager.',
+        keywords: ['rollout', 'friday', 'deployment', 'date'],
+        personaIds: ['manager'],
+        source: 'objective',
+        objectiveId: 'agree-rollout',
+      },
+      {
+        topic: 'Ask the peer which follow-up actions are still open.',
+        keywords: ['actions', 'follow-up', 'notes', 'open'],
+        personaIds: ['peer'],
+        source: 'objective',
+        objectiveId: 'assess-actions',
+      },
+    ])
+  })
+
+  it('creates owners for the stand-up scenario, which has no ownership facts', () => {
+    const owners = ownershipFromObjectives(scenarioById('standup-scope-change').variants['en']!, [
+      'manager',
+      'peer',
+    ])
+    expect(owners.map((owner) => owner.personaIds)).toEqual([['peer'], ['manager']])
+    expect(owners.map((owner) => owner.objectiveId)).toEqual(['assess-impact', 'agree-priority'])
+  })
+
+  it('skips an objective scoped to a persona outside the session', () => {
+    expect(ownershipFromObjectives(variant('en'), ['manager'])).toEqual([
+      {
+        topic: 'Agree the rollout date with the manager.',
+        keywords: ['rollout', 'friday', 'deployment', 'date'],
+        personaIds: ['manager'],
+        source: 'objective',
+        objectiveId: 'agree-rollout',
+      },
+    ])
   })
 })

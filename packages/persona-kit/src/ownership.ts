@@ -183,7 +183,40 @@ export function ownershipFromFacts(
       topic,
       keywords: keywordsForTopic(topic, lang),
       personaIds,
+      source: 'fact',
       sourceFactIndex: factIndex,
+    })
+  }
+
+  return owners
+}
+
+/**
+ * Scoped scenario objectives that name their persona are ownership claims too.
+ *
+ * A shared objective has no `personaIds`; it describes the learner's goal, not
+ * one persona's responsibility, so it creates no owner.
+ */
+export function ownershipFromObjectives(
+  variant: ScenarioVariant,
+  eligiblePersonaIds: readonly string[],
+): readonly RoutingOwner[] {
+  const eligible = new Set(eligiblePersonaIds)
+  const owners: RoutingOwner[] = []
+
+  for (const objective of variant.objectives) {
+    const scoped = objective.personaIds
+    if (scoped === undefined || scoped.length === 0) continue
+    if (!scoped.every((personaId) => eligible.has(personaId))) continue
+    owners.push({
+      topic: objective.description,
+      keywords:
+        objective.keywords === undefined
+          ? keywordsForTopic(objective.description, variant.lang)
+          : [...objective.keywords],
+      personaIds: [...scoped],
+      source: 'objective',
+      objectiveId: objective.id,
     })
   }
 
