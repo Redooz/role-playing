@@ -185,25 +185,64 @@ describe('buildCentralRoutingJudgment', () => {
     const choice = pair.questions[CENTRAL_SPEAKER_QUESTION_ID]
     if (choice?.type !== 'choice') throw new Error('expected a choice question')
     expect(Object.keys(choice.criteria)).toEqual(['manager', 'peer'])
-    expect(choice.criteria.peer).toContain('Sam Carter')
+    expect(choice.criteria.peer).toBe(
+      'Sam Carter, peer colleague. Confirm the handoff. Find cover.',
+    )
+    expect(choice.instructions).toBe(
+      'Among the declared owners, who should reply after `learner_utterance`?',
+    )
+  })
+
+  it('writes the French pair Choice copy', () => {
+    const pair = buildCentralRoutingJudgment(
+      context({ lastUser: 'Qui possède le plan ?', lang: 'fr' }),
+    )
+    const choice = pair.questions[CENTRAL_SPEAKER_QUESTION_ID]
+    if (choice?.type !== 'choice') throw new Error('expected a choice question')
+    expect(choice.instructions).toBe(
+      'Parmi les propriétaires déclarés, qui doit répondre après `learner_utterance` ?',
+    )
+  })
+
+  it('offers no pair Choice when the learner address resolves the owners', () => {
+    const built = buildCentralRoutingJudgment(
+      context({ lastUser: 'Sam, who owns the plan and the handoff?' }),
+    )
+    expect(Object.keys(built.questions)).toEqual(Object.values(MOVE_QUESTION_IDS))
   })
 
   it('publishes the ownership list with source audit fields', () => {
     const built = buildCentralRoutingJudgment(context())
     const state = built.state as { readonly owners: readonly Record<string, unknown>[] }
     expect(state.owners).toHaveLength(4)
-    expect(state.owners[0]).toEqual({
+    expect(state.owners[0]).toStrictEqual({
       topic: 'the handoff',
       persona_ids: ['peer'],
       source: 'objective',
       objective_id: 'handoff',
     })
-    expect(state.owners[3]).toEqual({
+    expect(state.owners[3]).toStrictEqual({
       topic: 'the plan',
       persona_ids: ['manager', 'peer'],
       source: 'fact',
       source_fact_index: 0,
     })
+  })
+
+  it('publishes each persona with its scoped responsibilities', () => {
+    const built = buildCentralRoutingJudgment(context())
+    const state = built.state as {
+      readonly eligible_personas: readonly { id: string; responsibilities: readonly string[] }[]
+    }
+    expect(state.eligible_personas.map((persona) => persona.id)).toEqual([
+      'manager',
+      'peer',
+      'client',
+    ])
+    expect(state.eligible_personas[1]?.responsibilities).toStrictEqual([
+      'Confirm the handoff.',
+      'Find cover.',
+    ])
   })
 
   it('includes named conversation turns and the learner utterance', () => {
@@ -318,7 +357,7 @@ describe('createJevRoutingJudge', () => {
     const result = await judge.judgeCentral(context())
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    expect(result.observation.judgment).toEqual({ move: quietMoves })
+    expect(result.observation.judgment).toStrictEqual({ move: quietMoves })
     expect(result.observation.exact).toBe(exact)
     expect(calls).toHaveLength(1)
     expect(Object.keys(calls[0]!.questions)).toHaveLength(4)
@@ -337,6 +376,32 @@ describe('createJevRoutingJudge', () => {
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.observation.judgment.selectedPersonaId).toBe('peer')
+  })
+
+  it('rejects a declared pair with no Choice answer', async () => {
+    const exact = success(centralAnswers(), Object.values(MOVE_QUESTION_IDS))
+    const { judge } = judgeWith(exact)
+    const result = await judge.judgeCentral(context({ lastUser: 'Who owns the plan?' }))
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.error).toBeInstanceOf(JevInvalidResponseError)
+    expect(result.error.message).toContain('did not return a Choice answer for "best_speaker"')
+  })
+
+  it('rejects a declared pair whose Choice answer has the wrong type', async () => {
+    const exact = success(
+      {
+        ...centralAnswers(),
+        [CENTRAL_SPEAKER_QUESTION_ID]: { type: 'noul', noul: 0.9 },
+      },
+      [CENTRAL_SPEAKER_QUESTION_ID, ...Object.values(MOVE_QUESTION_IDS)],
+    )
+    const { judge } = judgeWith(exact)
+    const result = await judge.judgeCentral(context({ lastUser: 'Who owns the plan?' }))
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.error).toBeInstanceOf(JevInvalidResponseError)
+    expect(result.error.message).toContain('did not return a Choice answer for "best_speaker"')
   })
 
   it('rejects a pair Choice outside the declared owners', async () => {
