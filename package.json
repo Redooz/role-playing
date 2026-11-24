@@ -40,7 +40,8 @@
     "langfuse:verify": "node --env-file-if-exists=.env scripts/langfuse-verify.mjs",
     "mutation:record": "node scripts/record-mutation-baseline.mjs",
     "eval:m3d-cal-en": "node --env-file-if-exists=.env tools/routing-bench/src/m3d-calibration.cli.ts --lang en --reference evals/results/m3d-cal-reference-en-r1",
-    "eval:m3d-cal-fr": "node --env-file-if-exists=.env tools/routing-bench/src/m3d-calibration.cli.ts --lang fr --reference evals/results/m3d-cal-reference-fr-r1"
+    "eval:m3d-cal-fr": "node --env-file-if-exists=.env tools/routing-bench/src/m3d-calibration.cli.ts --lang fr --reference evals/results/m3d-cal-reference-fr-r1",
+    "eval:m3d-d4": "node --env-file-if-exists=.env tools/routing-bench/src/m3d-calibration.cli.ts --split holdout --langs en,fr --reference en=evals/results/m3b-v2-baseline-en-r3,fr=evals/results/m3b-v2-baseline-fr-r3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

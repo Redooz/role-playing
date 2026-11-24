@@ -118,6 +118,14 @@ function labelFor(label: SpeakerLabel, scenarioId: string): Record<string, unkno
   return payload
 }
 
+export interface CalibrationTaskOptions {
+  /**
+   * Round this history came from. A multi-round run must keep its trials apart,
+   * so the round is part of the task id. Omitted for a one-round run.
+   */
+  readonly round?: number
+}
+
 /**
  * Build one routing task per labelled learner turn.
  *
@@ -128,6 +136,7 @@ export function calibrationTasks(
   task: TaskEntry,
   golden: GoldenEntry,
   history: SessionHistory,
+  options: CalibrationTaskOptions = {},
 ): RoutingComparisonTask[] {
   const session = task.session
   if (session === undefined) {
@@ -159,6 +168,8 @@ export function calibrationTasks(
   const personas = personaIds.map((personaId) => personaById(personaId))
   const scenario = scenarioById(session.scenarioId)
 
+  const roundSuffix = options.round === undefined ? '' : `#r${options.round}`
+
   return indexes.map((turnIndex, position) => {
     const turnId = history.decisionTurnIds[position]!
     const label = labels[position]!
@@ -174,7 +185,7 @@ export function calibrationTasks(
       })),
     })
     return {
-      taskId: `${task.id}:${turnId}`,
+      taskId: `${task.id}${roundSuffix}:${turnId}`,
       lang: task.lang,
       context,
       label: labelFor(label, session.scenarioId),

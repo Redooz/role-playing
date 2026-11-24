@@ -5,9 +5,10 @@ import type {
   RoutingMatrixReport,
 } from '@rp/eval-harness'
 import type { FamilyReading } from '@rp/eval-harness'
+import type { HoldoutSelection } from './m3d-holdout-verdict.js'
 
 /**
- * Summary assembly for the M3d D3 calibration comparison.
+ * Summary assembly for the M3d routing comparison (D3 calibration, D4 holdout).
  *
  * Kept pure and outside the script: the numbers a reader sees are built from
  * the same records the artifacts hold, and a missing reference reading is an
@@ -42,11 +43,19 @@ export function calibrationExitCode(summary: CalibrationSummary): 0 | 1 {
   return summary.invariants.every((invariant) => invariant.ok) ? 0 : 1
 }
 
+export type SummarySplit = 'calibration' | 'holdout'
+
 export interface CalibrationSummary {
-  readonly schemaVersion: '1.0.0'
-  readonly suite: 'm3d-routing-calibration'
+  /**
+   * Version 1.1.0 adds `split`, `rounds` and `selection`: a holdout summary over
+   * three rounds must say so, and a version 1.0.0 summary cannot be read as one.
+   */
+  readonly schemaVersion: '1.1.0'
+  readonly suite: 'm3d-routing-calibration' | 'm3d-routing-holdout'
+  readonly split: SummarySplit
   readonly lang: 'en' | 'fr'
   readonly tasks: number
+  readonly rounds: number
   readonly contexts: number
   readonly expectedContexts: number
   readonly reference: ReferenceReadings
@@ -54,6 +63,8 @@ export interface CalibrationSummary {
   readonly families: readonly FamilyReading[]
   readonly declineReasons: readonly DeclineTally[]
   readonly invariants: readonly CalibrationInvariant[]
+  /** Present only on a holdout summary; calibration adopts nothing. */
+  readonly selection: HoldoutSelection | null
   readonly note: string
 }
 
@@ -113,18 +124,25 @@ export function declineTallies(entries: readonly RoutingMatrixEntry[]): readonly
 }
 
 export interface CalibrationSummaryInput {
+  readonly split: SummarySplit
   readonly lang: 'en' | 'fr'
   readonly reference: ReferenceReadings
   readonly matrix: RoutingMatrixReport
   readonly families: readonly FamilyReading[]
   readonly entries: readonly RoutingMatrixEntry[]
   readonly tasks: number
+  readonly rounds: number
   readonly contexts: number
   readonly expectedContexts: number
+  readonly selection: HoldoutSelection | null
 }
 
-const NOTE =
-  'Calibration only. Diagnostic comparison of the Jev topology arms against the fixed-rotation reference; no policy is adopted and no holdout context is read.'
+const NOTES: Readonly<Record<SummarySplit, string>> = {
+  calibration:
+    'Calibration only. Diagnostic comparison of the Jev topology arms against the fixed-rotation reference; no policy is adopted and no holdout context is read.',
+  holdout:
+    'Pre-registered holdout comparison of the Jev topology arms against the fixed-rotation reference. The class rates decide; the selection rule is frozen in the plan and the D4 decision row.',
+}
 
 /** Assemble the summary and its invariants. Never folds axes into one score. */
 export function calibrationSummary(input: CalibrationSummaryInput): CalibrationSummary {
@@ -143,10 +161,12 @@ export function calibrationSummary(input: CalibrationSummaryInput): CalibrationS
   ]
 
   return {
-    schemaVersion: '1.0.0',
-    suite: 'm3d-routing-calibration',
+    schemaVersion: '1.1.0',
+    suite: input.split === 'holdout' ? 'm3d-routing-holdout' : 'm3d-routing-calibration',
+    split: input.split,
     lang: input.lang,
     tasks: input.tasks,
+    rounds: input.rounds,
     contexts: input.contexts,
     expectedContexts: input.expectedContexts,
     reference: input.reference,
@@ -154,6 +174,7 @@ export function calibrationSummary(input: CalibrationSummaryInput): CalibrationS
     families: input.families,
     declineReasons: declineTallies(input.entries),
     invariants,
-    note: NOTE,
+    selection: input.selection,
+    note: NOTES[input.split],
   }
 }
