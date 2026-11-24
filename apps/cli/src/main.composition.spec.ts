@@ -268,6 +268,7 @@ describe('main composition root', () => {
           ],
           arbiter: expect.objectContaining({ initialState: expect.anything() }),
           policy: expect.anything(),
+          requestWindowMs: 1500,
           buildContext: expect.any(Function),
           seedSource: expect.any(Function),
         }),
@@ -815,6 +816,26 @@ describe('main composition root', () => {
       ).resolves.toBe(0)
       expect(state.createJevClient).toHaveBeenCalledWith({ apiKey: 'router-key' })
       expect(state.createJevRoutingJudge).toHaveBeenCalledTimes(1)
+      const driverOptions = state.createDriver.mock.calls.at(-1)?.[0] as {
+        requestWindowMs: number
+        arbiter: {
+          initialState: unknown
+          reduce: (
+            state: unknown,
+            input: unknown,
+          ) => { state: { turn?: { windowEndsAtMs?: number } } }
+        }
+      }
+      expect(driverOptions.requestWindowMs).toBe(2000)
+      const opened = driverOptions.arbiter.reduce(driverOptions.arbiter.initialState, {
+        kind: 'user_committed',
+        turnId: 'turn-1',
+        nowMs: 0,
+        seed: 1,
+        context: state.lastContext,
+        eligiblePersonaIds: ['manager', 'peer'],
+      })
+      expect(opened.state.turn?.windowEndsAtMs).toBe(2000)
       expect(state.runCli).toHaveBeenCalledWith(
         expect.objectContaining({
           routingLabel: 'jev-central (English)',

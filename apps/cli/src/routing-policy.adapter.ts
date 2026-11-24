@@ -1,5 +1,7 @@
 import {
   createJevCentralLivePolicy,
+  jevLiveDeadlineMs,
+  JEV_LIVE_REQUEST_WINDOW_MS,
   type JevLiveFailure,
   type JevRoutingJudge,
 } from '@rp/eval-harness'
@@ -22,6 +24,8 @@ export interface SessionRoutingOptions {
   readonly provider: 'canned' | 'live'
   readonly lang: 'en' | 'fr'
   readonly personaCount: number
+  /** The configured multi-persona request window, before the Jev adjustment. */
+  readonly requestWindowMs: number
   readonly env: Readonly<Record<string, string | undefined>>
   readonly createJudge: (apiKey: string) => JevRoutingJudge
   readonly onFallback: (failure: JevLiveFailure) => void
@@ -33,6 +37,8 @@ export interface SessionRouting {
   readonly label: string
   /** Stderr note when `auto` wanted Jev but the key is missing. */
   readonly note?: string
+  /** The window the driver and arbiter must use for this policy. */
+  readonly requestWindowMs: number
   readonly policy: PersonaTurnPolicy<RoutingContext>
 }
 
@@ -53,20 +59,29 @@ export function createSessionRouting(options: SessionRoutingOptions): SessionRou
 
   if (routing.choice !== 'jev-central') {
     return routing.warning === undefined
-      ? { choice: 'det-persona', label: DET_LABEL, policy: detPersona }
+      ? {
+          choice: 'det-persona',
+          label: DET_LABEL,
+          requestWindowMs: options.requestWindowMs,
+          policy: detPersona,
+        }
       : {
           choice: 'det-persona',
           label: NO_KEY_LABEL,
           note: 'this English session uses det-persona routing',
+          requestWindowMs: options.requestWindowMs,
           policy: detPersona,
         }
   }
+  const requestWindowMs = Math.max(options.requestWindowMs, JEV_LIVE_REQUEST_WINDOW_MS)
   return {
     choice: 'jev-central',
     label: JEV_LABEL,
+    requestWindowMs,
     policy: createJevCentralLivePolicy({
       judge: options.createJudge(apiKey),
       fallback: detPersona,
+      deadlineMs: jevLiveDeadlineMs(requestWindowMs),
       onFailure: options.onFallback,
     }),
   }

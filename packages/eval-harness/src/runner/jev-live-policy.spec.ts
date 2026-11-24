@@ -12,7 +12,10 @@ import {
   createJevCentralLivePolicy,
   JEV_CENTRAL_LIVE_POLICY_ID,
   JEV_CENTRAL_LIVE_POLICY_VERSION,
+  JEV_LIVE_DEADLINE_MARGIN_MS,
   JEV_LIVE_DEFAULT_DEADLINE_MS,
+  JEV_LIVE_REQUEST_WINDOW_MS,
+  jevLiveDeadlineMs,
   type JevLiveFailure,
 } from './jev-live-policy.js'
 
@@ -366,8 +369,12 @@ describe('createJevCentralLivePolicy', () => {
     expect(JEV_CENTRAL_LIVE_POLICY_VERSION).toBe('m3d-jev-central-v2')
   })
 
-  it('keeps a default deadline below the driver request window', () => {
-    expect(JEV_LIVE_DEFAULT_DEADLINE_MS).toBe(1200)
+  it('puts the deadline inside the Jev request window', () => {
+    expect(JEV_LIVE_REQUEST_WINDOW_MS).toBe(2000)
+    expect(JEV_LIVE_DEADLINE_MARGIN_MS).toBe(300)
+    expect(JEV_LIVE_DEFAULT_DEADLINE_MS).toBe(1700)
+    expect(jevLiveDeadlineMs(1500)).toBe(1200)
+    expect(jevLiveDeadlineMs(100)).toBe(1)
   })
 
   it('answers when the judge is slower than one task tick but inside the default deadline', async () => {
