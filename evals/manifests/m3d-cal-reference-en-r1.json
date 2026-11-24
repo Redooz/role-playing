@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "3.0.0",
+  "run": {
+    "runId": "m3d-cal-reference-en-r1",
+    "suite": "m3d-calibration-reference",
+    "purpose": "regression",
+    "description": "Fixed-rotation reference over the m3b-v2 EN calibration tasks, one round. P6 saved no calibration transcript, so this run supplies the recorded histories the M3d D3 offline routing comparison rebuilds its contexts from. It is the reference reading, not a candidate arm."
+  },
+  "tasks": {
+    "dataset": "synthetic-multi-persona-session",
+    "version": "m3b-v2",
+    "languages": ["en"],
+    "locales": ["en", "en-GB"],
+    "splits": ["calibration"]
+  },
+  "seeds": {
+    "master": 20261124,
+    "algorithm": "mulberry32"
+  },
+  "grader": {
+    "id": "turn-taking-speakers",
+    "kind": "code",
+    "version": "1.1.0"
+  },
+  "rubric": {
+    "version": "m3b-turn-taking-rubric-v1"
+  },
+  "limits": {
+    "rounds": 1,
+    "maxFailureRate": 0
+  },
+  "target": {
+    "metric": "turn_taking.required_speaker_rate",
+    "direction": "increase",
+    "minimumDetectableEffect": 0
+  },
+  "guardrails": [
+    {
+      "metric": "run.failure_rate",
+      "direction": "decrease",
+      "tolerance": 0
+    },
+    {
+      "metric": "transcript.guard_violations",
+      "direction": "decrease",
+      "tolerance": 0
+    },
+    {
+      "metric": "response.plain_text_rate",
+      "direction": "increase",
+      "tolerance": 0
+    }
+  ],
+  "invariants": [
+    "transcript.schema_valid",
+    "transcript.guard_clean",
+    "transcript.seq_monotonic",
+    "transcript.content_class",
+    "response.plain_text"
+  ],
+  "provider": {
+    "mode": "live",
+    "label": "livekit/google/gemma-4-31b-it",
+    "allowLive": true
+  },
+  "prompt": {
+    "version": "m2-prompt-gemma-v2",
+    "mode": "persona",
+    "style": "gemma",
+    "currentDate": "2026-11-24"
+  },
+  "multiPersona": {
+    "policy": "fixed-rotation"
+  }
+}

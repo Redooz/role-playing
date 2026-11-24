@@ -36,6 +36,8 @@
     "!tools/routing-bench/src/compare-main.ts",
     "!tools/routing-bench/src/m3b-shadow.cli.ts",
     "!tools/routing-bench/src/m3b-shadow.ts",
+    "!tools/routing-bench/src/m3d-calibration.cli.ts",
+    "!tools/routing-bench/src/m3d-calibration.ts",
     "tools/annotation-kit/routing-labels.mjs"
   ],
   "coverageAnalysis": "perTest",

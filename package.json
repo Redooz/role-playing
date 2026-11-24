@@ -38,7 +38,9 @@
     "langfuse:untunnel": "bash scripts/langfuse.sh untunnel",
     "langfuse:env": "bash scripts/langfuse.sh env",
     "langfuse:verify": "node --env-file-if-exists=.env scripts/langfuse-verify.mjs",
-    "mutation:record": "node scripts/record-mutation-baseline.mjs"
+    "mutation:record": "node scripts/record-mutation-baseline.mjs",
+    "eval:m3d-cal-en": "node --env-file-if-exists=.env tools/routing-bench/src/m3d-calibration.cli.ts --lang en --reference evals/results/m3d-cal-reference-en-r1",
+    "eval:m3d-cal-fr": "node --env-file-if-exists=.env tools/routing-bench/src/m3d-calibration.cli.ts --lang fr --reference evals/results/m3d-cal-reference-fr-r1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
