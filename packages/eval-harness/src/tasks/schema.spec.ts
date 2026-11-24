@@ -64,6 +64,7 @@ const routingContext: RoutingContext = {
     { speaker: { kind: 'persona', personaId: 'manager' }, text: 'We need a date.' },
     { speaker: { kind: 'user' }, text: 'Sam, can you confirm the handoff?' },
   ],
+  owners: [],
   personas: [
     {
       id: 'manager',

@@ -9,7 +9,7 @@ import { z } from 'zod'
  * outcome, while M3b owns leases, revocation and interjection.
  */
 
-export const ROUTING_SCHEMA_VERSION = '1.0.0'
+export const ROUTING_SCHEMA_VERSION = '1.1.0'
 export const ROUTING_DECISION_SCHEMA_VERSION = '1.0.0'
 export const DETERMINISTIC_POLICY_VERSION = 'm3a-routing-policy-v1'
 
@@ -66,6 +66,20 @@ export const routingPersonaSchema = z.strictObject({
 
 export type RoutingPersona = z.infer<typeof routingPersonaSchema>
 
+/** One responsibility taken from a public scenario fact (M3d D1). */
+export const routingOwnerSchema = z.strictObject({
+  /** The responsibility phrase, for example "the action list". */
+  topic: textSchema,
+  /** Concrete terms used to match the learner's topic. */
+  keywords: z.array(textSchema).min(1),
+  /** The persona or declared pair that owns the topic. */
+  personaIds: z.array(entityIdSchema).min(1),
+  /** Index in the scenario variant's `facts`; the audit trail for the owner. */
+  sourceFactIndex: z.number().int().nonnegative(),
+})
+
+export type RoutingOwner = z.infer<typeof routingOwnerSchema>
+
 export const routingContextSchema = z
   .strictObject({
     decisionId: decisionIdSchema,
@@ -73,6 +87,8 @@ export const routingContextSchema = z
     lang: sessionLanguageSchema,
     transcript: z.array(routingTranscriptTurnSchema).min(1),
     personas: z.array(routingPersonaSchema).min(2).max(3),
+    /** Public scenario ownership parsed from facts; never from labels. */
+    owners: z.array(routingOwnerSchema).default([]),
     /** Objectives already covered by earlier persona turns, according to public state. */
     coveredObjectiveIds: z.array(entityIdSchema),
   })
@@ -123,6 +139,38 @@ export const routingContextSchema = z
           message: `covered objective "${objectiveId}" is not declared by an eligible persona`,
         })
       }
+    }
+
+    const ownerTopics = new Set<string>()
+    for (const [index, owner] of context.owners.entries()) {
+      const ownerIds = new Set<string>()
+      for (const [personaIndex, personaId] of owner.personaIds.entries()) {
+        if (!personaIds.has(personaId)) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['owners', index, 'personaIds', personaIndex],
+            message: `owner persona "${personaId}" is not eligible`,
+          })
+        }
+        if (ownerIds.has(personaId)) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['owners', index, 'personaIds', personaIndex],
+            message: `duplicate owner persona "${personaId}"`,
+          })
+        }
+        ownerIds.add(personaId)
+      }
+
+      const topic = owner.topic.normalize('NFKC').toLocaleLowerCase(context.lang)
+      if (ownerTopics.has(topic)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['owners', index, 'topic'],
+          message: `duplicate ownership topic "${owner.topic}"`,
+        })
+      }
+      ownerTopics.add(topic)
     }
 
     const lastTurn = context.transcript.at(-1)

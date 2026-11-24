@@ -52,6 +52,7 @@ export interface ContextOptions {
   readonly turnId?: string
   readonly lang?: 'en' | 'fr'
   readonly lastUser?: string
+  readonly owners?: RoutingContext['owners']
   readonly coveredObjectiveIds?: readonly string[]
   readonly personas?: RoutingContext['personas']
   readonly transcript?: RoutingContext['transcript']
@@ -64,6 +65,7 @@ export function makeContext(options: ContextOptions = {}): RoutingContext {
     turnId: options.turnId ?? 'turn-1',
     lang: options.lang ?? 'en',
     personas: options.personas ?? PERSONAS,
+    owners: options.owners ?? [],
     coveredObjectiveIds: options.coveredObjectiveIds ?? [],
     transcript: options.transcript ?? [
       {
