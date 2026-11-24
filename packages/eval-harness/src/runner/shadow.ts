@@ -222,7 +222,8 @@ function recordFor(
       latencyMs: result.policyLatencyMs,
       usage: null,
       agreement: null,
-      observation: { kind: 'none' },
+      // Keep a deadline visible as a timeout, but never as a decision.
+      observation: { kind: result.cause === 'timeout' ? 'timeout' : 'none' },
       error: result.error.trim() === '' ? 'shadow policy failed without a message' : result.error,
     })
   }

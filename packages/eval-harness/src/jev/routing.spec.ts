@@ -253,8 +253,7 @@ describe('buildCentralRoutingJudgment', () => {
       instructions: 'Is the learner answering their own question with `learner_utterance`?',
     })
     expect(built.questions[MOVE_QUESTION_IDS.thinkingAloud]).toMatchObject({
-      instructions:
-        'Is the learner thinking aloud without addressing a persona in `eligible_personas`?',
+      instructions: 'Is the learner thinking aloud without addressing a persona?',
     })
     expect(built.questions[MOVE_QUESTION_IDS.sideComment]).toMatchObject({
       instructions:

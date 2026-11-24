@@ -40,6 +40,13 @@ export function lastUserUtterance(context: RoutingContext): string {
   return last.text
 }
 
+/** Look up one eligible persona. An unknown id is a programming error. */
+export function personaFor(context: RoutingContext, personaId: string): RoutingPersona {
+  const persona = context.personas.find((candidate) => candidate.id === personaId)
+  if (persona === undefined) throw new Error(`no eligible persona "${personaId}"`)
+  return persona
+}
+
 /** Whether the learner addressed this persona by display name or alias. */
 export function isPersonaAddressed(
   context: RoutingContext,

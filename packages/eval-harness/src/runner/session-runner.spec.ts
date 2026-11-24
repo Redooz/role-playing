@@ -435,7 +435,7 @@ describe('session shadow wiring', () => {
     expect(jevRecords.length).toBeGreaterThan(0)
     expect(
       jevRecords.every(
-        (record) => (record.observation as { readonly kind?: unknown }).kind === 'none',
+        (record) => (record.observation as { readonly kind?: unknown }).kind === 'timeout',
       ),
     ).toBe(true)
     expect(jevRecords.every((record) => record.decision === null)).toBe(true)

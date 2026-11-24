@@ -151,12 +151,12 @@ function moveQuestions(context: RoutingContext): JevQuestionSet {
         ),
     [MOVE_QUESTION_IDS.thinkingAloud]: french
       ? noulQuestion(
-          'L’apprenant réfléchit-il à voix haute sans s’adresser à une personne de `eligible_personas` ?',
+          'L’apprenant réfléchit-il à voix haute sans s’adresser à une personne ?',
           'L’apprenant raisonne à voix haute pour lui-même, sans destinataire.',
           'L’apprenant s’adresse à une personne ou poursuit la conversation.',
         )
       : noulQuestion(
-          'Is the learner thinking aloud without addressing a persona in `eligible_personas`?',
+          'Is the learner thinking aloud without addressing a persona?',
           'The learner reasons aloud for themselves, with no addressee.',
           'The learner addresses a persona or continues the conversation.',
         ),

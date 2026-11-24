@@ -133,6 +133,7 @@ describe('buildRoutingMatrix', () => {
           {
             ok: false,
             kind: 'infrastructure_incomplete',
+            cause: 'error',
             error: 'down',
             questionIds: [],
             policyLatencyMs: 12,
@@ -324,8 +325,8 @@ describe('buildRoutingMatrix', () => {
       acceptable: 0,
       acceptableOutcomeRate: null,
       falseYield: 0,
-      timeoutFallbacks: 0,
-      timeoutFallbackRate: 0,
+      timeouts: 1,
+      timeoutRate: 1,
       unsettledFallbackRate: 0,
       fallbackRate: 0,
     })
@@ -373,13 +374,13 @@ describe('buildRoutingMatrix', () => {
     expect(report.arms[0]).toMatchObject({
       unsettledFallbacks: 1,
       unsettledFallbackRate: 1,
-      timeoutFallbacks: 0,
+      timeouts: 0,
       fallbackRate: 1,
     })
   })
 
   it('returns null rates for an empty bucket', () => {
-    expect(buildRoutingMatrix([])).toEqual({ schemaVersion: 2, arms: [] })
+    expect(buildRoutingMatrix([])).toEqual({ schemaVersion: 3, arms: [] })
   })
 })
 
@@ -397,6 +398,7 @@ function failedArtifact(latencyMs: number): RoutingDecisionArtifact {
     {
       ok: false,
       kind: 'infrastructure_incomplete',
+      cause: 'error',
       error: 'down',
       questionIds: [],
       policyLatencyMs: latencyMs,
@@ -533,9 +535,9 @@ describe('buildRoutingMatrix per-arm record', () => {
       falseSpeakRate: 2 / 7,
       falseYield: 1,
       falseYieldRate: 1 / 7,
-      timeoutFallbacks: 0,
+      timeouts: 0,
       unsettledFallbacks: 0,
-      timeoutFallbackRate: 0,
+      timeoutRate: 0,
       unsettledFallbackRate: 0,
       fallbackRate: 0,
       latencyMs: { count: 8, min: 25, p50: 25, p95: 25, p99: 25, max: 25 },
@@ -594,9 +596,9 @@ describe('buildRoutingMatrix per-arm record', () => {
       falseSpeakRate: 0,
       falseYield: 0,
       falseYieldRate: 0,
-      timeoutFallbacks: 0,
+      timeouts: 0,
       unsettledFallbacks: 1,
-      timeoutFallbackRate: 0,
+      timeoutRate: 0,
       unsettledFallbackRate: 1 / 2,
       fallbackRate: 1 / 2,
       latencyMs: { count: 2, min: 25, p50: 25, p95: 25, p99: 25, max: 25 },
@@ -631,9 +633,9 @@ describe('buildRoutingMatrix per-arm record', () => {
       falseSpeakRate: 0,
       falseYield: 0,
       falseYieldRate: 0,
-      timeoutFallbacks: 0,
+      timeouts: 0,
       unsettledFallbacks: 0,
-      timeoutFallbackRate: 0,
+      timeoutRate: 0,
       unsettledFallbackRate: 0,
       fallbackRate: 0,
       latencyMs: { count: 2, min: 25, p50: 25, p95: 25, p99: 25, max: 25 },

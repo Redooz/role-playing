@@ -44,6 +44,12 @@ export interface RoutingReplaySuccess {
 export interface RoutingReplayFailure {
   readonly ok: false
   readonly kind: 'infrastructure_incomplete'
+  /**
+   * Why the call failed. A timeout still counts as incomplete and never as a
+   * decision; the cause only lets reports separate a deadline from a bad
+   * response without turning either into a pass.
+   */
+  readonly cause: 'timeout' | 'error'
   readonly error: string
   readonly questionIds: readonly string[]
   readonly policyLatencyMs: number
@@ -67,7 +73,7 @@ function featureJudgmentsOf(decision: RoutingDecision): NonNullable<RoutingDecis
   return decision.judgments
 }
 
-function deadlineFailure(error: unknown): RoutingReplayFailure['error'] {
+function failureMessage(error: unknown): RoutingReplayFailure['error'] {
   return error instanceof Error ? error.message : String(error)
 }
 
@@ -209,6 +215,7 @@ export async function runJevRoutingReplay(
     return {
       ok: false,
       kind: 'infrastructure_incomplete',
+      cause: 'timeout',
       error: `routing policy timed out after ${options.deadlineMs} ms; a failed model call is incomplete`,
       questionIds: [],
       policyLatencyMs: nowMs() - start,
@@ -219,7 +226,8 @@ export async function runJevRoutingReplay(
     return {
       ok: false,
       kind: 'infrastructure_incomplete',
-      error: deadlineFailure(raced.value.error),
+      cause: 'error',
+      error: failureMessage(raced.value.error),
       questionIds: [],
       policyLatencyMs: nowMs() - start,
     }
@@ -231,7 +239,8 @@ export async function runJevRoutingReplay(
       return {
         ok: false,
         kind: 'infrastructure_incomplete',
-        error: deadlineFailure(result.error),
+        cause: 'error',
+        error: failureMessage(result.error),
         questionIds: result.questionIds,
         policyLatencyMs: nowMs() - start,
       }
@@ -275,7 +284,8 @@ export async function runJevRoutingReplay(
       return {
         ok: false,
         kind: 'infrastructure_incomplete',
-        error: deadlineFailure(entry.result.error),
+        cause: 'error',
+        error: failureMessage(entry.result.error),
         questionIds: entry.result.questionIds,
         policyLatencyMs: nowMs() - start,
       }
@@ -362,22 +372,20 @@ export function routingArtifact(
   }
 
   if (result.ok) {
-    const timedOut = result.observation.kind === 'timeout'
     return routingDecisionArtifactSchema.parse({
       ...common,
       decision: result.decision,
-      outcome: timedOut ? 'infrastructure_incomplete' : 'completed',
+      outcome: 'completed',
       observation: result.observation,
-      ...(timedOut
-        ? { error: 'routing policy timed out; deterministic fallback preserved for audit only' }
-        : {}),
     })
   }
 
   return routingDecisionArtifactSchema.parse({
     ...common,
     outcome: 'infrastructure_incomplete',
-    observation: { kind: 'none' },
+    // A timeout keeps its cause so a report can count it, but it carries no
+    // decision and never becomes a fallback or a yield.
+    observation: { kind: result.cause === 'timeout' ? 'timeout' : 'none' },
     error: result.error.trim() === '' ? 'routing policy failed without a message' : result.error,
   })
 }

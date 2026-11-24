@@ -45,12 +45,13 @@ function declaredPair(
   personaIds: readonly string[],
   utterance: string,
 ): OwnerSelection {
-  const pair = matchedOwners(context, utterance).find(
-    (owner) =>
-      owner.personaIds.length === 2 &&
-      owner.personaIds.length === personaIds.length &&
-      owner.personaIds.every((personaId) => personaIds.includes(personaId)),
-  )
+  // Every matched claim contributes its ids to `personaIds`. With exactly two
+  // matched personas, a claim that declares two owners therefore declares the
+  // same pair; a one-owner claim is a subset and never a pair.
+  const pair =
+    personaIds.length === 2
+      ? matchedOwners(context, utterance).find((owner) => owner.personaIds.length === 2)
+      : undefined
   return pair === undefined
     ? { kind: 'unresolved', personaIds }
     : { kind: 'pair', personaIds: [pair.personaIds[0]!, pair.personaIds[1]!] }

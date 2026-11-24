@@ -37,6 +37,10 @@ describe('matchedOwners', () => {
     expect(owners).toEqual([actionList])
   })
 
+  it('matches on any one declared keyword', () => {
+    expect(matchedOwners(context('What is on the list?', [actionList]))).toEqual([actionList])
+  })
+
   it('ignores a claim whose topic is not mentioned', () => {
     expect(matchedOwners(context('How is the contract going?', [actionList, rollout]))).toEqual([])
   })
@@ -92,6 +96,63 @@ describe('selectOwner', () => {
       kind: 'pair',
       personaIds: ['manager', 'peer'],
     })
+  })
+
+  it('prefers a two-owner claim to a one-owner claim for the same topic', () => {
+    const notes: RoutingOwner = {
+      topic: 'the notes',
+      keywords: ['notes'],
+      personaIds: ['manager'],
+      source: 'fact',
+      sourceFactIndex: 2,
+    }
+    expect(selectOwner(context('Who owns the handover notes?', [notes, declaredPair]), [])).toEqual(
+      { kind: 'pair', personaIds: ['manager', 'peer'] },
+    )
+  })
+
+  it('does not treat three matched owners as a pair', () => {
+    const triple: RoutingOwner = {
+      topic: 'the release plan',
+      keywords: ['plan'],
+      personaIds: ['manager', 'peer', 'client'],
+      source: 'fact',
+      sourceFactIndex: 3,
+    }
+    expect(selectOwner(context('Who owns the plan?', [triple]), [])).toEqual({
+      kind: 'unresolved',
+      personaIds: ['manager', 'peer', 'client'],
+    })
+  })
+
+  it('does not treat a subset claim as the pair when three owners are matched', () => {
+    const triple: RoutingOwner = {
+      topic: 'the release plan',
+      keywords: ['plan'],
+      personaIds: ['manager', 'peer', 'client'],
+      source: 'fact',
+      sourceFactIndex: 3,
+    }
+    const subset: RoutingOwner = {
+      topic: 'the handover',
+      keywords: ['plan'],
+      personaIds: ['manager', 'peer'],
+      source: 'fact',
+      sourceFactIndex: 4,
+    }
+    expect(selectOwner(context('Who owns the plan?', [triple, subset]), [])).toEqual({
+      kind: 'unresolved',
+      personaIds: ['manager', 'peer', 'client'],
+    })
+  })
+
+  it('ignores an addressed persona who owns nothing', () => {
+    expect(
+      selectOwner(context('What about the action list and the rollout?', [actionList, rollout]), [
+        'peer',
+        'client',
+      ]),
+    ).toEqual({ kind: 'addressed', personaId: 'peer' })
   })
 
   it('does not treat two separate owners as a declared pair', () => {

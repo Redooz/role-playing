@@ -9,12 +9,23 @@ import {
   lastUserUtterance,
   normalizeRoutingText,
   objectiveRelevanceFor,
+  personaFor,
   uncoveredMatchedObjectives,
   urgencyFor,
 } from './features.js'
 
 const manager = makeContext().personas[0]!
 const peer = makeContext().personas[1]!
+
+describe('personaFor', () => {
+  it('returns the eligible persona by id', () => {
+    expect(personaFor(makeContext(), 'peer')).toMatchObject({ id: 'peer', role: 'peer colleague' })
+  })
+
+  it('rejects an id that is not eligible, naming it', () => {
+    expect(() => personaFor(makeContext(), 'stranger')).toThrow(/no eligible persona "stranger"/u)
+  })
+})
 
 describe('normalizeRoutingText', () => {
   it('normalises Unicode and lowercases using the routing language', () => {

@@ -1,11 +1,6 @@
 import type { TurnRequest } from '@rp/session-core'
 import { isNoulUnsettled, isNoulYes } from './derive.js'
-import {
-  isPersonaAddressed,
-  lastUserUtterance,
-  objectiveRelevanceFor,
-  urgencyFor,
-} from './features.js'
+import { isPersonaAddressed, objectiveRelevanceFor, personaFor, urgencyFor } from './features.js'
 import { selectOwner, type OwnerSelection } from './owner.js'
 import { rankTurnRequests } from './rank.js'
 import type {
@@ -13,7 +8,6 @@ import type {
   RoutingDecline,
   RoutingDeclineReason,
   RoutingMoveJudgments,
-  RoutingPersona,
   RoutingTopology,
 } from './schemas.js'
 
@@ -60,14 +54,6 @@ export interface MoveDerivation {
   readonly ownerSelection: OwnerSelection
 }
 
-function personaFor(context: RoutingContext, personaId: string): RoutingPersona {
-  const persona = context.personas.find((candidate) => candidate.id === personaId)
-  if (persona === undefined) {
-    throw new Error(`move policy has no eligible persona "${personaId}"`)
-  }
-  return persona
-}
-
 function declineAll(
   context: RoutingContext,
   reason: RoutingDeclineReason,
@@ -83,7 +69,7 @@ function requestFor(
   input: MoveDerivationInput,
   personaId: string,
   addressed: ReadonlySet<string>,
-  utterance: string,
+  utterance: string | undefined,
 ): TurnRequest {
   const persona = personaFor(input.context, personaId)
   return {
@@ -97,7 +83,10 @@ function requestFor(
   }
 }
 
-function addressedSet(input: MoveDerivationInput, utterance: string): ReadonlySet<string> {
+function addressedSet(
+  input: MoveDerivationInput,
+  utterance: string | undefined,
+): ReadonlySet<string> {
   if (input.addressedPersonaIds !== undefined) {
     return new Set(input.addressedPersonaIds)
   }
@@ -129,7 +118,7 @@ function speakDecision(
   personaId: string,
   fallbackCause: 'unsettled' | null,
   ownerSelection: OwnerSelection,
-  utterance: string,
+  utterance: string | undefined,
   addressed: ReadonlySet<string>,
 ): MoveDerivation {
   return {
@@ -147,16 +136,17 @@ function speakDecision(
 function resolvedPairWinner(
   input: MoveDerivationInput,
   personaIds: readonly [string, string],
-  utterance: string,
+  utterance: string | undefined,
   addressed: ReadonlySet<string>,
 ): string | undefined {
   if (input.topology === 'central_selection') {
-    return input.selectedPersonaId !== undefined && personaIds.includes(input.selectedPersonaId)
-      ? input.selectedPersonaId
-      : undefined
+    // The Choice may only pick one of the declared owners; anything else is a
+    // missing winner, not a speaker.
+    return personaIds.find((personaId) => personaId === input.selectedPersonaId)
   }
   const requests = personaIds.map((personaId) => requestFor(input, personaId, addressed, utterance))
-  return rankTurnRequests(input.context, requests, input.seed)[0]?.personaId
+  // The ranking returns one entry per request, and a pair always ranks two.
+  return rankTurnRequests(input.context, requests, input.seed)[0]!.personaId
 }
 
 /**
@@ -168,7 +158,9 @@ function resolvedPairWinner(
  * yields with an explicit reason.
  */
 export function deriveMoveDecision(input: MoveDerivationInput): MoveDerivation {
-  const utterance = input.utterance ?? lastUserUtterance(input.context)
+  // A missing utterance is defaulted by the feature helpers to the committed
+  // learner turn, so it is passed through instead of resolved twice.
+  const utterance = input.utterance
   const addressed = addressedSet(input, utterance)
   const ownerSelection = selectOwner(input.context, [...addressed], utterance)
 
@@ -181,7 +173,9 @@ export function deriveMoveDecision(input: MoveDerivationInput): MoveDerivation {
     : null
 
   if (fallbackCause !== null) {
-    if (ownerSelection.kind === 'unique') {
+    // The owner rule is "speak when exactly one owner is resolved". A direct
+    // address resolves one of several owners, so it speaks here too.
+    if (ownerSelection.kind === 'unique' || ownerSelection.kind === 'addressed') {
       return speakDecision(
         input,
         ownerSelection.personaId,

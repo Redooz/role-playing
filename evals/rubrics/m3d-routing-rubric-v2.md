@@ -10,10 +10,14 @@ turn requests. It replaces the broad contribution questions of
 
 ## What the model answers
 
-Both topologies receive the same public state: `conversation`,
-`learner_utterance`, `eligible_personas` with their scoped responsibilities, and
-`owners` with `topic`, `persona_ids`, the source (`fact` or `objective`) and its
-audit field.
+Both topologies receive `conversation`, `learner_utterance` and `owners` with
+`topic`, `persona_ids`, the source (`fact` or `objective`) and its audit field.
+The state then differs by topology:
+
+- Central selection receives `eligible_personas`, each with its id, name, role
+  and scoped responsibilities.
+- Per-persona turn requests receive the single `persona` (id, name, role) and
+  that persona's `objectives`.
 
 The model answers atomic Nouls. It never answers "should this persona speak?"
 and it never decides who owns a topic.
@@ -48,10 +52,12 @@ Decisions are code, not model output:
 4. A declared pair is resolved by the central Choice or by the persona-arm
    ranking (direct address, objective relevance, urgency, recency, seeded hash).
 5. An unsettled move answer uses the owner rule only: speak only when exactly
-   one owner is resolved; otherwise yield.
+   one owner is resolved — a single matched owner, or one of several owners
+   named directly; otherwise yield.
 6. A timeout, transport error or invalid/missing Noul or Choice answer is
    `infrastructure_incomplete`, never a decline, a pass or a zero. An answered
-   but unsettled Noul is a decision, not a failure.
+   but unsettled Noul is a decision, not a failure. A timed-out call is recorded
+   with `timeout` as its cause and is counted apart from any fallback rate.
 
 Ownership comes from public scenario facts and persona-scoped objectives. A named
 non-owner is a distractor. `coveredObjectiveIds` is not part of this rubric; the

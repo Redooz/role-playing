@@ -110,9 +110,10 @@ export interface RoutingArmLanguageReport {
   readonly falseSpeakRate: number | null
   readonly falseYield: number
   readonly falseYieldRate: number | null
-  readonly timeoutFallbacks: number
+  /** Calls that hit the deadline. Incomplete, never a fallback decision. */
+  readonly timeouts: number
   readonly unsettledFallbacks: number
-  readonly timeoutFallbackRate: number | null
+  readonly timeoutRate: number | null
   readonly unsettledFallbackRate: number | null
   readonly fallbackRate: number | null
   readonly latencyMs: LatencySummary | null
@@ -126,9 +127,11 @@ export interface RoutingArmLanguageReport {
 export interface RoutingMatrixReport {
   /**
    * Version 2 adds the per-class `classes` reading to every arm. A version 1
-   * report has no class data, so the two are never interchangeable.
+   * report has no class data, so the two are never interchangeable. Version 3
+   * renames the timeout axis: a timed-out call is incomplete and never a
+   * fallback, so `timeouts` is reported apart from `fallbackRate`.
    */
-  readonly schemaVersion: 2
+  readonly schemaVersion: 3
   readonly arms: readonly RoutingArmLanguageReport[]
 }
 
@@ -228,7 +231,7 @@ function summarizeGroup(
   let acceptable = 0
   let falseSpeak = 0
   let falseYield = 0
-  let timeoutFallbacks = 0
+  let timeouts = 0
   const tallies: Record<LabelClass, ClassTally> = {
     speak: newTally(),
     silence: newTally(),
@@ -246,11 +249,10 @@ function summarizeGroup(
     const klass = labelClass(label)
     const tally = tallies[klass]
     tally.total += 1
-    const timedOut = entry.artifact.observation.kind === 'timeout'
-    if (entry.artifact.outcome === 'infrastructure_incomplete' || timedOut) {
+    if (entry.artifact.outcome === 'infrastructure_incomplete') {
       incomplete += 1
       tally.incomplete += 1
-      if (timedOut) timeoutFallbacks += 1
+      if (entry.artifact.observation.kind === 'timeout') timeouts += 1
       continue
     }
 
@@ -310,11 +312,11 @@ function summarizeGroup(
     falseSpeakRate: rate(falseSpeak, completed),
     falseYield,
     falseYieldRate: rate(falseYield, completed),
-    timeoutFallbacks,
+    timeouts,
     unsettledFallbacks,
-    timeoutFallbackRate: rate(timeoutFallbacks, entries.length),
+    timeoutRate: rate(timeouts, entries.length),
     unsettledFallbackRate: rate(unsettledFallbacks, entries.length),
-    fallbackRate: rate(timeoutFallbacks + deterministicFallbacks, entries.length),
+    fallbackRate: rate(deterministicFallbacks, entries.length),
     latencyMs: latencySummary(latencies),
     usage: {
       inputTokens: sumKnown(usages.map((usage) => usage.inputTokens)),
@@ -343,5 +345,5 @@ export function buildRoutingMatrix(entries: readonly RoutingMatrixEntry[]): Rout
       (left, right) => left.armId.localeCompare(right.armId) || left.lang.localeCompare(right.lang),
     )
 
-  return { schemaVersion: 2, arms }
+  return { schemaVersion: 3, arms }
 }

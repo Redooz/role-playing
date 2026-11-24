@@ -80,9 +80,9 @@ function armReport(
     falseSpeakRate: 0,
     falseYield: 0,
     falseYieldRate: 0,
-    timeoutFallbacks: 0,
+    timeouts: 0,
     unsettledFallbacks: 0,
-    timeoutFallbackRate: 0,
+    timeoutRate: 0,
     unsettledFallbackRate: 0,
     fallbackRate: 0,
     latencyMs: null,
@@ -91,7 +91,7 @@ function armReport(
 }
 
 function matrix(arms: RoutingArmLanguageReport[]): RoutingMatrixReport {
-  return { schemaVersion: 2, arms }
+  return { schemaVersion: 3, arms }
 }
 
 describe('runRoutingComparison', () => {

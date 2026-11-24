@@ -537,6 +537,7 @@ describe('runJevRoutingReplay persona requests', () => {
     expect(result).toMatchObject({
       ok: false,
       kind: 'infrastructure_incomplete',
+      cause: 'error',
       error: 'boom',
     })
   })
@@ -576,6 +577,7 @@ describe('routing artifacts', () => {
       },
       { seed: 1, deadlineMs: 5 },
     )
+    expect(timeout).toMatchObject({ ok: false, cause: 'timeout' })
     const artifact = routingArtifact(context, timeout, {
       trialId: '0:en:decision-1',
       taskId: 'decision-1',
@@ -583,7 +585,7 @@ describe('routing artifacts', () => {
     })
     expect(artifact).toMatchObject({
       outcome: 'infrastructure_incomplete',
-      observation: { kind: 'none' },
+      observation: { kind: 'timeout' },
     })
     expect(artifact.error).toContain('timed out')
     expect(artifact).not.toHaveProperty('decision')
@@ -595,6 +597,7 @@ describe('routing artifacts', () => {
       {
         ok: false,
         kind: 'infrastructure_incomplete',
+        cause: 'error',
         error: 'down',
         questionIds: ['q'],
         policyLatencyMs: 9,
@@ -645,6 +648,7 @@ describe('routing artifacts', () => {
       {
         ok: false,
         kind: 'infrastructure_incomplete',
+        cause: 'error',
         error: '   ',
         questionIds: [],
         policyLatencyMs: 1,
@@ -708,6 +712,7 @@ describe('runJevRoutingReplay exact records', () => {
     expect(result).toStrictEqual({
       ok: false,
       kind: 'infrastructure_incomplete',
+      cause: 'error',
       error: 'down',
       questionIds: ['closing_move'],
       policyLatencyMs: 0,
@@ -732,6 +737,7 @@ describe('runJevRoutingReplay exact records', () => {
     expect(result).toStrictEqual({
       ok: false,
       kind: 'infrastructure_incomplete',
+      cause: 'error',
       error: 'judge exploded',
       questionIds: [],
       policyLatencyMs: 0,
@@ -757,6 +763,7 @@ describe('runJevRoutingReplay exact records', () => {
     expect(result).toStrictEqual({
       ok: false,
       kind: 'infrastructure_incomplete',
+      cause: 'error',
       error: 'persona down',
       questionIds: ['closing_move'],
       policyLatencyMs: 0,
