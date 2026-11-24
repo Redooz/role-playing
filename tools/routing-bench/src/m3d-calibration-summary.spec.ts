@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { RoutingArmLanguageReport, RoutingMatrixEntry } from '@rp/eval-harness'
 import {
+  calibrationExitCode,
   calibrationSummary,
   declineTallies,
   referenceReadings,
@@ -125,7 +126,53 @@ describe('referenceReadings', () => {
   })
 })
 
+function incompleteEntry(armId: string): RoutingMatrixEntry {
+  return {
+    armId,
+    lang: 'en',
+    artifact: {
+      schemaVersion: '1.0.0',
+      kind: 'routing.decision',
+      contentClass: 'restricted',
+      trialId: 'trial',
+      taskId: 'task',
+      arm: { topology: 'central_selection', judgmentSource: 'jev' },
+      contextHash: '0'.repeat(64),
+      policyLatencyMs: 1,
+      outcome: 'infrastructure_incomplete',
+      observation: { kind: 'timeout' },
+      error: 'timed out',
+    },
+    label: {
+      intent: 'post-demo-handover',
+      acceptablePersonaIds: [],
+      allowUserYield: true,
+      labelSource: 'agent',
+    },
+  } as RoutingMatrixEntry
+}
+
 describe('declineTallies', () => {
+  it('skips an infrastructure-incomplete artifact instead of parsing it', () => {
+    expect(declineTallies([incompleteEntry('jev-central')])).toEqual([])
+  })
+
+  it('skips an incomplete artifact even when it carries a decision', () => {
+    const incomplete = {
+      ...decisionEntry('jev-central', [
+        { personaId: 'manager', reason: 'not_owner' },
+        { personaId: 'peer', reason: 'not_owner' },
+      ]),
+    } as RoutingMatrixEntry
+    const artifact = { ...incomplete.artifact, outcome: 'infrastructure_incomplete' as const }
+    expect(declineTallies([{ ...incomplete, artifact }])).toEqual([])
+  })
+
+  it('skips a completed artifact that carries no decision', () => {
+    const artifact = { ...incompleteEntry('jev-central').artifact, outcome: 'completed' as const }
+    expect(declineTallies([{ ...incompleteEntry('jev-central'), artifact }])).toEqual([])
+  })
+
   it('counts each decline reason per arm and sorts', () => {
     expect(
       declineTallies([
@@ -192,6 +239,23 @@ describe('calibrationSummary', () => {
     expect(summary.declineReasons).toEqual([
       { armId: 'jev-central', lang: 'en', reason: 'not_owner', count: 2 },
     ])
+    expect(calibrationExitCode(summary)).toBe(0)
+  })
+
+  it('counts an incomplete artifact in entries without throwing', () => {
+    const summary = calibrationSummary({
+      lang: 'en',
+      reference,
+      matrix: matrix([arm({ incomplete: 1, completed: 39 })]),
+      families: [],
+      entries: [incompleteEntry('jev-central')],
+      tasks: 10,
+      contexts: 40,
+      expectedContexts: 40,
+    })
+    expect(summary.invariants[1]).toMatchObject({ id: 'routing.decisions_complete', ok: false })
+    expect(summary.declineReasons).toEqual([])
+    expect(calibrationExitCode(summary)).toBe(1)
   })
 
   it('fails the completion invariant on an incomplete decision or a context mismatch', () => {

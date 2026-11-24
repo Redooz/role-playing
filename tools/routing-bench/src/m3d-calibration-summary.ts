@@ -34,6 +34,14 @@ export interface CalibrationInvariant {
   readonly detail?: string
 }
 
+/**
+ * A summary is a finished run only when every context and every decision is
+ * complete. An incomplete run must not exit as a success.
+ */
+export function calibrationExitCode(summary: CalibrationSummary): 0 | 1 {
+  return summary.invariants.every((invariant) => invariant.ok) ? 0 : 1
+}
+
 export interface CalibrationSummary {
   readonly schemaVersion: '1.0.0'
   readonly suite: 'm3d-routing-calibration'
@@ -82,6 +90,8 @@ export function referenceReadings(runId: string, metrics: unknown): ReferenceRea
 export function declineTallies(entries: readonly RoutingMatrixEntry[]): readonly DeclineTally[] {
   const counts = new Map<string, DeclineTally>()
   for (const entry of entries) {
+    // A failed call has no decision; it is counted by the matrix, never parsed.
+    if (entry.artifact.outcome !== 'completed' || entry.artifact.decision === undefined) continue
     const decision = routingDecisionSchema.parse(entry.artifact.decision)
     for (const decline of decision.declines) {
       const key = `${entry.armId}\u0000${entry.lang}\u0000${decline.reason}`
