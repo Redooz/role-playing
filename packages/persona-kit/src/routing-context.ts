@@ -8,7 +8,7 @@ import {
 import type { PersonaSpec } from './persona.js'
 import { personaVariant } from './lookup.js'
 import { tokens, unique } from './keywords.js'
-import { ownershipFromFacts } from './ownership.js'
+import { ownershipFromFacts, ownershipFromObjectives } from './ownership.js'
 
 /**
  * Build the public routing context for a multi-persona session turn.
@@ -121,13 +121,16 @@ export function buildSessionRoutingContext(
 
   const openingPersonaId = personaIds[0]!
   const personas = options.personas.map((persona) => routingPersona(variant, persona, variant.lang))
-  const owners = ownershipFromFacts(
-    variant,
-    personas.map((persona) => ({
-      personaId: persona.id,
-      names: [persona.displayName, ...persona.aliases],
-    })),
-  )
+  const owners = [
+    ...ownershipFromFacts(
+      variant,
+      personas.map((persona) => ({
+        personaId: persona.id,
+        names: [persona.displayName, ...persona.aliases],
+      })),
+    ),
+    ...ownershipFromObjectives(variant, personaIds),
+  ]
   return parseRoutingContext({
     decisionId: options.turnId,
     turnId: options.turnId,

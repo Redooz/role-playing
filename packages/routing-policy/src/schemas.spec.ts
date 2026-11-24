@@ -141,6 +141,7 @@ describe('routingContextSchema', () => {
           topic: 'the action list',
           keywords: ['action', 'list'],
           personaIds: ['peer'],
+          source: 'fact',
           sourceFactIndex: 1,
         },
       ],
@@ -157,11 +158,55 @@ describe('routingContextSchema', () => {
             topic: 'the follow-up notes',
             keywords: ['follow-up', 'notes'],
             personaIds: ['manager', 'peer'],
+            source: 'fact',
             sourceFactIndex: 2,
           },
         ],
       }).owners[0]?.personaIds,
     ).toEqual(['manager', 'peer'])
+  })
+
+  it('accepts an objective owner with an objective id', () => {
+    expect(
+      makeContext({
+        owners: [
+          {
+            topic: 'Agree the rollout date with the manager.',
+            keywords: ['rollout', 'friday'],
+            personaIds: ['manager'],
+            source: 'objective',
+            objectiveId: 'agree-rollout',
+          },
+        ],
+      }).owners,
+    ).toHaveLength(1)
+  })
+
+  it('rejects an owner whose source and audit fields disagree', () => {
+    expect(() =>
+      makeContext({
+        owners: [
+          {
+            topic: 'the action list',
+            keywords: ['action'],
+            personaIds: ['peer'],
+            source: 'fact',
+          },
+        ],
+      }),
+    ).toThrow(/source fact index/i)
+    expect(() =>
+      makeContext({
+        owners: [
+          {
+            topic: 'the action list',
+            keywords: ['action'],
+            personaIds: ['peer'],
+            source: 'objective',
+          },
+        ],
+      }),
+    ).toThrow(/objective id/i)
   })
 
   it('rejects an owner persona who is not eligible', () => {
@@ -172,6 +217,7 @@ describe('routingContextSchema', () => {
             topic: 'the action list',
             keywords: ['action', 'list'],
             personaIds: ['ghost'],
+            source: 'fact',
             sourceFactIndex: 1,
           },
         ],
@@ -187,6 +233,7 @@ describe('routingContextSchema', () => {
             topic: 'the action list',
             keywords: ['action', 'list'],
             personaIds: ['peer', 'peer'],
+            source: 'fact',
             sourceFactIndex: 1,
           },
         ],
@@ -202,12 +249,14 @@ describe('routingContextSchema', () => {
             topic: 'The Action List',
             keywords: ['action', 'list'],
             personaIds: ['peer'],
+            source: 'fact',
             sourceFactIndex: 1,
           },
           {
             topic: 'the action list',
             keywords: ['action', 'list'],
             personaIds: ['manager'],
+            source: 'fact',
             sourceFactIndex: 2,
           },
         ],
@@ -223,6 +272,7 @@ describe('routingContextSchema', () => {
             topic: 'the action list',
             keywords: ['action'],
             personaIds: [],
+            source: 'fact',
             sourceFactIndex: 1,
           },
         ],
@@ -235,6 +285,7 @@ describe('routingContextSchema', () => {
             topic: 'the action list',
             keywords: [],
             personaIds: ['peer'],
+            source: 'fact',
             sourceFactIndex: 1,
           },
         ],
@@ -250,6 +301,7 @@ describe('routingContextSchema', () => {
             topic: 'the action list',
             keywords: ['action'],
             personaIds: ['peer'],
+            source: 'fact',
             sourceFactIndex: -1,
           },
         ],
@@ -262,6 +314,7 @@ describe('routingContextSchema', () => {
             topic: 'the action list',
             keywords: ['action'],
             personaIds: ['peer'],
+            source: 'fact',
             sourceFactIndex: 1.5,
           },
         ],
