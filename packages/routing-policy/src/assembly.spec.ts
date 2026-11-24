@@ -34,6 +34,8 @@ describe('assembleRoutingDecision', () => {
       policyVersion: 'det-v1',
       fallback: { kind: 'none' },
     })
+    // Exactly one judgment record is written: the feature judgments here.
+    expect(decision).not.toHaveProperty('moveJudgments')
     if (decision.outcome.kind === 'speak') {
       expect(decision.outcome.request.personaId).toBe('peer')
     }
@@ -172,7 +174,8 @@ describe('assembleRoutingDecision', () => {
       selectedPersonaId: 'peer',
       fallback: { kind: 'none' },
     })
-    expect(decision.judgments).toBeUndefined()
+    // And the other way round: a move-judgment decision omits the feature map.
+    expect(decision).not.toHaveProperty('judgments')
     expect(decision.moveJudgments).toEqual({ scope: 'central', move: moveJudgments })
   })
 

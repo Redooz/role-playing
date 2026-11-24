@@ -426,7 +426,7 @@ describe('runShadowArms', () => {
       fallbackCause: null,
       agreement: null,
       usage: null,
-      observation: { kind: 'none' },
+      observation: { kind: 'timeout' },
     })
     expect(central?.error).toContain('timed out')
 
@@ -1017,7 +1017,7 @@ describe('runShadowArms record shape', () => {
       latencyMs: expect.any(Number),
       usage: null,
       agreement: null,
-      observation: { kind: 'none' },
+      observation: { kind: 'timeout' },
       error: 'routing policy timed out after 5 ms; a failed model call is incomplete',
     })
   })

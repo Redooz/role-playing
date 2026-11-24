@@ -1,7 +1,12 @@
 import type { PersonaPolicyInput, PersonaTurnPolicy } from '@rp/session-core'
-import type { RoutingContext, RoutingPersona } from './schemas.js'
+import type { RoutingContext } from './schemas.js'
 import { derivePersonaDecision, deriveTurnRequest } from './derive.js'
-import { deterministicJudgments, isPersonaAddressed, lastUserUtterance } from './features.js'
+import {
+  deterministicJudgments,
+  isPersonaAddressed,
+  lastUserUtterance,
+  personaFor,
+} from './features.js'
 
 /**
  * `det-persona` — the M3b live control arm.
@@ -17,14 +22,6 @@ import { deterministicJudgments, isPersonaAddressed, lastUserUtterance } from '.
  */
 export const DET_PERSONA_LIVE_POLICY_ID = 'det-persona'
 export const DET_PERSONA_LIVE_POLICY_VERSION = 'm3b-det-persona-live-policy-v1'
-
-function personaFor(context: RoutingContext, personaId: string): RoutingPersona {
-  const persona = context.personas.find((candidate) => candidate.id === personaId)
-  if (persona === undefined) {
-    throw new Error(`det-persona has no eligible persona "${personaId}"`)
-  }
-  return persona
-}
 
 /** Create one deterministic policy instance for a session or a trial. */
 export function createDetPersonaLivePolicy(): PersonaTurnPolicy<RoutingContext> {

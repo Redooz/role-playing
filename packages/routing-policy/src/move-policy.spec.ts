@@ -78,6 +78,7 @@ describe('deriveMoveDecision', () => {
     expect(result.requests).toHaveLength(1)
     expect(result.requests[0]).toMatchObject({
       personaId: 'peer',
+      action: 'speak',
       addressedByUser: false,
       confidence: 0.9,
     })
@@ -88,6 +89,7 @@ describe('deriveMoveDecision', () => {
   it('yields when no claim matches the utterance', () => {
     const result = deriveMoveDecision(input('How is the contract going?', [actionList]))
     expect(result).toMatchObject({ kind: 'yield', yieldReason: 'no_owner' })
+    expect(result.requests).toEqual([])
   })
 
   it('uses the owner rule when a move answer is unsettled', () => {
@@ -116,12 +118,62 @@ describe('deriveMoveDecision', () => {
     })
   })
 
+  it('speaks for the directly addressed owner under the unsettled rule', () => {
+    const result = deriveMoveDecision(
+      input('Katherine, what about the action list and the rollout?', [actionList, rollout], {
+        moves: moves({ sideComment: 0.5 }),
+      }),
+    )
+    expect(result).toMatchObject({
+      kind: 'speak',
+      personaId: 'manager',
+      fallbackCause: 'unsettled',
+    })
+    expect(result.ownerSelection).toEqual({ kind: 'addressed', personaId: 'manager' })
+    expect(result.requests[0]?.addressedByUser).toBe(true)
+    // Confidence is the complement of the strongest self-directed signal.
+    expect(result.requests[0]?.confidence).toBe(0.5)
+  })
+
+  it('yields with no owner when a move answer is unsettled', () => {
+    const result = deriveMoveDecision(
+      input('How is the contract going?', [actionList], {
+        moves: moves({ selfAnswer: 0.5 }),
+      }),
+    )
+    expect(result).toMatchObject({
+      kind: 'yield',
+      yieldReason: 'no_owner',
+      fallbackCause: 'unsettled',
+    })
+  })
+
+  it('yields when several owners are unresolved under the unsettled rule', () => {
+    const result = deriveMoveDecision(
+      input('What about the action list and the rollout?', [actionList, rollout], {
+        moves: moves({ thinkingAloud: 0.5 }),
+      }),
+    )
+    expect(result).toMatchObject({
+      kind: 'yield',
+      yieldReason: 'unresolved_owner',
+      fallbackCause: 'unsettled',
+    })
+  })
+
   it('lets a central Choice pick between declared owners', () => {
     expect(
       deriveMoveDecision(
         input('Who owns the handover?', [declaredPair], { selectedPersonaId: 'manager' }),
       ),
     ).toMatchObject({ kind: 'speak', personaId: 'manager' })
+  })
+
+  it('yields a declared pair when the central Choice is absent', () => {
+    expect(deriveMoveDecision(input('Who owns the handover?', [declaredPair]))).toMatchObject({
+      kind: 'yield',
+      yieldReason: 'unresolved_owner',
+    })
   })
 
   it('rejects a central Choice outside the declared owners', () => {
@@ -136,6 +188,25 @@ describe('deriveMoveDecision', () => {
     const result = deriveMoveDecision(
       input('Sam, who owns the handover?', [declaredPair], {
         topology: 'persona_requests',
+        addressedPersonaIds: ['peer'],
+      }),
+    )
+    expect(result).toMatchObject({ kind: 'speak', personaId: 'peer' })
+    expect(result.requests[0]?.addressedByUser).toBe(true)
+  })
+
+  it('ranks a declared pair with no address in the persona arm', () => {
+    const result = deriveMoveDecision(
+      input('Who owns the handover?', [declaredPair], { topology: 'persona_requests' }),
+    )
+    expect(result).toMatchObject({ kind: 'speak' })
+    expect(['manager', 'peer']).toContain(result.personaId)
+    expect(result.ownerSelection.kind).toBe('pair')
+  })
+
+  it('honours the explicit addressed list over the transcript', () => {
+    const result = deriveMoveDecision(
+      input('What about the action list and the rollout?', [actionList, rollout], {
         addressedPersonaIds: ['peer'],
       }),
     )

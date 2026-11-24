@@ -173,7 +173,7 @@ console.table(
     mixed: arm.classes.mixed.total,
     falseSpeakRate: arm.falseSpeakRate?.toFixed(3) ?? 'n/a',
     falseYieldRate: arm.falseYieldRate?.toFixed(3) ?? 'n/a',
-    timeoutRate: arm.timeoutFallbackRate?.toFixed(3) ?? 'n/a',
+    timeoutRate: arm.timeoutRate?.toFixed(3) ?? 'n/a',
     unsettledRate: arm.unsettledFallbackRate?.toFixed(3) ?? 'n/a',
     p50: arm.latencyMs?.p50.toFixed(1) ?? 'n/a',
     p95: arm.latencyMs?.p95.toFixed(1) ?? 'n/a',
