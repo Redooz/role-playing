@@ -198,23 +198,38 @@ describe('calibrationSummary', () => {
     return { schemaVersion: 3 as const, arms }
   }
 
-  it('assembles the summary and marks complete runs', () => {
-    const summary = calibrationSummary({
-      lang: 'en',
+  function input(overrides: Partial<Parameters<typeof calibrationSummary>[0]> = {}) {
+    return {
+      split: 'calibration' as const,
+      lang: 'en' as const,
       reference,
       matrix: matrix([arm()]),
       families: [],
-      entries: [
-        decisionEntry('jev-central', [
-          { personaId: 'manager', reason: 'not_owner' },
-          { personaId: 'peer', reason: 'not_owner' },
-        ]),
-      ],
+      entries: [],
       tasks: 10,
+      rounds: 1,
       contexts: 40,
       expectedContexts: 40,
-    })
-    expect(summary.schemaVersion).toBe('1.0.0')
+      selection: null,
+      ...overrides,
+    }
+  }
+
+  it('assembles the summary and marks complete runs', () => {
+    const summary = calibrationSummary(
+      input({
+        entries: [
+          decisionEntry('jev-central', [
+            { personaId: 'manager', reason: 'not_owner' },
+            { personaId: 'peer', reason: 'not_owner' },
+          ]),
+        ],
+      }),
+    )
+    expect(summary.schemaVersion).toBe('1.1.0')
+    expect(summary.split).toBe('calibration')
+    expect(summary.rounds).toBe(1)
+    expect(summary.selection).toBeNull()
     expect(summary.note).toMatch(/^Calibration only\./u)
     expect(summary).toMatchObject({
       suite: 'm3d-routing-calibration',
@@ -243,37 +258,32 @@ describe('calibrationSummary', () => {
   })
 
   it('counts an incomplete artifact in entries without throwing', () => {
-    const summary = calibrationSummary({
-      lang: 'en',
-      reference,
-      matrix: matrix([arm({ incomplete: 1, completed: 39 })]),
-      families: [],
-      entries: [incompleteEntry('jev-central')],
-      tasks: 10,
-      contexts: 40,
-      expectedContexts: 40,
-    })
+    const summary = calibrationSummary(
+      input({
+        matrix: matrix([arm({ incomplete: 1, completed: 39 })]),
+        entries: [incompleteEntry('jev-central')],
+      }),
+    )
     expect(summary.invariants[1]).toMatchObject({ id: 'routing.decisions_complete', ok: false })
     expect(summary.declineReasons).toEqual([])
     expect(calibrationExitCode(summary)).toBe(1)
   })
 
   it('fails the completion invariant on an incomplete decision or a context mismatch', () => {
-    const summary = calibrationSummary({
-      lang: 'fr',
-      reference,
-      matrix: matrix([arm({ armId: 'jev-persona', incomplete: 1, completed: 39, n: 40 })]),
-      families: [],
-      entries: [
-        decisionEntry('jev-persona', [
-          { personaId: 'manager', reason: 'not_owner' },
-          { personaId: 'peer', reason: 'not_owner' },
-        ]),
-      ],
-      tasks: 9,
-      contexts: 39,
-      expectedContexts: 40,
-    })
+    const summary = calibrationSummary(
+      input({
+        lang: 'fr',
+        matrix: matrix([arm({ armId: 'jev-persona', incomplete: 1, completed: 39, n: 40 })]),
+        entries: [
+          decisionEntry('jev-persona', [
+            { personaId: 'manager', reason: 'not_owner' },
+            { personaId: 'peer', reason: 'not_owner' },
+          ]),
+        ],
+        tasks: 9,
+        contexts: 39,
+      }),
+    )
     expect(summary.invariants).toEqual([
       {
         id: 'routing.contexts_complete',
@@ -289,32 +299,51 @@ describe('calibrationSummary', () => {
   })
 
   it('sums an incomplete count across arms instead of subtracting it', () => {
-    const summary = calibrationSummary({
-      lang: 'en',
-      reference,
-      matrix: matrix([
-        arm({ armId: 'jev-central', incomplete: 1, completed: 39 }),
-        arm({ armId: 'jev-persona', incomplete: 1, completed: 39 }),
-      ]),
-      families: [],
-      entries: [
-        decisionEntry('jev-central', [
-          { personaId: 'manager', reason: 'not_owner' },
-          { personaId: 'peer', reason: 'not_owner' },
+    const summary = calibrationSummary(
+      input({
+        matrix: matrix([
+          arm({ armId: 'jev-central', incomplete: 1, completed: 39 }),
+          arm({ armId: 'jev-persona', incomplete: 1, completed: 39 }),
         ]),
-        decisionEntry('jev-persona', [
-          { personaId: 'manager', reason: 'not_owner' },
-          { personaId: 'peer', reason: 'not_owner' },
-        ]),
-      ],
-      tasks: 10,
-      contexts: 40,
-      expectedContexts: 40,
-    })
+        entries: [
+          decisionEntry('jev-central', [
+            { personaId: 'manager', reason: 'not_owner' },
+            { personaId: 'peer', reason: 'not_owner' },
+          ]),
+          decisionEntry('jev-persona', [
+            { personaId: 'manager', reason: 'not_owner' },
+            { personaId: 'peer', reason: 'not_owner' },
+          ]),
+        ],
+      }),
+    )
     expect(summary.invariants[1]).toEqual({
       id: 'routing.decisions_complete',
       ok: false,
       detail: '2 infrastructure-incomplete decisions',
+    })
+  })
+
+  it('names a holdout run and carries the selection it was given', () => {
+    const selection = {
+      adoptableArmIds: ['jev-central'],
+      adoptedArmId: 'jev-central',
+      ranking: [],
+      reason: 'adopted jev-central',
+    }
+    const summary = calibrationSummary(
+      input({ split: 'holdout', rounds: 3, contexts: 144, expectedContexts: 144, selection }),
+    )
+    expect(summary.schemaVersion).toBe('1.1.0')
+    expect(summary.suite).toBe('m3d-routing-holdout')
+    expect(summary.split).toBe('holdout')
+    expect(summary.rounds).toBe(3)
+    expect(summary.selection).toEqual(selection)
+    expect(summary.note).toMatch(/^Pre-registered holdout/u)
+    expect(summary.invariants[0]).toEqual({
+      id: 'routing.contexts_complete',
+      ok: true,
+      detail: '144 contexts built against 144 expected',
     })
   })
 })

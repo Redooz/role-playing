@@ -180,6 +180,17 @@ describe('calibrationTasks', () => {
     })
   })
 
+  it('puts the round in the task id so multi-round trials stay apart', async () => {
+    const { task, golden } = await fixtures()
+    const history = sessionHistoryFromEvents(events())
+    const first = calibrationTasks(task, golden, history, { round: 0 })
+    const second = calibrationTasks(task, golden, history, { round: 2 })
+    expect(first[0]?.taskId).toBe(`${TASK_ID}#r0:turn-2`)
+    expect(second[0]?.taskId).toBe(`${TASK_ID}#r2:turn-2`)
+    expect(first[0]?.context.turnId).toBe(second[0]?.context.turnId)
+    expect(new Set([...first, ...second].map((entry) => entry.taskId)).size).toBe(8)
+  })
+
   it('grows the context as the conversation grows and names each persona turn', async () => {
     const { task, golden } = await fixtures()
     const tasks = calibrationTasks(task, golden, sessionHistoryFromEvents(events()))

@@ -474,3 +474,52 @@ per-test coverage cannot see them. The pure modules stay scored:
 `packages/eval-harness/src/runner/routing-families.ts` and
 `tools/routing-bench/src/m3d-calibration-summary.ts`. Remove the exclusion when
 the script becomes importable by a unit test without live wiring.
+
+### D4 holdout pre-registration (2026-11-24)
+
+D4 applies the selection rule frozen in the M3d plan to the `m3b-v2` holdout. The
+rules below are written before the run and are not changed afterwards.
+
+**Data.** The recorded fixed-rotation holdout sessions
+`m3b-v2-baseline-en-r3` and `m3b-v2-baseline-fr-r3`: 12 tasks per language, four
+learner turns each, three rounds. The routing contexts are rebuilt from those
+transcripts with the same builder D3 used; the golden labels are joined after the
+context and never enter it. No session is run again, so no new holdout data is
+created.
+
+**Readings.** The offline comparison scores routing decisions against the same
+golden speaker labels the session runs score. The session metric names map onto
+the class readings:
+
+- `turn_taking.required_speaker_rate` = the completed `speak` class rate.
+- `turn_taking.silence_appropriate_rate` = the completed `silence` class rate.
+- `acceptable_speaker_rate` and every family reading stay diagnostic.
+
+`mixed` labels are counted and excluded, and an incomplete decision is never a
+pass and never a zero.
+
+**Floors**, per language, from the pre-registered MDE over the fixed-rotation
+baseline and the recorded `det-persona` incumbent:
+
+| Language | Speak floor | Silence floor | Incumbent speak | Incumbent silence |
+| -------- | ----------: | ------------: | --------------: | ----------------: |
+| en       |       0.826 |          0.75 |   13/17 = 0.765 |      8/12 = 0.667 |
+| fr       |       0.768 |          0.75 |   11/17 = 0.647 |      8/12 = 0.667 |
+
+**Adoption.** An arm is adoptable only when, in both languages, it meets the
+speak floor, the silence floor and the incumbent readings, and completes every
+decision. Zero incomplete decisions is the failure guardrail; a timed-out or
+errored call makes that arm unadoptable and the run exits 1 rather than reading
+as finished. Latency, cost, fallback and unsettled rates are diagnostics and
+selection keys, not separate gates.
+
+**Selection.** If both arms are adoptable, rank them by the pre-registered order:
+worst-language speak rate, worst-language silence rate, total cost per completed
+decision, worst-language p95, worst-language fallback rate. The better arm is
+adopted. If exactly one arm is adoptable, it is adopted. If neither is adoptable,
+no arm is adopted and no arm is called a winner.
+
+**Unchanged.** No threshold, floor, golden label, task, manifest, baseline,
+scenario fact or owner keyword moves in D4. A miss found on holdout is a finding,
+not an iteration trigger; D5 is the live confirmation, not a second attempt at
+selection.
