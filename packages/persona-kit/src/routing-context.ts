@@ -7,6 +7,8 @@ import {
 } from '@rp/scenario-kit'
 import type { PersonaSpec } from './persona.js'
 import { personaVariant } from './lookup.js'
+import { tokens, unique } from './keywords.js'
+import { ownershipFromFacts } from './ownership.js'
 
 /**
  * Build the public routing context for a multi-persona session turn.
@@ -35,68 +37,6 @@ export interface BuildSessionRoutingContextOptions {
   readonly scenario: ScenarioSpec
   readonly locale: string
   readonly messages: readonly SessionRoutingMessage[]
-}
-
-const STOP_WORDS: ReadonlySet<string> = new Set([
-  'the',
-  'and',
-  'for',
-  'with',
-  'that',
-  'this',
-  'from',
-  'what',
-  'when',
-  'where',
-  'which',
-  'while',
-  'into',
-  'your',
-  'you',
-  'are',
-  'was',
-  'were',
-  'have',
-  'has',
-  'had',
-  'can',
-  'could',
-  'would',
-  'should',
-  'les',
-  'des',
-  'une',
-  'aux',
-  'avec',
-  'pour',
-  'dans',
-  'sur',
-  'est',
-  'sont',
-  'que',
-  'qui',
-  'quoi',
-  'dont',
-  'plus',
-  'pas',
-  'par',
-  'vos',
-  'votre',
-  'son',
-  'ses',
-  'leur',
-])
-
-function tokens(text: string, lang: 'en' | 'fr'): string[] {
-  return text
-    .normalize('NFKC')
-    .toLocaleLowerCase(lang)
-    .split(/[^\p{L}\p{N}]+/u)
-    .filter((token) => token.length >= 3 && !STOP_WORDS.has(token))
-}
-
-function unique(values: readonly string[]): string[] {
-  return [...new Set(values.filter((value) => value.trim() !== ''))]
 }
 
 /** Concrete terms for a scenario objective; explicit keywords win. */
@@ -181,11 +121,19 @@ export function buildSessionRoutingContext(
 
   const openingPersonaId = personaIds[0]!
   const personas = options.personas.map((persona) => routingPersona(variant, persona, variant.lang))
+  const owners = ownershipFromFacts(
+    variant,
+    personas.map((persona) => ({
+      personaId: persona.id,
+      names: [persona.displayName, ...persona.aliases],
+    })),
+  )
   return parseRoutingContext({
     decisionId: options.turnId,
     turnId: options.turnId,
     lang: variant.lang,
     personas,
+    owners,
     coveredObjectiveIds: [],
     transcript: options.messages.map((message) =>
       message.role === 'user'

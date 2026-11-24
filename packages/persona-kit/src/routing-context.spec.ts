@@ -128,6 +128,52 @@ describe('buildSessionRoutingContext', () => {
       }),
     ).toThrow(/must be unique/u)
   })
+
+  it('publishes owners parsed from the handover facts, with their source index', () => {
+    const context = buildSessionRoutingContext({
+      turnId: 'turn-1',
+      personas: [personaById('manager'), personaById('peer')],
+      scenario: scenarioById('post-demo-handover'),
+      locale: 'en',
+      messages,
+    })
+    expect(context.owners).toHaveLength(5)
+    expect(context.owners[0]).toMatchObject({
+      personaIds: ['peer'],
+      sourceFactIndex: 1,
+      topic: 'the follow-up notes from the demo',
+    })
+    expect(context.owners.map((owner) => owner.sourceFactIndex)).toEqual([1, 2, 3, 4, 5])
+  })
+
+  it('publishes no owners when the scenario facts give context only', () => {
+    const context = buildSessionRoutingContext({
+      turnId: 'turn-1',
+      personas: [personaById('manager'), personaById('peer')],
+      scenario: scenarioById('standup-scope-change'),
+      locale: 'en',
+      messages,
+    })
+    expect(context.owners).toEqual([])
+  })
+
+  it('localises owner names and topics for fr-CA', () => {
+    const context = buildSessionRoutingContext({
+      turnId: 'turn-1',
+      personas: [personaById('manager'), personaById('peer')],
+      scenario: scenarioById('post-demo-handover'),
+      locale: 'fr-CA',
+      messages,
+    })
+    expect(context.owners.map((owner) => owner.personaIds)).toEqual([
+      ['peer'],
+      ['manager'],
+      ['manager'],
+      ['manager'],
+      ['peer'],
+    ])
+    expect(context.owners[0]?.topic).toContain('notes')
+  })
 })
 
 describe('routingKeywordsForObjective', () => {

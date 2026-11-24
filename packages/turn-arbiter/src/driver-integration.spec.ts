@@ -62,6 +62,7 @@ function buildContext(turnId: string, messages: readonly ConversationMessage[]):
           },
     ),
     personas,
+    owners: [],
     coveredObjectiveIds: [],
   }
 }

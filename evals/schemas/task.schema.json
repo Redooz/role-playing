@@ -278,6 +278,42 @@
                 "additionalProperties": false
               }
             },
+            "owners": {
+              "default": [],
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "topic": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "keywords": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "personaIds": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "sourceFactIndex": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": ["topic", "keywords", "personaIds", "sourceFactIndex"],
+                "additionalProperties": false
+              }
+            },
             "coveredObjectiveIds": {
               "type": "array",
               "items": {
@@ -292,6 +328,7 @@
             "lang",
             "transcript",
             "personas",
+            "owners",
             "coveredObjectiveIds"
           ],
           "additionalProperties": false

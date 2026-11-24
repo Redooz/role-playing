@@ -65,6 +65,7 @@ export function makeTurnContext(overrides: Partial<RoutingContext> = {}): Routin
         ],
       },
     ],
+    owners: [],
     coveredObjectiveIds: [],
     ...overrides,
   }

@@ -134,6 +134,7 @@ export const routingContext: RoutingContext = {
       objectives: [{ id: 'handoff', description: 'Confirm handoff.', keywords: ['handoff'] }],
     },
   ],
+  owners: [],
   coveredObjectiveIds: [],
 }
 

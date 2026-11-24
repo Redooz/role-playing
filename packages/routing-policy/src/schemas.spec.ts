@@ -133,6 +133,141 @@ describe('routingContextSchema', () => {
       }),
     ).toThrow(/unknown transcript persona/i)
   })
+
+  it('accepts an owner whose persona is eligible', () => {
+    const context = makeContext({
+      owners: [
+        {
+          topic: 'the action list',
+          keywords: ['action', 'list'],
+          personaIds: ['peer'],
+          sourceFactIndex: 1,
+        },
+      ],
+    })
+    expect(context.owners).toHaveLength(1)
+    expect(context.owners[0]?.sourceFactIndex).toBe(1)
+  })
+
+  it('accepts a declared pair of owners', () => {
+    expect(
+      makeContext({
+        owners: [
+          {
+            topic: 'the follow-up notes',
+            keywords: ['follow-up', 'notes'],
+            personaIds: ['manager', 'peer'],
+            sourceFactIndex: 2,
+          },
+        ],
+      }).owners[0]?.personaIds,
+    ).toEqual(['manager', 'peer'])
+  })
+
+  it('rejects an owner persona who is not eligible', () => {
+    expect(() =>
+      makeContext({
+        owners: [
+          {
+            topic: 'the action list',
+            keywords: ['action', 'list'],
+            personaIds: ['ghost'],
+            sourceFactIndex: 1,
+          },
+        ],
+      }),
+    ).toThrow(/owner persona.*not eligible/i)
+  })
+
+  it('rejects a duplicate owner persona inside one owner', () => {
+    expect(() =>
+      makeContext({
+        owners: [
+          {
+            topic: 'the action list',
+            keywords: ['action', 'list'],
+            personaIds: ['peer', 'peer'],
+            sourceFactIndex: 1,
+          },
+        ],
+      }),
+    ).toThrow(/duplicate owner persona/i)
+  })
+
+  it('rejects two owners for the same topic after normalisation', () => {
+    expect(() =>
+      makeContext({
+        owners: [
+          {
+            topic: 'The Action List',
+            keywords: ['action', 'list'],
+            personaIds: ['peer'],
+            sourceFactIndex: 1,
+          },
+          {
+            topic: 'the action list',
+            keywords: ['action', 'list'],
+            personaIds: ['manager'],
+            sourceFactIndex: 2,
+          },
+        ],
+      }),
+    ).toThrow(/duplicate ownership topic/i)
+  })
+
+  it('rejects an empty owner persona list and an empty keyword list', () => {
+    expect(() =>
+      makeContext({
+        owners: [
+          {
+            topic: 'the action list',
+            keywords: ['action'],
+            personaIds: [],
+            sourceFactIndex: 1,
+          },
+        ],
+      }),
+    ).toThrow(/owners/i)
+    expect(() =>
+      makeContext({
+        owners: [
+          {
+            topic: 'the action list',
+            keywords: [],
+            personaIds: ['peer'],
+            sourceFactIndex: 1,
+          },
+        ],
+      }),
+    ).toThrow(/owners/i)
+  })
+
+  it('rejects a negative or fractional source fact index', () => {
+    expect(() =>
+      makeContext({
+        owners: [
+          {
+            topic: 'the action list',
+            keywords: ['action'],
+            personaIds: ['peer'],
+            sourceFactIndex: -1,
+          },
+        ],
+      }),
+    ).toThrow(/owners/i)
+    expect(() =>
+      makeContext({
+        owners: [
+          {
+            topic: 'the action list',
+            keywords: ['action'],
+            personaIds: ['peer'],
+            sourceFactIndex: 1.5,
+          },
+        ],
+      }),
+    ).toThrow(/owners/i)
+  })
 })
 
 describe('routingDecisionSchema', () => {
