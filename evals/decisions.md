@@ -660,3 +660,31 @@ selection.
 **Live check.** After the wiring, one English live session records the transcript,
 the chosen speaker and any fallback line. It verifies the wiring only; the
 capability evidence stays D4.
+
+#### D6 live check (2026-11-24)
+
+One English live session with the wired policy, `standup-scope-change`, personas
+`manager,peer`:
+
+- Header: `routing: jev-central (English, det-persona fallback)`.
+- Learner: "Sam, how much of the notifications work is already done?"
+- Result: `manager` declined, `peer` requested the turn and answered. No fallback
+  line appeared on stderr.
+- Session log: `sessions/m3d-d6-smoke-en-3.jsonl` (local, not committed).
+
+A first attempt asked "Katherine, what is out of scope in this delivery?". Both
+personas declined. That utterance names no owned topic in this scenario, so the
+frozen contract yields; it is not a wiring failure. The check used an owned
+topic.
+
+This verifies the wiring only: the header, the per-turn decision, the speaker
+and the absence of a fallback. The capability evidence remains D4. Jev and Gemma
+spend for the two smoke sessions is **unmeasured**: the CLI does not meter cost,
+and no number is claimed.
+
+Re-check after the live policy was refactored to call the evaluated central arm
+(`runJevRoutingReplay`) instead of duplicating its move-contract assembly, so the
+adopted path and the evaluated path cannot drift. Session
+`m3d-d6-smoke-en-4`, same scenario and utterance: header unchanged, `manager`
+declined, `peer` requested and answered, no fallback line. Spend is again
+unmeasured.

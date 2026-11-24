@@ -1098,6 +1098,62 @@ describe('multi-persona CLI labels', () => {
   })
 })
 
+describe('routing label', () => {
+  const selection = {
+    personaId: 'manager',
+    personaName: 'Katherine Brooks',
+    scenarioId: 'standup-scope-change',
+    locale: 'en',
+    personas: [
+      { personaId: 'manager', personaName: 'Katherine Brooks' },
+      { personaId: 'peer', personaName: 'Sam Carter' },
+    ],
+  }
+
+  it('prints the active policy for a multi-persona session', async () => {
+    const io = captureIo()
+    await runCli({
+      input: linesOf('/quit'),
+      io: io.io,
+      driver: driverWith(scriptedModel(['unused'])),
+      provider: { kind: 'canned', label: 'canned/demo' },
+      routingLabel: 'jev-central (English, det-persona fallback)',
+      selection,
+    })
+    expect(io.text()).toContain('routing: jev-central (English, det-persona fallback)')
+  })
+
+  it('prints no routing line in single-persona mode', async () => {
+    const io = captureIo()
+    await runCli({
+      input: linesOf('/quit'),
+      io: io.io,
+      driver: driverWith(scriptedModel(['unused'])),
+      provider: { kind: 'canned', label: 'canned/demo' },
+      routingLabel: 'det-persona',
+      selection: {
+        personaId: 'manager',
+        personaName: 'Katherine Brooks',
+        scenarioId: 'request-deadline-extension',
+        locale: 'en',
+      },
+    })
+    expect(io.text()).not.toContain('routing:')
+  })
+
+  it('prints no routing line when the label is absent', async () => {
+    const io = captureIo()
+    await runCli({
+      input: linesOf('/quit'),
+      io: io.io,
+      driver: driverWith(scriptedModel(['unused'])),
+      provider: { kind: 'canned', label: 'canned/demo' },
+      selection,
+    })
+    expect(io.text()).not.toContain('routing:')
+  })
+})
+
 describe('speaker label edge cases', () => {
   function fakeDriver(stream: readonly SessionEvent[]): SessionDriver {
     return {

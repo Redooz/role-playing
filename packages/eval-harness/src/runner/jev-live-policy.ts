@@ -1,8 +1,4 @@
-import {
-  assembleRoutingDecision,
-  deriveMoveDecision,
-  type RoutingContext,
-} from '@rp/routing-policy'
+import type { RoutingContext } from '@rp/routing-policy'
 import type {
   PersonaPolicyDecision,
   PersonaPolicyInput,
@@ -10,7 +6,7 @@ import type {
   TurnRequest,
 } from '@rp/session-core'
 import type { JevRoutingJudge } from '../jev/routing.js'
-import { withinDeadline } from './routing.js'
+import { JEV_CENTRAL_POLICY_VERSION, runJevRoutingReplay } from './routing.js'
 
 /**
  * Live `jev-central` routing policy (M3d D6).
@@ -19,14 +15,19 @@ import { withinDeadline } from './routing.js'
  * policy runs one central Jev batch for the turn, shares it between those calls,
  * and maps the ownership-first decision to one request and the other declines.
  *
- * A timeout, transport error, invalid answer or contract violation is never a
- * decline and never a fabricated speaker: the policy answers from the injected
- * deterministic fallback and reports the cause once per turn. The driver's own
- * request window stays the outer bound; this deadline is the inner one.
+ * The decision itself is the evaluated central arm, unchanged: the same judge,
+ * move contract and assembly as `runJevRoutingReplay`. Only the live wrapper is
+ * new — the memo across persona calls, the deadline and the fallback.
+ *
+ * A timeout, transport error or invalid answer is never a decline and never a
+ * fabricated speaker: the policy answers from the injected deterministic
+ * fallback and reports the cause once per turn. The driver's own request window
+ * stays the outer bound; this deadline is the inner one.
  */
 
 export const JEV_CENTRAL_LIVE_POLICY_ID = 'jev-central'
-export const JEV_CENTRAL_LIVE_POLICY_VERSION = 'm3d-jev-central-live-v1'
+/** The evaluated arm's version, stamped on every assembled decision. */
+export const JEV_CENTRAL_LIVE_POLICY_VERSION = JEV_CENTRAL_POLICY_VERSION
 /** Below the driver's 1,500 ms request window, so the fallback still answers. */
 export const JEV_LIVE_DEFAULT_DEADLINE_MS = 1_200
 
@@ -38,7 +39,7 @@ export interface JevLiveFailure {
 }
 
 export interface JevCentralLivePolicyOptions {
-  readonly judge: Pick<JevRoutingJudge, 'judgeCentral'>
+  readonly judge: JevRoutingJudge
   /** Deterministic policy used when the model call fails or cannot decide. */
   readonly fallback: PersonaTurnPolicy<RoutingContext>
   readonly deadlineMs?: number
@@ -70,59 +71,21 @@ export function createJevCentralLivePolicy(
   const deadlineMs = options.deadlineMs ?? JEV_LIVE_DEFAULT_DEADLINE_MS
   let cache: TurnCache | undefined
 
-  function failed(turnId: string, cause: JevLiveFailureCause): null {
-    options.onFailure?.({ turnId, cause })
-    return null
-  }
-
   async function decideFromModel(
     input: PersonaPolicyInput<RoutingContext>,
   ): Promise<CentralOutcome | null> {
-    let raced
-    try {
-      raced = await withinDeadline(options.judge.judgeCentral(input.context), deadlineMs)
-    } catch {
-      return failed(input.turnId, 'error')
-    }
-    if (raced.kind === 'timeout') return failed(input.turnId, 'timeout')
-    if (!raced.value.ok) return failed(input.turnId, 'error')
-
-    const { judgment } = raced.value.observation
-    // A contract violation is a programming error, so it rejects and the driver
-    // records a failed policy call instead of inventing an answer.
-    const derived = deriveMoveDecision({
-      context: input.context,
-      moves: judgment.move,
-      topology: 'central_selection',
+    const result = await runJevRoutingReplay(input.context, 'central_selection', options.judge, {
       // The central path takes its speaker from the Choice, never the seed.
       seed: 0,
-      ...(judgment.selectedPersonaId === undefined
-        ? {}
-        : { selectedPersonaId: judgment.selectedPersonaId }),
+      deadlineMs,
     })
-    const decision = assembleRoutingDecision({
-      context: input.context,
-      topology: 'central_selection',
-      judgmentSource: 'jev',
-      policyVersion: JEV_CENTRAL_LIVE_POLICY_VERSION,
-      moveJudgments: { scope: 'central', move: judgment.move },
-      requests: derived.requests,
-      declines: derived.declines,
-      unsettledPersonas: [],
-      ...(derived.kind === 'speak' && derived.personaId !== undefined
-        ? { selectedPersonaId: derived.personaId }
-        : {}),
-      fallback:
-        derived.fallbackCause === null
-          ? { kind: 'none' }
-          : { kind: 'deterministic', cause: derived.fallbackCause },
-    })
-    return decision.outcome.kind === 'speak'
-      ? {
-          kind: 'speak',
-          personaId: decision.outcome.personaId,
-          request: decision.outcome.request,
-        }
+    if (!result.ok) {
+      options.onFailure?.({ turnId: input.turnId, cause: result.cause })
+      return null
+    }
+    const { outcome } = result.decision
+    return outcome.kind === 'speak'
+      ? { kind: 'speak', personaId: outcome.personaId, request: outcome.request }
       : { kind: 'yield' }
   }
 

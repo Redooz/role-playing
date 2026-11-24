@@ -10,7 +10,9 @@ import { JevUnavailableError } from '../jev/errors.js'
 import type { JevBatchSuccess } from '../jev/types.js'
 import {
   createJevCentralLivePolicy,
+  JEV_CENTRAL_LIVE_POLICY_ID,
   JEV_CENTRAL_LIVE_POLICY_VERSION,
+  JEV_LIVE_DEFAULT_DEADLINE_MS,
   type JevLiveFailure,
 } from './jev-live-policy.js'
 
@@ -128,8 +130,12 @@ function context(
   })
 }
 
-interface FakeJudge extends Pick<JevRoutingJudge, 'judgeCentral'> {
+interface FakeJudge extends JevRoutingJudge {
   readonly calls: RoutingContext[]
+}
+
+const unexpectedPersona = async (): Promise<never> => {
+  throw new Error('the central arm never asks for a persona judgment')
 }
 
 function judgeReturning(result: RoutingJevResult<RoutingCentralObservation>): FakeJudge {
@@ -140,6 +146,7 @@ function judgeReturning(result: RoutingJevResult<RoutingCentralObservation>): Fa
       calls.push(input)
       return result
     },
+    judgePersona: unexpectedPersona,
   }
 }
 
@@ -295,6 +302,7 @@ describe('createJevCentralLivePolicy', () => {
           await new Promise(() => {})
           throw new Error('unreachable')
         },
+        judgePersona: unexpectedPersona,
       },
       fallback: { decide: fallbackRequest },
       deadlineMs: 5,
@@ -313,6 +321,7 @@ describe('createJevCentralLivePolicy', () => {
         async judgeCentral() {
           throw new Error('socket closed')
         },
+        judgePersona: unexpectedPersona,
       },
       fallback: { decide: fallbackRequest },
       onFailure: (failure) => failures.push(failure),
@@ -358,7 +367,31 @@ describe('createJevCentralLivePolicy', () => {
     expect(calls).toEqual(['interject'])
   })
 
-  it('names its policy version', () => {
-    expect(JEV_CENTRAL_LIVE_POLICY_VERSION).toBe('m3d-jev-central-live-v1')
+  it('names its policy and the evaluated arm version', () => {
+    expect(JEV_CENTRAL_LIVE_POLICY_ID).toBe('jev-central')
+    expect(JEV_CENTRAL_LIVE_POLICY_VERSION).toBe('m3d-jev-central-v2')
+  })
+
+  it('keeps a default deadline below the driver request window', () => {
+    expect(JEV_LIVE_DEFAULT_DEADLINE_MS).toBe(1200)
+  })
+
+  it('answers when the judge is slower than one task tick but inside the default deadline', async () => {
+    const failures: JevLiveFailure[] = []
+    const policy = createJevCentralLivePolicy({
+      judge: {
+        async judgeCentral() {
+          await new Promise((resolve) => setTimeout(resolve, 20))
+          return { ok: true, observation: observation(quiet, 'peer') }
+        },
+        judgePersona: unexpectedPersona,
+      },
+      fallback: { decide: fallbackRequest },
+      onFailure: (failure) => failures.push(failure),
+    })
+
+    const decision = await policy.decide(input('peer', 'turn-1', context()))
+    expect(failures).toEqual([])
+    expect(decision).toMatchObject({ kind: 'request', request: { personaId: 'peer' } })
   })
 })

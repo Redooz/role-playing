@@ -1,3 +1,4 @@
+import type * as EvalHarnessModule from '@rp/eval-harness'
 import type * as PipelineModule from '@rp/pipeline'
 import type * as SessionCoreModule from '@rp/session-core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -14,6 +15,10 @@ const state = vi.hoisted(() => ({
   lastContext: undefined as unknown,
   lastSeed: undefined as unknown,
   lastArbiterResult: undefined as unknown,
+  createJevClient: vi.fn((options: { apiKey: string }) => ({ kind: 'jev', options })),
+  createJevRoutingJudge: vi.fn(() => ({
+    judgeCentral: vi.fn(),
+  })),
 }))
 
 vi.mock('node:readline/promises', () => ({
@@ -50,12 +55,22 @@ vi.mock('@rp/pipeline', async (importOriginal) => {
   }
 })
 
+vi.mock('@rp/eval-harness', async (importOriginal) => {
+  const actual = await importOriginal<typeof EvalHarnessModule>()
+  return {
+    ...actual,
+    createJevClient: state.createJevClient,
+    createJevRoutingJudge: state.createJevRoutingJudge,
+  }
+})
+
 const { main, resolveSessionLogPath } = await import('./main.js')
 
 const savedEnv = {
   key: process.env['LIVEKIT_API_KEY'],
   secret: process.env['LIVEKIT_API_SECRET'],
   url: process.env['LIVEKIT_INFERENCE_URL'],
+  routerKey: process.env['OPENROUTER_API_KEY'],
 }
 
 function restoreEnv(): void {
@@ -63,6 +78,7 @@ function restoreEnv(): void {
     ['LIVEKIT_API_KEY', savedEnv.key],
     ['LIVEKIT_API_SECRET', savedEnv.secret],
     ['LIVEKIT_INFERENCE_URL', savedEnv.url],
+    ['OPENROUTER_API_KEY', savedEnv.routerKey],
   ] as const) {
     if (value === undefined) delete process.env[name]
     else process.env[name] = value
@@ -770,6 +786,154 @@ describe('main composition root', () => {
     } finally {
       if (original === undefined) delete (process.stdin as { isTTY?: boolean }).isTTY
       else Object.defineProperty(process.stdin, 'isTTY', original)
+      io.restore()
+    }
+  })
+
+  function setLiveCredentials(): void {
+    process.env['LIVEKIT_API_KEY'] = 'key'
+    process.env['LIVEKIT_API_SECRET'] = 'secret'
+  }
+
+  it('routes a live English two-persona session with jev-central when a key is present', async () => {
+    configureMocks()
+    setLiveCredentials()
+    process.env['OPENROUTER_API_KEY'] = 'router-key'
+    const io = captureStreams()
+    try {
+      await expect(
+        main([
+          '--provider',
+          'live',
+          '--personas',
+          'manager,peer',
+          '--scenario',
+          'standup-scope-change',
+          '--session-id',
+          'live-routing-1',
+        ]),
+      ).resolves.toBe(0)
+      expect(state.createJevClient).toHaveBeenCalledWith({ apiKey: 'router-key' })
+      expect(state.createJevRoutingJudge).toHaveBeenCalledTimes(1)
+      expect(state.runCli).toHaveBeenCalledWith(
+        expect.objectContaining({
+          routingLabel: 'jev-central (English, det-persona fallback)',
+        }),
+      )
+      expect(io.err()).toBe('')
+    } finally {
+      io.restore()
+    }
+  })
+
+  it('reports a Jev fallback once on stderr and keeps det-persona answering', async () => {
+    configureMocks()
+    setLiveCredentials()
+    process.env['OPENROUTER_API_KEY'] = 'router-key'
+    state.createJevRoutingJudge.mockReturnValueOnce({
+      judgeCentral: async () => {
+        throw new Error('network down')
+      },
+    } as never)
+    const io = captureStreams()
+    try {
+      await expect(
+        main([
+          '--provider',
+          'live',
+          '--personas',
+          'manager,peer',
+          '--scenario',
+          'standup-scope-change',
+          '--session-id',
+          'live-routing-3',
+        ]),
+      ).resolves.toBe(0)
+      const driverOptions = state.createDriver.mock.calls.at(-1)?.[0] as {
+        policy: {
+          decide: (input: unknown) => Promise<unknown>
+        }
+      }
+      const context = state.lastContext
+      const decision = await driverOptions.policy.decide({
+        personaId: 'manager',
+        turnId: 'turn-1',
+        action: 'speak',
+        messages: [],
+        lang: 'en',
+        context,
+      })
+      expect(decision).toEqual({ kind: 'decline' })
+      expect(io.err()).toContain('[routing] jev-central fell back to det-persona (error) on turn-1')
+      expect(io.err().match(/fell back/g)).toHaveLength(1)
+    } finally {
+      io.restore()
+    }
+  })
+
+  it('reports a missing router key and keeps det-persona', async () => {
+    configureMocks()
+    setLiveCredentials()
+    delete process.env['OPENROUTER_API_KEY']
+    const io = captureStreams()
+    try {
+      await expect(
+        main([
+          '--provider',
+          'live',
+          '--personas',
+          'manager,peer',
+          '--scenario',
+          'standup-scope-change',
+          '--session-id',
+          'live-routing-2',
+        ]),
+      ).resolves.toBe(0)
+      expect(state.createJevClient).not.toHaveBeenCalled()
+      expect(state.runCli).toHaveBeenCalledWith(
+        expect.objectContaining({
+          routingLabel: 'det-persona (OPENROUTER_API_KEY missing: Jev routing off)',
+        }),
+      )
+      expect(io.err()).toContain('note: this English session uses det-persona routing')
+    } finally {
+      io.restore()
+    }
+  })
+
+  it('keeps det-persona for a canned session even with a router key', async () => {
+    configureMocks()
+    process.env['OPENROUTER_API_KEY'] = 'router-key'
+    const io = captureStreams()
+    try {
+      await expect(
+        main([
+          '--personas',
+          'manager,peer',
+          '--scenario',
+          'standup-scope-change',
+          '--session-id',
+          'canned-routing-1',
+        ]),
+      ).resolves.toBe(0)
+      expect(state.createJevClient).not.toHaveBeenCalled()
+      expect(state.runCli).toHaveBeenCalledWith(
+        expect.objectContaining({ routingLabel: 'det-persona' }),
+      )
+      expect(io.err()).toBe('')
+    } finally {
+      io.restore()
+    }
+  })
+
+  it('rejects an unknown --routing value with exit code 2', async () => {
+    configureMocks()
+    const io = captureStreams()
+    try {
+      await expect(main(['--session-id', 's1', '--routing', 'bogus'])).resolves.toBe(2)
+      expect(io.err()).toContain('--routing must be "auto" or "det-persona"')
+      expect(state.createCanned).not.toHaveBeenCalled()
+    } finally {
       io.restore()
     }
   })
