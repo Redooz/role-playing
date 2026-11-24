@@ -326,32 +326,62 @@ describe('selectHoldoutArm', () => {
     )
   })
 
-  it('refuses to adopt when a p95 reading is missing', () => {
+  it('adopts the only adoptable arm without needing a ranking', () => {
     const selection = selectHoldoutArm([
       pair('jev-central', 'en', { latencyMs: null }),
       pair('jev-central', 'fr', { latencyMs: null }),
+      pair('jev-persona', 'en', {
+        classes: { ...arm().classes, speak: { ...arm().classes.speak, rate: 0.7 } },
+      }),
+      pair('jev-persona', 'fr'),
     ])
     expect(selection.adoptableArmIds).toEqual(['jev-central'])
-    expect(selection.adoptedArmId).toBeNull()
+    expect(selection.adoptedArmId).toBe('jev-central')
     expect(selection.ranking).toEqual([])
+    expect(selection.reason).toBe(
+      'adopted jev-central as the only arm that clears every floor in both languages',
+    )
+  })
+
+  it('requires both languages before an arm can be adopted', () => {
+    const selection = selectHoldoutArm([pair('jev-central', 'en')])
+    expect(selection.adoptableArmIds).toEqual([])
+    expect(selection.adoptedArmId).toBeNull()
+    expect(selection.reason).toMatch(/no arm clears every floor in both languages/u)
+  })
+
+  it('refuses to rank two adoptable arms when a p95 reading is missing', () => {
+    const selection = selectHoldoutArm([
+      pair('jev-central', 'en', { latencyMs: null }),
+      pair('jev-central', 'fr'),
+      pair('jev-persona', 'en'),
+      pair('jev-persona', 'fr'),
+    ])
+    expect(selection.adoptableArmIds).toEqual(['jev-central', 'jev-persona'])
+    expect(selection.adoptedArmId).toBeNull()
+    expect(selection.ranking.map((entry) => entry.armId)).toEqual(['jev-persona'])
     expect(selection.reason).toMatch(/no readable ranking key/u)
   })
 
-  it('refuses to adopt when a cost reading is missing', () => {
+  it('refuses to rank two adoptable arms when a cost reading is missing', () => {
     const selection = selectHoldoutArm([
       pair('jev-central', 'en', {
         usage: { inputTokens: null, outputTokens: null, costUsd: null },
       }),
       pair('jev-central', 'fr'),
+      pair('jev-persona', 'en'),
+      pair('jev-persona', 'fr'),
     ])
     expect(selection.adoptedArmId).toBeNull()
     expect(selection.reason).toMatch(/no readable ranking key/u)
   })
 
-  it('refuses to adopt when a fallback reading is missing', () => {
+  it('refuses to rank two adoptable arms when a fallback reading is missing', () => {
     const selection = selectHoldoutArm([
       pair('jev-central', 'en', { fallbackRate: null }),
       pair('jev-central', 'fr'),
+      pair('jev-persona', 'en'),
+      pair('jev-persona', 'fr'),
     ])
     expect(selection.adoptedArmId).toBeNull()
     expect(selection.reason).toMatch(/no readable ranking key/u)

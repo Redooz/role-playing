@@ -246,6 +246,14 @@ function rankingOf(armId: string, verdicts: readonly ArmVerdict[]): ArmRanking |
   }
 }
 
+/** The languages the frozen rule requires before an arm can be adopted. */
+const REQUIRED_LANGUAGES: readonly ArmVerdict['lang'][] = ['en', 'fr']
+
+function coversEveryRequiredLanguage(list: readonly ArmVerdict[]): boolean {
+  const seen = new Set(list.map((verdict) => verdict.lang))
+  return REQUIRED_LANGUAGES.every((lang) => seen.has(lang))
+}
+
 /** Group verdicts by arm, in first-seen order. */
 function groupByArm(verdicts: readonly ArmVerdict[]): Map<string, ArmVerdict[]> {
   const byArm = new Map<string, ArmVerdict[]>()
@@ -260,22 +268,18 @@ function groupByArm(verdicts: readonly ArmVerdict[]): Map<string, ArmVerdict[]> 
 /**
  * Apply the frozen selection rule across languages.
  *
- * An arm is adoptable only when every language's verdict is adoptable. Adoptable
- * arms rank by the worse language on each rate, then by cost, p95 and fallback
- * rate. With no adoptable arm, nothing is adopted and no arm is called a winner.
+ * An arm is adoptable only when it has a verdict for both languages and every
+ * verdict is adoptable. A single adoptable arm is adopted without ranking. With
+ * two, the worse language on each rate decides, then cost, p95 and fallback
+ * rate. With no adoptable arm, nothing is adopted and no arm is a winner.
  */
 export function selectHoldoutArm(verdicts: readonly ArmVerdict[]): HoldoutSelection {
   const adoptable: [string, ArmVerdict[]][] = []
   for (const [armId, list] of groupByArm(verdicts)) {
+    if (!coversEveryRequiredLanguage(list)) continue
     if (list.every((verdict) => verdict.adoptable)) adoptable.push([armId, list])
   }
   const adoptableArmIds = adoptable.map(([armId]) => armId)
-  const ranking = adoptable
-    .flatMap(([armId, list]) => {
-      const ranked = rankingOf(armId, list)
-      return ranked === null ? [] : [ranked]
-    })
-    .sort(compareRanking)
 
   if (adoptableArmIds.length === 0) {
     return {
@@ -286,6 +290,25 @@ export function selectHoldoutArm(verdicts: readonly ArmVerdict[]): HoldoutSelect
         'no arm clears every floor in both languages; no arm is adopted and no arm is a winner',
     }
   }
+
+  if (adoptable.length === 1) {
+    const [armId, list] = adoptable[0]!
+    const ranked = rankingOf(armId, list)
+    return {
+      adoptableArmIds,
+      adoptedArmId: armId,
+      ranking: ranked === null ? [] : [ranked],
+      reason: `adopted ${armId} as the only arm that clears every floor in both languages`,
+    }
+  }
+
+  const ranking = adoptable
+    .flatMap(([armId, list]) => {
+      const ranked = rankingOf(armId, list)
+      return ranked === null ? [] : [ranked]
+    })
+    .sort(compareRanking)
+
   if (ranking.length !== adoptableArmIds.length) {
     return {
       adoptableArmIds,

@@ -545,11 +545,13 @@ winner.** English clears the speak floor (0.882 ≥ 0.826), the silence floor
 the 79/102 the floor needs. Adoption requires both languages, so neither arm is
 adoptable. The floor is not moved.
 
-Both topologies tie on every class rate in both languages, which is the plan's
-frozen expected finding: under ownership-first the move belongs to the utterance
-and the owner is public data, so the per-persona batches add cost without
-changing the decision. The persona arm is not cheaper and is not faster in
-French.
+The two topologies agree on the speak class in both languages (0.882 EN, 0.735
+FR) and on silence and acceptable in English. In French they differ slightly on
+silence (0.972 vs 1.000) and acceptable (0.806 vs 0.813). The per-persona arm
+never changes which turn speaks, which is the plan's frozen expected finding:
+under ownership-first the move belongs to the utterance and the owner is public
+data, so the per-persona batches add cost without changing the speak decision.
+The persona arm is not cheaper and is not faster in French.
 
 Family diagnosis, recorded as findings and not fixed in D4:
 
