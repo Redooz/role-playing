@@ -18,7 +18,11 @@ import {
   type RoutingComparisonArm,
   type RoutingComparisonTask,
 } from '@rp/eval-harness'
-import { calibrationSummary, referenceReadings } from './m3d-calibration-summary.js'
+import {
+  calibrationExitCode,
+  calibrationSummary,
+  referenceReadings,
+} from './m3d-calibration-summary.js'
 
 /**
  * M3d D3 offline routing comparison on calibration histories.
@@ -209,4 +213,5 @@ export async function main(argv: readonly string[]): Promise<void> {
   )
   console.log(`invariants: ${summary.invariants.map((item) => `${item.id}=${item.ok}`).join(' ')}`)
   console.log(`results: ${output}`)
+  process.exitCode = calibrationExitCode(summary)
 }
