@@ -30,6 +30,16 @@ function isUnsettled(probability: number): boolean {
   return probability > NOUL_NO && probability < NOUL_YES
 }
 
+/** Whether a Noul answer clears the pre-registered yes threshold. */
+export function isNoulYes(probability: number): boolean {
+  return isYes(probability)
+}
+
+/** Whether a Noul answer sits strictly inside the unsettled band. */
+export function isNoulUnsettled(probability: number): boolean {
+  return isUnsettled(probability)
+}
+
 /**
  * The single truth table shared by deterministic and Jev arms.
  *

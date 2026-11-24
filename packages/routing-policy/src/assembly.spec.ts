@@ -22,16 +22,16 @@ describe('assembleRoutingDecision', () => {
     const decision = assembleRoutingDecision({
       ...input,
       topology: 'central_selection',
-      judgmentSource: 'jev',
-      policyVersion: 'jev-central-v1',
+      judgmentSource: 'deterministic',
+      policyVersion: 'det-v1',
       selectedPersonaId: 'peer',
       fallback: { kind: 'none' },
     })
     expect(decision.outcome).toMatchObject({ kind: 'speak', personaId: 'peer' })
     expect(decision).toMatchObject({
       topology: 'central_selection',
-      judgmentSource: 'jev',
-      policyVersion: 'jev-central-v1',
+      judgmentSource: 'deterministic',
+      policyVersion: 'det-v1',
       fallback: { kind: 'none' },
     })
     if (decision.outcome.kind === 'speak') {
@@ -111,8 +111,8 @@ describe('assembleRoutingDecision', () => {
     const decision = assembleRoutingDecision({
       ...input,
       topology: 'persona_requests',
-      judgmentSource: 'jev',
-      policyVersion: 'jev-persona-v1',
+      judgmentSource: 'deterministic',
+      policyVersion: 'det-v1',
       requests: [...input.requests, clientRequest],
       declines: input.declines.filter((decline) => decline.personaId !== client.id),
       unsettledPersonas: ['client'],
@@ -130,8 +130,8 @@ describe('assembleRoutingDecision', () => {
       assembleRoutingDecision({
         ...input,
         topology: 'persona_requests',
-        judgmentSource: 'jev',
-        policyVersion: 'jev-persona-v1',
+        judgmentSource: 'deterministic',
+        policyVersion: 'det-v1',
         unsettledPersonas: ['client'],
         fallback: { kind: 'none' },
       }),
@@ -144,12 +144,36 @@ describe('assembleRoutingDecision', () => {
       assembleRoutingDecision({
         ...input,
         topology: 'persona_requests',
-        judgmentSource: 'jev',
-        policyVersion: 'jev-persona-v1',
+        judgmentSource: 'deterministic',
+        policyVersion: 'det-v1',
         unsettledPersonas: ['client'],
         fallback: { kind: 'deterministic', cause: 'timeout' },
       }).outcome,
     ).toEqual({ kind: 'user_yield', reason: 'policy_timeout' })
+  })
+
+  it('records rubric v2 move judgments for a jev decision', () => {
+    const input = base()
+    const moveJudgments = {
+      closingMove: 0.1,
+      selfAnswer: 0.2,
+      thinkingAloud: 0.1,
+      sideComment: 0.2,
+    } as const
+    const decision = assembleRoutingDecision({
+      context: input.context,
+      topology: 'central_selection',
+      judgmentSource: 'jev',
+      policyVersion: 'm3d-jev-central-v2',
+      moveJudgments: { scope: 'central', move: moveJudgments },
+      requests: input.requests,
+      declines: input.declines,
+      unsettledPersonas: [],
+      selectedPersonaId: 'peer',
+      fallback: { kind: 'none' },
+    })
+    expect(decision.judgments).toBeUndefined()
+    expect(decision.moveJudgments).toEqual({ scope: 'central', move: moveJudgments })
   })
 
   it('throws when the selected persona has no request', () => {
@@ -158,8 +182,8 @@ describe('assembleRoutingDecision', () => {
       assembleRoutingDecision({
         ...input,
         topology: 'central_selection',
-        judgmentSource: 'jev',
-        policyVersion: 'jev-central-v1',
+        judgmentSource: 'deterministic',
+        policyVersion: 'det-v1',
         selectedPersonaId: 'manager',
         fallback: { kind: 'none' },
       }),

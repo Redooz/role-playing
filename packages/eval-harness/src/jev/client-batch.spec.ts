@@ -4,7 +4,7 @@ import { createJevClient } from './client.js'
 import { JEV_ENDPOINT } from './constants.js'
 import { JevConfigError, JevInvalidResponseError, JevUnavailableError } from './errors.js'
 import { declareJevBatchJudgment, declareJevJudgment } from './questions.js'
-import { CENTRAL_CONTRIBUTION_QUESTION_ID, CENTRAL_SPEAKER_QUESTION_ID } from './routing.js'
+import { CENTRAL_SPEAKER_QUESTION_ID, MOVE_QUESTION_IDS } from './routing.js'
 import type { JevBatchJudgment } from './types.js'
 
 const judgment: JevBatchJudgment = declareJevBatchJudgment({
@@ -15,7 +15,7 @@ const judgment: JevBatchJudgment = declareJevBatchJudgment({
   },
   state: { utterance: 'Sam, can you confirm the handoff?' },
   questions: {
-    [CENTRAL_CONTRIBUTION_QUESTION_ID]: {
+    [MOVE_QUESTION_IDS.closingMove]: {
       type: 'noul',
       instructions: 'Does anyone have a contribution?',
       criteria: { true: 'Yes.', false: 'No.' },
@@ -34,7 +34,7 @@ function response() {
     model: 'typesafe/jev-1.14-20261014',
     provider: 'TypeSafe',
     answers: {
-      [CENTRAL_CONTRIBUTION_QUESTION_ID]: { type: 'noul', noul: 0.91 },
+      [MOVE_QUESTION_IDS.closingMove]: { type: 'noul', noul: 0.91 },
       [CENTRAL_SPEAKER_QUESTION_ID]: {
         type: 'choice',
         choice: 'peer',
@@ -73,17 +73,14 @@ describe('JevClient.decideMany', () => {
     }
     expect(body.state).toEqual(judgment.state)
     expect(Object.keys(body.questions).sort()).toEqual(
-      [CENTRAL_CONTRIBUTION_QUESTION_ID, CENTRAL_SPEAKER_QUESTION_ID].sort(),
+      [MOVE_QUESTION_IDS.closingMove, CENTRAL_SPEAKER_QUESTION_ID].sort(),
     )
-    expect(result.questionIds).toEqual([
-      CENTRAL_CONTRIBUTION_QUESTION_ID,
-      CENTRAL_SPEAKER_QUESTION_ID,
-    ])
-    expect(result.distributions[CENTRAL_CONTRIBUTION_QUESTION_ID]).toMatchObject({
+    expect(result.questionIds).toEqual([MOVE_QUESTION_IDS.closingMove, CENTRAL_SPEAKER_QUESTION_ID])
+    expect(result.distributions[MOVE_QUESTION_IDS.closingMove]).toMatchObject({
       kind: 'noul',
       probabilityYes: 0.91,
     })
-    expect(result.distributions[CENTRAL_CONTRIBUTION_QUESTION_ID]).toHaveProperty(
+    expect(result.distributions[MOVE_QUESTION_IDS.closingMove]).toHaveProperty(
       'probabilityNo',
       expect.closeTo(0.09, 10),
     )
@@ -168,7 +165,7 @@ describe('JevClient.decideMany', () => {
     const result = await client.decideMany({
       ...judgment,
       questions: {
-        [CENTRAL_CONTRIBUTION_QUESTION_ID]: judgment.questions[CENTRAL_CONTRIBUTION_QUESTION_ID]!,
+        [MOVE_QUESTION_IDS.closingMove]: judgment.questions[MOVE_QUESTION_IDS.closingMove]!,
       },
     })
     expect(result.ok).toBe(false)
@@ -234,10 +231,7 @@ describe('JevClient.decideMany input guards', () => {
     expect(result.error.message).toBe(
       'Jev model is fixed at typesafe/jev-1.14; per-call model overrides are not accepted.',
     )
-    expect(result.questionIds).toEqual([
-      CENTRAL_CONTRIBUTION_QUESTION_ID,
-      CENTRAL_SPEAKER_QUESTION_ID,
-    ])
+    expect(result.questionIds).toEqual([MOVE_QUESTION_IDS.closingMove, CENTRAL_SPEAKER_QUESTION_ID])
     expect(result.cache).toEqual({ key: null, hit: false, stored: false })
     expect(calls).toHaveLength(0)
   })

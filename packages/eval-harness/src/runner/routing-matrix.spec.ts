@@ -16,6 +16,15 @@ const context = parseRoutingContext({
   turnId: 'turn-1',
   lang: 'en',
   coveredObjectiveIds: [],
+  owners: [
+    {
+      topic: 'the handoff',
+      keywords: ['handoff'],
+      personaIds: ['peer'],
+      source: 'objective',
+      objectiveId: 'handoff',
+    },
+  ],
   personas: [
     {
       id: 'manager',
@@ -92,7 +101,10 @@ function successWithUsage(usage: {
 
 function centralWithUsage(observation: JevBatchSuccess): RoutingCentralObservation {
   return {
-    judgment: { anyoneWarranted: 0.9, selectedPersonaId: 'peer' },
+    judgment: {
+      move: { closingMove: 0.1, selfAnswer: 0.1, thinkingAloud: 0.1, sideComment: 0.1 },
+      selectedPersonaId: 'peer',
+    },
     exact: observation,
   }
 }
@@ -225,21 +237,21 @@ describe('buildRoutingMatrix', () => {
         personas: {
           manager: {
             judgments: {
+              closingMove: 0.1,
+              selfAnswer: 0.1,
+              thinkingAloud: 0.1,
+              sideComment: 0.1,
               directlyAddressed: 0,
-              hasRelevantContribution: 0,
-              addsUncoveredInformation: 0,
-              hasUnmetRelevantObjective: 0,
-              pauseWouldBenefitUser: 1,
             },
             exact: successWithUsage({ input_tokens: 4, output_tokens: 1, cost: 0.0002 }),
           },
           peer: {
             judgments: {
+              closingMove: 0.1,
+              selfAnswer: 0.1,
+              thinkingAloud: 0.1,
+              sideComment: 0.1,
               directlyAddressed: 1,
-              hasRelevantContribution: 1,
-              addsUncoveredInformation: 1,
-              hasUnmetRelevantObjective: 0,
-              pauseWouldBenefitUser: 0,
             },
             exact: successWithUsage({ input_tokens: 6, output_tokens: 2, cost: 0.0003 }),
           },
@@ -292,12 +304,16 @@ describe('buildRoutingMatrix', () => {
       },
       { seed: 1, deadlineMs: 5 },
     )
-    if (!timeout.ok) throw new Error('expected timeout fallback')
+    expect(timeout.ok).toBe(false)
     const report = buildRoutingMatrix([
       {
         armId: 'jev',
         lang: 'en',
-        artifact: artifactFor(timeout, 'jev'),
+        artifact: routingArtifact(context, timeout, {
+          trialId: '0:en:timeout',
+          taskId: 'timeout',
+          arm: { topology: 'persona_requests', judgmentSource: 'jev' },
+        }),
         label: { ...label('peer'), allowUserYield: true },
       },
     ])
@@ -308,10 +324,10 @@ describe('buildRoutingMatrix', () => {
       acceptable: 0,
       acceptableOutcomeRate: null,
       falseYield: 0,
-      timeoutFallbacks: 1,
-      timeoutFallbackRate: 1,
+      timeoutFallbacks: 0,
+      timeoutFallbackRate: 0,
       unsettledFallbackRate: 0,
-      fallbackRate: 1,
+      fallbackRate: 0,
     })
   })
 
@@ -330,18 +346,18 @@ describe('buildRoutingMatrix', () => {
               judgments:
                 persona.id === 'client'
                   ? {
+                      closingMove: 0.5,
+                      selfAnswer: 0.1,
+                      thinkingAloud: 0.1,
+                      sideComment: 0.1,
                       directlyAddressed: 0,
-                      hasRelevantContribution: 0.5,
-                      addsUncoveredInformation: 0,
-                      hasUnmetRelevantObjective: 0,
-                      pauseWouldBenefitUser: 0,
                     }
                   : {
+                      closingMove: 0.1,
+                      selfAnswer: 0.1,
+                      thinkingAloud: 0.1,
+                      sideComment: 0.1,
                       directlyAddressed: 0,
-                      hasRelevantContribution: 0,
-                      addsUncoveredInformation: 0,
-                      hasUnmetRelevantObjective: 0,
-                      pauseWouldBenefitUser: 1,
                     },
               exact: successWithUsage({ input_tokens: 1, output_tokens: 1, cost: 0.0001 }),
             },
@@ -393,23 +409,6 @@ function failedArtifact(latencyMs: number): RoutingDecisionArtifact {
   )
 }
 
-function timedOutArtifact(latencyMs: number): RoutingDecisionArtifact {
-  return routingArtifact(
-    context,
-    {
-      ...speak,
-      policyLatencyMs: latencyMs,
-      decision: { ...speak.decision, fallback: { kind: 'deterministic', cause: 'timeout' } },
-      observation: { kind: 'timeout' },
-    },
-    {
-      trialId: '0:en:timed-out',
-      taskId: 'timed-out',
-      arm: { topology: 'persona_requests', judgmentSource: 'jev' },
-    },
-  )
-}
-
 function speakWithFallback(
   cause: 'timeout' | 'unsettled',
   latencyMs: number,
@@ -439,11 +438,11 @@ const completeExact = () => successWithUsage({ input_tokens: 4, output_tokens: 1
 
 function personaUsageArtifact(exact: unknown): RoutingDecisionArtifact {
   const judgments = {
+    closingMove: 0.1,
+    selfAnswer: 0.1,
+    thinkingAloud: 0.1,
+    sideComment: 0.1,
     directlyAddressed: 0,
-    hasRelevantContribution: 0,
-    addsUncoveredInformation: 0,
-    hasUnmetRelevantObjective: 0,
-    pauseWouldBenefitUser: 1,
   }
   const result = {
     ...speak,
@@ -563,7 +562,7 @@ describe('buildRoutingMatrix per-arm record', () => {
     })
   })
 
-  it('separates unsettled, timeout and ordinary decisions', () => {
+  it('separates unsettled fallbacks from ordinary decisions', () => {
     const report = buildRoutingMatrix([
       {
         armId: 'fb',
@@ -577,25 +576,19 @@ describe('buildRoutingMatrix per-arm record', () => {
         artifact: speakWithFallback('unsettled', 25),
         label: acceptPeer,
       },
-      {
-        armId: 'fb',
-        lang: 'en',
-        artifact: speakWithFallback('timeout', 25),
-        label: acceptPeer,
-      },
     ])
     expect(report.arms[0]).toStrictEqual({
       armId: 'fb',
       lang: 'en',
-      n: 3,
-      completed: 3,
+      n: 2,
+      completed: 2,
       incomplete: 0,
       classes: {
-        speak: { total: 3, completed: 3, incomplete: 0, appropriate: 3, rate: 1 },
+        speak: { total: 2, completed: 2, incomplete: 0, appropriate: 2, rate: 1 },
         silence: { total: 0, completed: 0, incomplete: 0, appropriate: 0, rate: null },
         mixed: { total: 0, completed: 0, incomplete: 0 },
       },
-      acceptable: 3,
+      acceptable: 2,
       acceptableOutcomeRate: 1,
       falseSpeak: 0,
       falseSpeakRate: 0,
@@ -604,16 +597,16 @@ describe('buildRoutingMatrix per-arm record', () => {
       timeoutFallbacks: 0,
       unsettledFallbacks: 1,
       timeoutFallbackRate: 0,
-      unsettledFallbackRate: 1 / 3,
-      fallbackRate: 2 / 3,
-      latencyMs: { count: 3, min: 25, p50: 25, p95: 25, p99: 25, max: 25 },
-      usage: { inputTokens: 4, outputTokens: 2, costUsd: 0.0002 },
+      unsettledFallbackRate: 1 / 2,
+      fallbackRate: 1 / 2,
+      latencyMs: { count: 2, min: 25, p50: 25, p95: 25, p99: 25, max: 25 },
+      usage: { inputTokens: 2, outputTokens: 1, costUsd: 0.0001 },
     })
   })
 
-  it('counts a timeout fallback as incomplete, never as a resolved decision', () => {
+  it('counts a failed call as incomplete, never as a resolved decision', () => {
     const report = buildRoutingMatrix([
-      { armId: 'fb', lang: 'en', artifact: timedOutArtifact(25), label: acceptAnyYield },
+      { armId: 'fb', lang: 'en', artifact: failedArtifact(25), label: acceptAnyYield },
       {
         armId: 'fb',
         lang: 'en',
@@ -638,11 +631,11 @@ describe('buildRoutingMatrix per-arm record', () => {
       falseSpeakRate: 0,
       falseYield: 0,
       falseYieldRate: 0,
-      timeoutFallbacks: 1,
+      timeoutFallbacks: 0,
       unsettledFallbacks: 0,
-      timeoutFallbackRate: 0.5,
+      timeoutFallbackRate: 0,
       unsettledFallbackRate: 0,
-      fallbackRate: 0.5,
+      fallbackRate: 0,
       latencyMs: { count: 2, min: 25, p50: 25, p95: 25, p99: 25, max: 25 },
       usage: { inputTokens: null, outputTokens: null, costUsd: null },
     })
@@ -689,11 +682,11 @@ describe('buildRoutingMatrix usage completeness', () => {
         personas: {
           peer: {
             judgments: {
+              closingMove: 0.1,
+              selfAnswer: 0.1,
+              thinkingAloud: 0.1,
+              sideComment: 0.1,
               directlyAddressed: 1,
-              hasRelevantContribution: 1,
-              addsUncoveredInformation: 0,
-              hasUnmetRelevantObjective: 0,
-              pauseWouldBenefitUser: 0,
             },
             exact: completeExact(),
           },

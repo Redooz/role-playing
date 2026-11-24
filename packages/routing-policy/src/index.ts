@@ -7,6 +7,8 @@
 
 export * from './schemas.js'
 export * from './features.js'
+export * from './owner.js'
+export * from './move-policy.js'
 export * from './derive.js'
 export * from './rank.js'
 export * from './deterministic.js'

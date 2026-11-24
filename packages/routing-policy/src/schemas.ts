@@ -1,5 +1,6 @@
 import { sessionLanguageSchema, turnRequestSchema } from '@rp/session-core'
 import { z } from 'zod'
+import { routingMoveJudgmentsRecordSchema } from './move-judgments.js'
 import { routingOwnerSchema } from './owner-state.js'
 
 /**
@@ -11,7 +12,7 @@ import { routingOwnerSchema } from './owner-state.js'
  */
 
 export const ROUTING_SCHEMA_VERSION = '1.1.0'
-export const ROUTING_DECISION_SCHEMA_VERSION = '1.0.0'
+export const ROUTING_DECISION_SCHEMA_VERSION = '1.1.0'
 export const DETERMINISTIC_POLICY_VERSION = 'm3a-routing-policy-v1'
 
 export const routingTopologySchema = z.enum(['central_selection', 'persona_requests'])
@@ -195,7 +196,25 @@ export const routingJudgmentsSchema = z.strictObject({
 
 export type RoutingJudgments = z.infer<typeof routingJudgmentsSchema>
 
-export const routingDeclineReasonSchema = z.enum(['no_contribution', 'pause_would_benefit_user'])
+export {
+  routingMoveJudgmentsSchema,
+  routingMoveJudgmentsRecordSchema,
+  routingPersonaMoveJudgmentsSchema,
+} from './move-judgments.js'
+export type {
+  RoutingMoveJudgments,
+  RoutingMoveJudgmentsRecord,
+  RoutingPersonaMoveJudgments,
+} from './move-judgments.js'
+
+export const routingDeclineReasonSchema = z.enum([
+  'no_contribution',
+  'pause_would_benefit_user',
+  'no_owner',
+  'self_directed_move',
+  'unresolved_owner',
+  'not_owner',
+])
 export type RoutingDeclineReason = z.infer<typeof routingDeclineReasonSchema>
 
 export const routingYieldReasonSchema = z.enum(['all_declined', 'policy_timeout', 'unsettled'])
@@ -251,7 +270,10 @@ export const routingDecisionSchema = z
     declines: z.array(routingDeclineSchema),
     /** Eligible personas whose required judgment landed inside the unsettled band. */
     unsettledPersonas: z.array(entityIdSchema),
-    judgments: z.record(entityIdSchema, routingJudgmentsSchema),
+    /** Deterministic feature judgments; absent for a move-judgment arm. */
+    judgments: z.record(entityIdSchema, routingJudgmentsSchema).optional(),
+    /** Rubric v2 move judgments; absent for a deterministic feature arm. */
+    moveJudgments: routingMoveJudgmentsRecordSchema.optional(),
     fallback: routingFallbackSchema,
   })
   .superRefine((decision, ctx) => {
@@ -264,16 +286,51 @@ export const routingDecisionSchema = z
       })
     }
 
-    const judgmentIds = Object.keys(decision.judgments)
-    if (
-      judgmentIds.length !== eligible.size ||
-      judgmentIds.some((personaId) => !eligible.has(personaId))
-    ) {
+    if ((decision.judgments === undefined) === (decision.moveJudgments === undefined)) {
       ctx.addIssue({
         code: 'custom',
         path: ['judgments'],
-        message: 'judgments must cover exactly the eligible personas',
+        message: 'a decision carries exactly one judgment record',
       })
+    }
+
+    if (
+      (decision.judgmentSource === 'deterministic' && decision.moveJudgments !== undefined) ||
+      (decision.judgmentSource === 'jev' && decision.judgments !== undefined)
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['judgmentSource'],
+        message: 'the judgment source does not match the judgment record',
+      })
+    }
+
+    if (decision.judgments !== undefined) {
+      const judgmentIds = Object.keys(decision.judgments)
+      if (
+        judgmentIds.length !== eligible.size ||
+        judgmentIds.some((personaId) => !eligible.has(personaId))
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['judgments'],
+          message: 'judgments must cover exactly the eligible personas',
+        })
+      }
+    }
+
+    if (decision.moveJudgments?.scope === 'persona') {
+      const judgmentIds = Object.keys(decision.moveJudgments.byPersona)
+      if (
+        judgmentIds.length !== eligible.size ||
+        judgmentIds.some((personaId) => !eligible.has(personaId))
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['moveJudgments', 'byPersona'],
+          message: 'persona move judgments must cover exactly the eligible personas',
+        })
+      }
     }
 
     const requestIds = new Set<string>()

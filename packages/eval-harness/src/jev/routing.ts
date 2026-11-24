@@ -1,5 +1,15 @@
-import type { RoutingContext, RoutingJudgments, RoutingPersona } from '@rp/routing-policy'
-import { interpretCentralJudgmentForContext, lastUserUtterance } from '@rp/routing-policy'
+import type {
+  RoutingContext,
+  RoutingMoveJudgments,
+  RoutingPersona,
+  RoutingPersonaMoveJudgments,
+} from '@rp/routing-policy'
+import {
+  isPersonaAddressed,
+  lastUserUtterance,
+  selectOwner,
+  type OwnerSelection,
+} from '@rp/routing-policy'
 import type { JevClient } from './client.js'
 import { JevInvalidResponseError, type JevError } from './errors.js'
 import { declareJevBatchJudgment } from './questions.js'
@@ -13,24 +23,25 @@ import type {
   JevQuestionSet,
 } from './types.js'
 
-/** Frozen routing rubric. Any wording change creates a new version. */
-export const M3A_ROUTING_RUBRIC_VERSION = 'm3a-routing-rubric-v1'
+/** Frozen routing rubric v2. Any wording change creates a new version. */
+export const M3D_ROUTING_RUBRIC_VERSION = 'm3d-routing-rubric-v2'
 
-export const CENTRAL_CONTRIBUTION_QUESTION_ID = 'anyone_should_contribute'
-export const CENTRAL_SPEAKER_QUESTION_ID = 'best_next_speaker'
-export const PERSONA_JUDGMENT_QUESTION_IDS = {
-  directlyAddressed: 'directly_addressed',
-  hasRelevantContribution: 'has_relevant_contribution',
-  addsUncoveredInformation: 'adds_uncovered_information',
-  hasUnmetRelevantObjective: 'has_unmet_relevant_objective',
-  pauseWouldBenefitUser: 'pause_would_benefit_user',
+export const CENTRAL_SPEAKER_QUESTION_ID = 'best_speaker'
+
+export const MOVE_QUESTION_IDS = {
+  closingMove: 'closing_move',
+  selfAnswer: 'self_answer',
+  thinkingAloud: 'thinking_aloud',
+  sideComment: 'side_comment',
 } as const
 
+export const DIRECTLY_ADDRESSED_QUESTION_ID = 'directly_addressed'
+
 export interface RoutingCentralJudgment {
-  /** Probability that at least one eligible persona has a relevant contribution. */
-  readonly anyoneWarranted: number
-  /** Choice's top option, mapped back to an eligible persona id. */
-  readonly selectedPersonaId: string
+  /** The four atomic self-directed move answers. */
+  readonly move: RoutingMoveJudgments
+  /** Choice winner, only when the turn has one declared pair of owners. */
+  readonly selectedPersonaId?: string
 }
 
 export interface RoutingCentralObservation {
@@ -39,7 +50,7 @@ export interface RoutingCentralObservation {
 }
 
 export interface RoutingPersonaObservation {
-  readonly judgments: RoutingJudgments
+  readonly judgments: RoutingPersonaMoveJudgments
   readonly exact: JevBatchSuccess
 }
 
@@ -75,6 +86,17 @@ export function conversationFor(context: RoutingContext): ConversationTurn[] {
   )
 }
 
+/** Public ownership state: topic, persona ids and the audit trail. */
+function publicOwners(context: RoutingContext): Record<string, unknown>[] {
+  return context.owners.map((owner) => ({
+    topic: owner.topic,
+    persona_ids: [...owner.personaIds],
+    source: owner.source,
+    ...(owner.sourceFactIndex === undefined ? {} : { source_fact_index: owner.sourceFactIndex }),
+    ...(owner.objectiveId === undefined ? {} : { objective_id: owner.objectiveId }),
+  }))
+}
+
 function publicPersona(persona: RoutingPersona): Record<string, unknown> {
   return {
     id: persona.id,
@@ -82,6 +104,16 @@ function publicPersona(persona: RoutingPersona): Record<string, unknown> {
     role: persona.role,
     responsibilities: persona.objectives.map((objective) => objective.description),
   }
+}
+
+function addressedPersonaIds(context: RoutingContext): readonly string[] {
+  return context.personas
+    .filter((persona) => isPersonaAddressed(context, persona))
+    .map((persona) => persona.id)
+}
+
+function ownerSelection(context: RoutingContext): OwnerSelection {
+  return selectOwner(context, addressedPersonaIds(context))
 }
 
 function noulQuestion(instructions: string, trueCase: string, falseCase: string): JevNoulQuestion {
@@ -92,129 +124,134 @@ function noulQuestion(instructions: string, trueCase: string, falseCase: string)
   }
 }
 
-function centralQuestions(context: RoutingContext): JevQuestionSet {
-  const choice: JevChoiceQuestion = {
+function moveQuestions(context: RoutingContext): JevQuestionSet {
+  const french = context.lang === 'fr'
+  return {
+    [MOVE_QUESTION_IDS.closingMove]: french
+      ? noulQuestion(
+          'L’apprenant termine-t-il l’échange avec `learner_utterance` ?',
+          'L’apprenant clôt l’échange ou le conclut.',
+          'L’apprenant poursuit l’échange.',
+        )
+      : noulQuestion(
+          'Is the learner ending the exchange with `learner_utterance`?',
+          'The learner closes, wraps up or concludes the exchange.',
+          'The learner is still continuing the exchange.',
+        ),
+    [MOVE_QUESTION_IDS.selfAnswer]: french
+      ? noulQuestion(
+          'L’apprenant répond-il à sa propre question avec `learner_utterance` ?',
+          'L’apprenant répond lui-même à une question qu’il vient de poser.',
+          'L’apprenant ne répond pas à sa propre question.',
+        )
+      : noulQuestion(
+          'Is the learner answering their own question with `learner_utterance`?',
+          'The learner answers a question they just asked themselves.',
+          'The learner is not answering their own question.',
+        ),
+    [MOVE_QUESTION_IDS.thinkingAloud]: french
+      ? noulQuestion(
+          'L’apprenant réfléchit-il à voix haute sans s’adresser à une personne de `eligible_personas` ?',
+          'L’apprenant raisonne à voix haute pour lui-même, sans destinataire.',
+          'L’apprenant s’adresse à une personne ou poursuit la conversation.',
+        )
+      : noulQuestion(
+          'Is the learner thinking aloud without addressing a persona in `eligible_personas`?',
+          'The learner reasons aloud for themselves, with no addressee.',
+          'The learner addresses a persona or continues the conversation.',
+        ),
+    [MOVE_QUESTION_IDS.sideComment]: french
+      ? noulQuestion(
+          'L’apprenant fait-il une remarque à côté de l’échange plutôt que de le poursuivre ?',
+          'L’apprenant commente en marge, sans attendre de réponse.',
+          'L’apprenant poursuit l’échange et attend une réponse.',
+        )
+      : noulQuestion(
+          'Is the learner making a side comment beside the exchange rather than continuing it?',
+          'The learner remarks in passing, without expecting a reply.',
+          'The learner continues the exchange and expects a reply.',
+        ),
+  }
+}
+
+function ownerChoice(context: RoutingContext, personaIds: readonly string[]): JevChoiceQuestion {
+  const byId = new Map(context.personas.map((persona) => [persona.id, persona]))
+  return {
     type: 'choice',
     instructions:
       context.lang === 'fr'
-        ? 'Quelle personne éligible doit parler ensuite après `learner_utterance` ?'
-        : 'Which eligible persona should speak next after `learner_utterance`?',
+        ? 'Parmi les propriétaires déclarés, qui doit répondre après `learner_utterance` ?'
+        : 'Among the declared owners, who should reply after `learner_utterance`?',
     criteria: Object.fromEntries(
-      context.personas.map((persona) => [
-        persona.id,
-        `${persona.displayName}, ${persona.role}. ${persona.objectives
-          .map((objective) => objective.description)
-          .join(' ')}`,
-      ]),
+      personaIds.map((personaId) => {
+        const persona = byId.get(personaId)
+        return [
+          personaId,
+          persona === undefined
+            ? personaId
+            : `${persona.displayName}, ${persona.role}. ${persona.objectives
+                .map((objective) => objective.description)
+                .join(' ')}`,
+        ]
+      }),
     ),
   }
+}
 
-  return {
-    [CENTRAL_CONTRIBUTION_QUESTION_ID]:
-      context.lang === 'fr'
-        ? noulQuestion(
-            'Au moins une personne de `eligible_personas` a-t-elle une contribution pertinente qui fait avancer le jeu de rôle après `learner_utterance` ?',
-            'Une personne éligible peut apporter une information utile et pertinente à ce moment.',
-            "Aucune personne éligible n'a de contribution utile et pertinente à ce moment.",
-          )
-        : noulQuestion(
-            'Does at least one persona in `eligible_personas` have a relevant contribution that moves the workplace role-play forward after `learner_utterance`?',
-            'At least one eligible persona can add useful, relevant information now.',
-            'No eligible persona has a useful, relevant contribution now.',
-          ),
-    [CENTRAL_SPEAKER_QUESTION_ID]: choice,
-  }
+function centralQuestions(context: RoutingContext): JevQuestionSet {
+  const questions: JevQuestionSet = moveQuestions(context)
+  const selection = ownerSelection(context)
+  return selection.kind === 'pair'
+    ? { ...questions, [CENTRAL_SPEAKER_QUESTION_ID]: ownerChoice(context, selection.personaIds) }
+    : questions
 }
 
 function personaQuestions(context: RoutingContext): JevQuestionSet {
-  const french = context.lang === 'fr'
   return {
-    [PERSONA_JUDGMENT_QUESTION_IDS.directlyAddressed]: french
-      ? noulQuestion(
-          'Est-ce que `learner_utterance` s’adresse directement à `persona` en utilisant son nom ou son rôle ?',
-          'L’apprenant nomme la personne ou son rôle et lui parle directement.',
-          'L’apprenant ne nomme pas la personne et ne lui parle pas directement.',
-        )
-      : noulQuestion(
-          'Does `learner_utterance` directly address `persona` by name or role?',
-          'The learner names the persona or their role and speaks to them directly.',
-          'The learner does not name or directly address the persona.',
-        ),
-    [PERSONA_JUDGMENT_QUESTION_IDS.hasRelevantContribution]: french
-      ? noulQuestion(
-          'Est-ce que `persona` a une contribution pertinente par rapport à `learner_utterance` ?',
-          'La personne peut répondre de façon utile et liée à ce que vient de dire l’apprenant.',
-          'La personne n’a pas de réponse utile et liée à ce que vient de dire l’apprenant.',
-        )
-      : noulQuestion(
-          'Does `persona` have a contribution that is relevant to `learner_utterance`?',
-          'The persona can respond usefully and relate to what the learner just said.',
-          'The persona has no useful contribution related to what the learner just said.',
-        ),
-    [PERSONA_JUDGMENT_QUESTION_IDS.addsUncoveredInformation]: french
-      ? noulQuestion(
-          'Est-ce que `persona` apporterait une information qui n’est pas déjà couverte dans `conversation` ou dans les objectifs de `objectives` marqués `covered: true` ?',
-          'La personne ajouterait une information nouvelle qui n’a pas encore été dite.',
-          'La personne répéterait une information déjà couverte.',
-        )
-      : noulQuestion(
-          'Would `persona` add information that is not already covered in `conversation` or in an objective in `objectives` marked `covered: true`?',
-          'The persona would add new information that has not already been said.',
-          'The persona would repeat information that is already covered.',
-        ),
-    [PERSONA_JUDGMENT_QUESTION_IDS.hasUnmetRelevantObjective]: french
-      ? noulQuestion(
-          'Est-ce que `persona` a un objectif non satisfait dans `objectives` qui est pertinent pour `learner_utterance` ?',
-          'Un objectif de la personne est encore ouvert et se rapporte à ce que dit l’apprenant.',
-          'Aucun objectif encore ouvert de la personne ne se rapporte à ce que dit l’apprenant.',
-        )
-      : noulQuestion(
-          'Does `persona` have an unmet objective in `objectives` that is relevant to `learner_utterance`?',
-          'One of the persona’s open objectives relates to what the learner is saying.',
-          'None of the persona’s open objectives relates to what the learner is saying.',
-        ),
-    [PERSONA_JUDGMENT_QUESTION_IDS.pauseWouldBenefitUser]: french
-      ? noulQuestion(
-          'Est-ce que l’apprenant bénéficierait d’une pause plutôt que d’une réponse de `persona` maintenant ?',
-          'Laisser l’apprenant réfléchir ou continuer seul serait plus utile qu’une réponse.',
-          'Une réponse de la personne serait plus utile qu’une pause.',
-        )
-      : noulQuestion(
-          'Would the learner benefit from a pause instead of a reply from `persona` right now?',
-          'Leaving the learner to think or continue alone would be more useful than a reply.',
-          'A reply from the persona would be more useful than a pause.',
-        ),
+    ...moveQuestions(context),
+    [DIRECTLY_ADDRESSED_QUESTION_ID]:
+      context.lang === 'fr'
+        ? noulQuestion(
+            'Est-ce que `learner_utterance` s’adresse directement à `persona` en utilisant son nom ou son rôle ?',
+            'L’apprenant nomme la personne ou son rôle et lui parle directement.',
+            'L’apprenant ne nomme pas la personne et ne lui parle pas directement.',
+          )
+        : noulQuestion(
+            'Does `learner_utterance` directly address `persona` by name or role?',
+            'The learner names the persona or their role and speaks to them directly.',
+            'The learner does not name or directly address the persona.',
+          ),
   }
 }
 
-/** Build the public central judgment state and its Noul + Choice questions. */
+/** Build the public central state and its move Nouls, plus the pair Choice. */
 export function buildCentralRoutingJudgment(context: RoutingContext): JevBatchJudgment {
   return declareJevBatchJudgment({
     metadata: {
-      id: 'm3a-routing-central-v1',
+      id: 'm3d-routing-central-v2',
       lang: context.lang,
-      rubricVersion: M3A_ROUTING_RUBRIC_VERSION,
+      rubricVersion: M3D_ROUTING_RUBRIC_VERSION,
     },
     state: {
       conversation: conversationFor(context),
       learner_utterance: lastUserUtterance(context),
       eligible_personas: context.personas.map(publicPersona),
+      owners: publicOwners(context),
     },
     questions: centralQuestions(context),
   })
 }
 
-/** Build one persona's private-view state and its five atomic Noul questions. */
+/** Build one persona's private-view state and its four moves plus direct address. */
 export function buildPersonaRoutingJudgment(
   context: RoutingContext,
   persona: RoutingPersona,
 ): JevBatchJudgment {
-  const covered = new Set(context.coveredObjectiveIds)
   return declareJevBatchJudgment({
     metadata: {
-      id: `m3a-routing-persona-${persona.id}-v1`,
+      id: `m3d-routing-persona-${persona.id}-v2`,
       lang: context.lang,
-      rubricVersion: M3A_ROUTING_RUBRIC_VERSION,
+      rubricVersion: M3D_ROUTING_RUBRIC_VERSION,
     },
     state: {
       conversation: conversationFor(context),
@@ -227,8 +264,8 @@ export function buildPersonaRoutingJudgment(
       objectives: persona.objectives.map((objective) => ({
         id: objective.id,
         description: objective.description,
-        covered: covered.has(objective.id),
       })),
+      owners: publicOwners(context),
     },
     questions: personaQuestions(context),
   })
@@ -254,6 +291,26 @@ function choiceAnswer(result: JevBatchSuccess, questionId: string): JevChoiceAns
   return answer as JevChoiceAnswer
 }
 
+function readMove(result: JevBatchSuccess): RoutingMoveJudgments {
+  return {
+    closingMove: noulAnswer(result, MOVE_QUESTION_IDS.closingMove),
+    selfAnswer: noulAnswer(result, MOVE_QUESTION_IDS.selfAnswer),
+    thinkingAloud: noulAnswer(result, MOVE_QUESTION_IDS.thinkingAloud),
+    sideComment: noulAnswer(result, MOVE_QUESTION_IDS.sideComment),
+  }
+}
+
+function failureOf(error: unknown, fallback: string, questionIds: readonly string[]) {
+  return {
+    ok: false as const,
+    error:
+      error instanceof Error && 'code' in error
+        ? (error as JevError)
+        : new JevInvalidResponseError(fallback, { cause: error }),
+    questionIds,
+  }
+}
+
 /** Jev-backed routing judge. The caller owns deadlines and fallback. */
 export function createJevRoutingJudge(jev: Pick<JevClient, 'decideMany'>): JevRoutingJudge {
   return {
@@ -265,37 +322,31 @@ export function createJevRoutingJudge(jev: Pick<JevClient, 'decideMany'>): JevRo
       }
 
       try {
-        const selectedPersonaId = choiceAnswer(result, CENTRAL_SPEAKER_QUESTION_ID).choice
-        const interpreted = interpretCentralJudgmentForContext(context, {
-          anyoneWarranted: noulAnswer(result, CENTRAL_CONTRIBUTION_QUESTION_ID),
-          selectedPersonaId,
-        })
-        if (!interpreted.ok) {
-          throw new JevInvalidResponseError(
-            `Jev central judgment was invalid: ${interpreted.reason}.`,
-          )
+        const move = readMove(result)
+        const selection = ownerSelection(context)
+        let selectedPersonaId: string | undefined
+        if (selection.kind === 'pair') {
+          const choice = choiceAnswer(result, CENTRAL_SPEAKER_QUESTION_ID).choice
+          if (!selection.personaIds.includes(choice)) {
+            throw new JevInvalidResponseError(
+              `Jev chose "${choice}", who is not a declared owner for this turn.`,
+            )
+          }
+          selectedPersonaId = choice
         }
+
         return {
           ok: true,
           observation: {
             judgment: {
-              anyoneWarranted: interpreted.anyoneWarranted,
-              selectedPersonaId: interpreted.selectedPersonaId,
+              move,
+              ...(selectedPersonaId === undefined ? {} : { selectedPersonaId }),
             },
             exact: result,
           },
         }
       } catch (error) {
-        return {
-          ok: false,
-          error:
-            error instanceof Error && 'code' in error
-              ? (error as JevError)
-              : new JevInvalidResponseError('Could not read the central Jev judgment.', {
-                  cause: error,
-                }),
-          questionIds: result.questionIds,
-        }
+        return failureOf(error, 'Could not read the central Jev judgment.', result.questionIds)
       }
     },
 
@@ -311,41 +362,14 @@ export function createJevRoutingJudge(jev: Pick<JevClient, 'decideMany'>): JevRo
           ok: true,
           observation: {
             judgments: {
-              directlyAddressed: noulAnswer(
-                result,
-                PERSONA_JUDGMENT_QUESTION_IDS.directlyAddressed,
-              ),
-              hasRelevantContribution: noulAnswer(
-                result,
-                PERSONA_JUDGMENT_QUESTION_IDS.hasRelevantContribution,
-              ),
-              addsUncoveredInformation: noulAnswer(
-                result,
-                PERSONA_JUDGMENT_QUESTION_IDS.addsUncoveredInformation,
-              ),
-              hasUnmetRelevantObjective: noulAnswer(
-                result,
-                PERSONA_JUDGMENT_QUESTION_IDS.hasUnmetRelevantObjective,
-              ),
-              pauseWouldBenefitUser: noulAnswer(
-                result,
-                PERSONA_JUDGMENT_QUESTION_IDS.pauseWouldBenefitUser,
-              ),
+              ...readMove(result),
+              directlyAddressed: noulAnswer(result, DIRECTLY_ADDRESSED_QUESTION_ID),
             },
             exact: result,
           },
         }
       } catch (error) {
-        return {
-          ok: false,
-          error:
-            error instanceof Error && 'code' in error
-              ? (error as JevError)
-              : new JevInvalidResponseError('Could not read the persona Jev judgments.', {
-                  cause: error,
-                }),
-          questionIds: result.questionIds,
-        }
+        return failureOf(error, 'Could not read the persona Jev judgments.', result.questionIds)
       }
     },
   }

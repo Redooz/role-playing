@@ -17,11 +17,36 @@ import {
   writeRoutingArtifacts,
 } from './routing.js'
 
+const owners = [
+  {
+    topic: 'the handoff',
+    keywords: ['handoff'],
+    personaIds: ['peer'],
+    source: 'objective' as const,
+    objectiveId: 'handoff',
+  },
+  {
+    topic: 'the deadline',
+    keywords: ['deadline'],
+    personaIds: ['manager'],
+    source: 'objective' as const,
+    objectiveId: 'deadline',
+  },
+  {
+    topic: 'the renewal',
+    keywords: ['renewal'],
+    personaIds: ['client'],
+    source: 'objective' as const,
+    objectiveId: 'contract',
+  },
+]
+
 const context = parseRoutingContext({
   decisionId: 'decision-1',
   turnId: 'turn-1',
   lang: 'en',
   coveredObjectiveIds: [],
+  owners: [...owners],
   personas: [
     {
       id: 'manager',
@@ -51,50 +76,45 @@ const context = parseRoutingContext({
   ],
 })
 
-function success(answers: JevBatchSuccess['answers'], questionIds: string[]): JevBatchSuccess {
-  const response = {
-    model: 'typesafe/jev-1.14-20261014',
-    answers,
-    usage: { input_tokens: 10, output_tokens: 2 },
-  }
-  return {
-    ok: true,
-    questionIds,
-    request: { model: 'typesafe/jev-1.14', state: {}, questions: {} },
-    response,
-    raw: response,
-    answers,
-    distributions: {},
-    usage: response.usage,
-    servedModel: response.model,
-    cache: { key: 'a'.repeat(64), hit: false, stored: true },
-  }
-}
-
-function central(value: number, selectedPersonaId = 'peer'): RoutingCentralObservation {
-  const exact = success(
+const pairContext = parseRoutingContext({
+  decisionId: 'decision-pair',
+  turnId: 'turn-2',
+  lang: 'en',
+  coveredObjectiveIds: [],
+  owners: [
     {
-      anyone_should_contribute: { type: 'noul', noul: value },
-      best_next_speaker: {
-        type: 'choice',
-        choice: selectedPersonaId,
-        probabilities: { manager: 0.1, peer: 0.8, client: 0.1 },
-      },
+      topic: 'the plan',
+      keywords: ['plan'],
+      personaIds: ['manager', 'peer'],
+      source: 'fact',
+      sourceFactIndex: 0,
     },
-    ['anyone_should_contribute', 'best_next_speaker'],
-  )
-  return { judgment: { anyoneWarranted: value, selectedPersonaId }, exact }
-}
+  ],
+  personas: [
+    {
+      id: 'manager',
+      displayName: 'Katherine Brooks',
+      aliases: ['Katherine'],
+      role: 'manager',
+      objectives: [{ id: 'deadline', description: 'Agree a deadline.', keywords: ['deadline'] }],
+    },
+    {
+      id: 'peer',
+      displayName: 'Sam Carter',
+      aliases: ['Sam'],
+      role: 'peer colleague',
+      objectives: [{ id: 'handoff', description: 'Confirm handoff.', keywords: ['handoff'] }],
+    },
+  ],
+  transcript: [{ speaker: { kind: 'user' }, text: 'Who owns the plan?' }],
+})
 
-/**
- * Two personas that tie on every comparator key, so the seeded hash decides.
- * `turn-2` + seed 1 ranks `manager` first; seed 2 ranks `peer` first.
- */
 const tieContext = parseRoutingContext({
   decisionId: 'decision-tie',
   turnId: 'turn-2',
   lang: 'en',
   coveredObjectiveIds: [],
+  owners: [],
   personas: [
     {
       id: 'manager',
@@ -116,6 +136,90 @@ const tieContext = parseRoutingContext({
   ],
 })
 
+function success(answers: JevBatchSuccess['answers'], questionIds: string[]): JevBatchSuccess {
+  const response = {
+    model: 'typesafe/jev-1.14-20261014',
+    answers,
+    usage: { input_tokens: 10, output_tokens: 2 },
+  }
+  return {
+    ok: true,
+    questionIds,
+    request: { model: 'typesafe/jev-1.14', state: {}, questions: {} },
+    response,
+    raw: response,
+    answers,
+    distributions: {},
+    usage: response.usage,
+    servedModel: response.model,
+    cache: { key: 'a'.repeat(64), hit: false, stored: true },
+  }
+}
+
+const quiet = {
+  closingMove: 0.1,
+  selfAnswer: 0.1,
+  thinkingAloud: 0.1,
+  sideComment: 0.1,
+}
+
+type MoveOverrides = Partial<typeof quiet>
+
+function central(move: MoveOverrides = {}, selectedPersonaId?: string): RoutingCentralObservation {
+  const answerSet = {
+    closing_move: { type: 'noul' as const, noul: move.closingMove ?? 0.1 },
+    self_answer: { type: 'noul' as const, noul: move.selfAnswer ?? 0.1 },
+    thinking_aloud: { type: 'noul' as const, noul: move.thinkingAloud ?? 0.1 },
+    side_comment: { type: 'noul' as const, noul: move.sideComment ?? 0.1 },
+  }
+  const questionIds = Object.keys(answerSet)
+  const exact =
+    selectedPersonaId === undefined
+      ? success(answerSet, questionIds)
+      : success(
+          {
+            ...answerSet,
+            best_speaker: {
+              type: 'choice',
+              choice: selectedPersonaId,
+              probabilities: { manager: 0.4, peer: 0.6 },
+            },
+          },
+          [...questionIds, 'best_speaker'],
+        )
+  return {
+    judgment: {
+      move: {
+        closingMove: move.closingMove ?? 0.1,
+        selfAnswer: move.selfAnswer ?? 0.1,
+        thinkingAloud: move.thinkingAloud ?? 0.1,
+        sideComment: move.sideComment ?? 0.1,
+      },
+      ...(selectedPersonaId === undefined ? {} : { selectedPersonaId }),
+    },
+    exact,
+  }
+}
+
+function personaObservation(
+  overrides: Partial<RoutingPersonaObservation['judgments']> = {},
+): RoutingPersonaObservation {
+  const judgments = { ...quiet, directlyAddressed: 0, ...overrides }
+  return {
+    judgments,
+    exact: success(
+      {
+        closing_move: { type: 'noul', noul: judgments.closingMove },
+        self_answer: { type: 'noul', noul: judgments.selfAnswer },
+        thinking_aloud: { type: 'noul', noul: judgments.thinkingAloud },
+        side_comment: { type: 'noul', noul: judgments.sideComment },
+        directly_addressed: { type: 'noul', noul: judgments.directlyAddressed },
+      },
+      ['closing_move', 'self_answer', 'thinking_aloud', 'side_comment', 'directly_addressed'],
+    ),
+  }
+}
+
 /** Freeze the monotonic clock so latency assertions are exact, not wall-clock flaky. */
 function freezeClock(at = 1_000): void {
   vi.spyOn(performance, 'now').mockReturnValue(at)
@@ -124,43 +228,6 @@ function freezeClock(at = 1_000): void {
 afterEach(() => {
   vi.restoreAllMocks()
 })
-
-function personaJudgments(
-  overrides: Partial<RoutingPersonaObservation['judgments']> = {},
-): RoutingPersonaObservation['judgments'] {
-  return {
-    directlyAddressed: 0,
-    hasRelevantContribution: 0,
-    addsUncoveredInformation: 0,
-    hasUnmetRelevantObjective: 0,
-    pauseWouldBenefitUser: 1,
-    ...overrides,
-  }
-}
-
-function personaObservation(
-  judgments: RoutingPersonaObservation['judgments'],
-): RoutingPersonaObservation {
-  return {
-    judgments,
-    exact: success(
-      {
-        directly_addressed: { type: 'noul', noul: judgments.directlyAddressed },
-        has_relevant_contribution: { type: 'noul', noul: judgments.hasRelevantContribution },
-        adds_uncovered_information: { type: 'noul', noul: judgments.addsUncoveredInformation },
-        has_unmet_relevant_objective: { type: 'noul', noul: judgments.hasUnmetRelevantObjective },
-        pause_would_benefit_user: { type: 'noul', noul: judgments.pauseWouldBenefitUser },
-      },
-      [
-        'directly_addressed',
-        'has_relevant_contribution',
-        'adds_uncovered_information',
-        'has_unmet_relevant_objective',
-        'pause_would_benefit_user',
-      ],
-    ),
-  }
-}
 
 describe('runDeterministicRoutingReplay', () => {
   it('returns a speak decision and deterministic observation', () => {
@@ -174,6 +241,7 @@ describe('runDeterministicRoutingReplay', () => {
   it('returns an all-declined decision when no one contributes', () => {
     const noContribution = parseRoutingContext({
       ...context,
+      owners: [],
       transcript: [{ speaker: { kind: 'user' }, text: 'Thanks, noted.' }],
     })
     const result = runDeterministicRoutingReplay(noContribution, 'persona_requests', 1)
@@ -182,10 +250,10 @@ describe('runDeterministicRoutingReplay', () => {
 })
 
 describe('runJevRoutingReplay central', () => {
-  it('uses the Jev-selected speaker when contribution is warranted', async () => {
+  it('speaks for the unique owner when every move answer is settled no', async () => {
     const judge = {
       async judgeCentral() {
-        return { ok: true as const, observation: central(0.9, 'client') }
+        return { ok: true as const, observation: central() }
       },
       async judgePersona() {
         throw new Error('unexpected')
@@ -197,15 +265,16 @@ describe('runJevRoutingReplay central', () => {
     })
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    expect(result.decision.outcome).toMatchObject({ kind: 'speak', personaId: 'client' })
+    expect(result.decision.outcome).toMatchObject({ kind: 'speak', personaId: 'peer' })
     expect(result.decision.policyVersion).toBe(JEV_CENTRAL_POLICY_VERSION)
+    expect(result.decision.moveJudgments).toEqual({ scope: 'central', move: quiet })
     expect(result.observation.kind).toBe('jev')
   })
 
-  it('yields all_declined when Jev says no one contributes', async () => {
+  it('yields when the move is a settled self-directed one', async () => {
     const judge = {
       async judgeCentral() {
-        return { ok: true as const, observation: central(0.1) }
+        return { ok: true as const, observation: central({ closingMove: 0.8 }) }
       },
       async judgePersona() {
         throw new Error('unexpected')
@@ -219,12 +288,38 @@ describe('runJevRoutingReplay central', () => {
       kind: 'user_yield',
       reason: 'all_declined',
     })
+    expect(
+      result.ok && result.decision.declines.every((d) => d.reason === 'self_directed_move'),
+    ).toBe(true)
   })
 
-  it('falls back deterministically when the contribution Noul is unsettled', async () => {
+  it('yields when no ownership claim matches the utterance', async () => {
+    const noOwner = parseRoutingContext({
+      ...context,
+      transcript: [{ speaker: { kind: 'user' }, text: 'Thanks, noted.' }],
+    })
     const judge = {
       async judgeCentral() {
-        return { ok: true as const, observation: central(0.5) }
+        return { ok: true as const, observation: central() }
+      },
+      async judgePersona() {
+        throw new Error('unexpected')
+      },
+    }
+    const result = await runJevRoutingReplay(noOwner, 'central_selection', judge, {
+      seed: 1,
+      deadlineMs: 1000,
+    })
+    expect(result.ok && result.decision.outcome).toEqual({
+      kind: 'user_yield',
+      reason: 'all_declined',
+    })
+  })
+
+  it('uses the owner rule and records the unsettled fallback', async () => {
+    const judge = {
+      async judgeCentral() {
+        return { ok: true as const, observation: central({ sideComment: 0.5 }) }
       },
       async judgePersona() {
         throw new Error('unexpected')
@@ -236,14 +331,53 @@ describe('runJevRoutingReplay central', () => {
     })
     expect(result.ok).toBe(true)
     if (!result.ok) return
+    expect(result.decision.outcome).toMatchObject({ kind: 'speak', personaId: 'peer' })
     expect(result.decision.fallback).toEqual({ kind: 'deterministic', cause: 'unsettled' })
-    expect(result.decision.judgmentSource).toBe('deterministic')
+    expect(result.decision.judgmentSource).toBe('jev')
   })
 
-  it('rejects a non-positive deadline instead of silently disabling fallback', async () => {
+  it('lets a pair Choice select one declared owner', async () => {
     const judge = {
       async judgeCentral() {
-        return { ok: true as const, observation: central(0.9) }
+        return { ok: true as const, observation: central({}, 'manager') }
+      },
+      async judgePersona() {
+        throw new Error('unexpected')
+      },
+    }
+    const result = await runJevRoutingReplay(pairContext, 'central_selection', judge, {
+      seed: 1,
+      deadlineMs: 1000,
+    })
+    expect(result.ok && result.decision.outcome).toMatchObject({
+      kind: 'speak',
+      personaId: 'manager',
+    })
+  })
+
+  it('yields when an out-of-pair Choice reaches the runner', async () => {
+    const judge = {
+      async judgeCentral() {
+        return { ok: true as const, observation: central({}, 'client') }
+      },
+      async judgePersona() {
+        throw new Error('unexpected')
+      },
+    }
+    const result = await runJevRoutingReplay(pairContext, 'central_selection', judge, {
+      seed: 1,
+      deadlineMs: 1000,
+    })
+    expect(result.ok && result.decision.outcome).toEqual({
+      kind: 'user_yield',
+      reason: 'all_declined',
+    })
+  })
+
+  it('rejects a non-positive deadline', async () => {
+    const judge = {
+      async judgeCentral() {
+        return { ok: true as const, observation: central() }
       },
       async judgePersona() {
         throw new Error('unexpected')
@@ -257,13 +391,13 @@ describe('runJevRoutingReplay central', () => {
   })
 
   it('uses the shared Noul bounds at exactly 0.3 and 0.7', async () => {
-    for (const [value, expectedKind, expectedReason] of [
-      [0.3, 'user_yield', 'all_declined'],
-      [0.7, 'speak', undefined],
+    for (const [value, expectedKind] of [
+      [0.3, 'speak'],
+      [0.7, 'user_yield'],
     ] as const) {
       const judge = {
         async judgeCentral() {
-          return { ok: true as const, observation: central(value) }
+          return { ok: true as const, observation: central({ closingMove: value }) }
         },
         async judgePersona() {
           throw new Error('unexpected')
@@ -274,9 +408,6 @@ describe('runJevRoutingReplay central', () => {
         deadlineMs: 1000,
       })
       expect(result.ok && result.decision.outcome.kind).toBe(expectedKind)
-      if (expectedReason !== undefined) {
-        expect(result.ok && result.decision.outcome).toMatchObject({ reason: expectedReason })
-      }
     }
   })
 
@@ -299,29 +430,21 @@ describe('runJevRoutingReplay central', () => {
 })
 
 describe('runJevRoutingReplay persona requests', () => {
-  it('derives requests from the five Jev judgments and ranks a winner', async () => {
+  it('derives requests from the move answers and ranks a declared pair', async () => {
     const judge = {
       async judgeCentral() {
         throw new Error('unexpected')
       },
-      async judgePersona(_context: typeof context, persona: { id: string }) {
+      async judgePersona(_context: typeof pairContext, persona: { id: string }) {
         return {
           ok: true as const,
-          observation:
-            persona.id === 'peer'
-              ? personaObservation(
-                  personaJudgments({
-                    directlyAddressed: 0.9,
-                    hasRelevantContribution: 0.9,
-                    addsUncoveredInformation: 0.8,
-                    pauseWouldBenefitUser: 0.1,
-                  }),
-                )
-              : personaObservation(personaJudgments()),
+          observation: personaObservation({
+            directlyAddressed: persona.id === 'peer' ? 0.9 : 0,
+          }),
         }
       },
     }
-    const result = await runJevRoutingReplay(context, 'persona_requests', judge, {
+    const result = await runJevRoutingReplay(pairContext, 'persona_requests', judge, {
       seed: 1,
       deadlineMs: 1000,
     })
@@ -329,9 +452,10 @@ describe('runJevRoutingReplay persona requests', () => {
     if (!result.ok) return
     expect(result.decision.outcome).toMatchObject({ kind: 'speak', personaId: 'peer' })
     expect(result.decision.policyVersion).toBe(JEV_PERSONA_POLICY_VERSION)
+    expect(result.decision.moveJudgments).toMatchObject({ scope: 'persona' })
   })
 
-  it('falls back when any persona judgment is unsettled', async () => {
+  it('takes the maximum move answer across personas', async () => {
     const judge = {
       async judgeCentral() {
         throw new Error('unexpected')
@@ -339,15 +463,29 @@ describe('runJevRoutingReplay persona requests', () => {
       async judgePersona(_context: typeof context, persona: { id: string }) {
         return {
           ok: true as const,
-          observation:
-            persona.id === 'client'
-              ? personaObservation(
-                  personaJudgments({
-                    hasRelevantContribution: 0.5,
-                    pauseWouldBenefitUser: 0,
-                  }),
-                )
-              : personaObservation(personaJudgments()),
+          observation: personaObservation(persona.id === 'manager' ? { sideComment: 0.8 } : {}),
+        }
+      },
+    }
+    const result = await runJevRoutingReplay(context, 'persona_requests', judge, {
+      seed: 1,
+      deadlineMs: 1000,
+    })
+    expect(result.ok && result.decision.outcome).toEqual({
+      kind: 'user_yield',
+      reason: 'all_declined',
+    })
+  })
+
+  it('uses the owner rule when one persona move answer is unsettled', async () => {
+    const judge = {
+      async judgeCentral() {
+        throw new Error('unexpected')
+      },
+      async judgePersona(_context: typeof context, persona: { id: string }) {
+        return {
+          ok: true as const,
+          observation: personaObservation(persona.id === 'client' ? { closingMove: 0.5 } : {}),
         }
       },
     }
@@ -358,9 +496,10 @@ describe('runJevRoutingReplay persona requests', () => {
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.decision.fallback).toEqual({ kind: 'deterministic', cause: 'unsettled' })
+    expect(result.decision.outcome).toMatchObject({ kind: 'speak', personaId: 'peer' })
   })
 
-  it('uses the timeout fallback without turning it into a model no', async () => {
+  it('turns a timeout into incomplete, not a decision', async () => {
     const judge = {
       async judgeCentral() {
         throw new Error('unexpected')
@@ -374,35 +513,12 @@ describe('runJevRoutingReplay persona requests', () => {
       seed: 1,
       deadlineMs: 5,
     })
-    expect(result.ok).toBe(true)
-    if (!result.ok) return
-    expect(result.observation).toEqual({ kind: 'timeout' })
-    expect(result.decision.fallback).toEqual({ kind: 'deterministic', cause: 'timeout' })
-    expect(result.decision.judgmentSource).toBe('deterministic')
-  })
-
-  it('maps a timed-out all-decline fallback to policy_timeout', async () => {
-    const noContribution = parseRoutingContext({
-      ...context,
-      transcript: [{ speaker: { kind: 'user' }, text: 'Thanks, noted.' }],
+    expect(result).toMatchObject({
+      ok: false,
+      kind: 'infrastructure_incomplete',
     })
-    const judge = {
-      async judgeCentral() {
-        throw new Error('unexpected')
-      },
-      async judgePersona() {
-        await new Promise(() => {})
-        throw new Error('unreachable')
-      },
-    }
-    const result = await runJevRoutingReplay(noContribution, 'persona_requests', judge, {
-      seed: 1,
-      deadlineMs: 5,
-    })
-    expect(result.ok && result.decision.outcome).toEqual({
-      kind: 'user_yield',
-      reason: 'policy_timeout',
-    })
+    if (result.ok) return
+    expect(result.error).toContain('timed out')
   })
 
   it('turns an unexpected rejection into incomplete, not a decision', async () => {
@@ -445,7 +561,7 @@ describe('routing artifacts', () => {
     expect(routingDecisionArtifactSchema.safeParse(artifact).success).toBe(true)
   })
 
-  it('records a timeout as incomplete while preserving the fallback decision for audit', async () => {
+  it('records a timeout as incomplete without a decision', async () => {
     const timeout = await runJevRoutingReplay(
       context,
       'persona_requests',
@@ -460,7 +576,6 @@ describe('routing artifacts', () => {
       },
       { seed: 1, deadlineMs: 5 },
     )
-    if (!timeout.ok) throw new Error('expected timeout result')
     const artifact = routingArtifact(context, timeout, {
       trialId: '0:en:decision-1',
       taskId: 'decision-1',
@@ -468,10 +583,10 @@ describe('routing artifacts', () => {
     })
     expect(artifact).toMatchObject({
       outcome: 'infrastructure_incomplete',
-      observation: { kind: 'timeout' },
-      error: 'routing policy timed out; deterministic fallback preserved for audit only',
+      observation: { kind: 'none' },
     })
-    expect(artifact.decision).toBeDefined()
+    expect(artifact.error).toContain('timed out')
+    expect(artifact).not.toHaveProperty('decision')
   })
 
   it('records an incomplete failure without a decision', () => {
@@ -582,7 +697,7 @@ describe('runJevRoutingReplay exact records', () => {
       'central_selection',
       {
         async judgeCentral() {
-          return { ok: false as const, error, questionIds: ['anyone_should_contribute'] }
+          return { ok: false as const, error, questionIds: ['closing_move'] }
         },
         async judgePersona() {
           throw new Error('unexpected')
@@ -594,7 +709,7 @@ describe('runJevRoutingReplay exact records', () => {
       ok: false,
       kind: 'infrastructure_incomplete',
       error: 'down',
-      questionIds: ['anyone_should_contribute'],
+      questionIds: ['closing_move'],
       policyLatencyMs: 0,
     })
   })
@@ -634,7 +749,7 @@ describe('runJevRoutingReplay exact records', () => {
           throw new Error('unexpected')
         },
         async judgePersona() {
-          return { ok: false as const, error, questionIds: ['has_relevant_contribution'] }
+          return { ok: false as const, error, questionIds: ['closing_move'] }
         },
       },
       { seed: 1, deadlineMs: 1000 },
@@ -643,39 +758,14 @@ describe('runJevRoutingReplay exact records', () => {
       ok: false,
       kind: 'infrastructure_incomplete',
       error: 'persona down',
-      questionIds: ['has_relevant_contribution'],
+      questionIds: ['closing_move'],
       policyLatencyMs: 0,
     })
   })
 
-  it('refuses a Jev-selected persona that is not eligible', async () => {
+  it('keeps the central owner decision, its move record and the exact observation', async () => {
     freezeClock()
-    const observation = central(0.9, 'ghost')
-    const result = await runJevRoutingReplay(
-      context,
-      'central_selection',
-      {
-        async judgeCentral() {
-          return { ok: true as const, observation }
-        },
-        async judgePersona() {
-          throw new Error('unexpected')
-        },
-      },
-      { seed: 1, deadlineMs: 1000 },
-    )
-    expect(result).toStrictEqual({
-      ok: false,
-      kind: 'infrastructure_incomplete',
-      error: 'Jev selected a persona that is not eligible.',
-      questionIds: ['anyone_should_contribute', 'best_next_speaker'],
-      policyLatencyMs: 0,
-    })
-  })
-
-  it('keeps a warranted central judgment out of the fallback count', async () => {
-    freezeClock()
-    const observation = central(0.7, 'peer')
+    const observation = central()
     const result = await runJevRoutingReplay(
       context,
       'central_selection',
@@ -692,8 +782,8 @@ describe('runJevRoutingReplay exact records', () => {
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.policyLatencyMs).toBe(0)
-    expect(result.decision).toStrictEqual({
-      schemaVersion: '1.0.0',
+    expect(result.decision).toMatchObject({
+      schemaVersion: '1.1.0',
       decisionId: 'decision-1',
       turnId: 'turn-1',
       lang: 'en',
@@ -701,72 +791,39 @@ describe('runJevRoutingReplay exact records', () => {
       judgmentSource: 'jev',
       policyVersion: JEV_CENTRAL_POLICY_VERSION,
       eligiblePersonaIds: ['manager', 'peer', 'client'],
-      requests: [
-        {
-          turnId: 'turn-1',
-          personaId: 'peer',
-          action: 'speak',
-          urgency: 1,
-          confidence: 1,
-          addressedByUser: true,
-          objectiveRelevance: 1,
-        },
-      ],
-      declines: [
-        { personaId: 'manager', reason: 'no_contribution' },
-        { personaId: 'client', reason: 'no_contribution' },
-      ],
       unsettledPersonas: [],
-      judgments: {
-        manager: {
-          directlyAddressed: 0,
-          hasRelevantContribution: 0,
-          addsUncoveredInformation: 0,
-          hasUnmetRelevantObjective: 0,
-          pauseWouldBenefitUser: 1,
-        },
-        peer: {
-          directlyAddressed: 1,
-          hasRelevantContribution: 1,
-          addsUncoveredInformation: 1,
-          hasUnmetRelevantObjective: 0,
-          pauseWouldBenefitUser: 0,
-        },
-        client: {
-          directlyAddressed: 0,
-          hasRelevantContribution: 0,
-          addsUncoveredInformation: 0,
-          hasUnmetRelevantObjective: 0,
-          pauseWouldBenefitUser: 1,
-        },
-      },
       fallback: { kind: 'none' },
-      outcome: {
-        kind: 'speak',
-        personaId: 'peer',
-        request: {
-          turnId: 'turn-1',
-          personaId: 'peer',
-          action: 'speak',
-          urgency: 1,
-          confidence: 1,
-          addressedByUser: true,
-          objectiveRelevance: 1,
-        },
-      },
     })
+    expect(result.decision.requests).toEqual([
+      {
+        turnId: 'turn-1',
+        personaId: 'peer',
+        action: 'speak',
+        urgency: 1,
+        confidence: 0.9,
+        addressedByUser: true,
+        objectiveRelevance: 1,
+      },
+    ])
+    expect(result.decision.declines).toEqual([
+      { personaId: 'manager', reason: 'not_owner' },
+      { personaId: 'client', reason: 'not_owner' },
+    ])
+    expect(result.decision.moveJudgments).toEqual({ scope: 'central', move: quiet })
+    expect(result.decision.judgments).toBeUndefined()
+    expect(result.decision.outcome).toMatchObject({ kind: 'speak', personaId: 'peer' })
     expect(result.observation).toStrictEqual({ kind: 'jev', central: observation })
   })
 
-  it('falls back with the same seed when the central judgment is unsettled', async () => {
+  it('uses the owner rule with the same seed when a central move is unsettled', async () => {
     freezeClock()
-    const centralObservation = central(0.5, 'peer')
+    const observation = central({ closingMove: 0.5 })
     const result = await runJevRoutingReplay(
-      tieContext,
+      pairContext,
       'central_selection',
       {
         async judgeCentral() {
-          return { ok: true as const, observation: centralObservation }
+          return { ok: true as const, observation }
         },
         async judgePersona() {
           throw new Error('unexpected')
@@ -779,89 +836,20 @@ describe('runJevRoutingReplay exact records', () => {
     expect(result.policyLatencyMs).toBe(0)
     expect(result.decision).toMatchObject({
       topology: 'central_selection',
-      judgmentSource: 'deterministic',
-      policyVersion: DETERMINISTIC_POLICY_VERSION,
+      judgmentSource: 'jev',
+      policyVersion: JEV_CENTRAL_POLICY_VERSION,
       fallback: { kind: 'deterministic', cause: 'unsettled' },
     })
-    expect(result.decision.outcome).toMatchObject({ kind: 'speak', personaId: 'manager' })
-    expect(result.observation).toStrictEqual({ kind: 'jev', central: centralObservation })
+    expect(result.decision.outcome).toEqual({ kind: 'user_yield', reason: 'unsettled' })
+    expect(result.observation).toStrictEqual({ kind: 'jev', central: observation })
   })
 
-  it('falls back with the same seed when a persona judgment is unsettled', async () => {
+  it('keeps the persona-arm decision and observation when every move settles', async () => {
     freezeClock()
     const observations = {
-      manager: personaObservation(
-        personaJudgments({ hasRelevantContribution: 0.5, pauseWouldBenefitUser: 0 }),
-      ),
-      peer: personaObservation(personaJudgments()),
-    }
-    const result = await runJevRoutingReplay(
-      tieContext,
-      'persona_requests',
-      {
-        async judgeCentral() {
-          throw new Error('unexpected')
-        },
-        async judgePersona(_context, persona) {
-          return { ok: true as const, observation: observations[persona.id as 'manager'] }
-        },
-      },
-      { seed: 1, deadlineMs: 1000 },
-    )
-    expect(result.ok).toBe(true)
-    if (!result.ok) return
-    expect(result.policyLatencyMs).toBe(0)
-    expect(result.decision).toMatchObject({
-      topology: 'persona_requests',
-      judgmentSource: 'deterministic',
-      policyVersion: DETERMINISTIC_POLICY_VERSION,
-      fallback: { kind: 'deterministic', cause: 'unsettled' },
-    })
-    expect(result.decision.outcome).toMatchObject({ kind: 'speak', personaId: 'manager' })
-    expect(result.observation).toMatchObject({ kind: 'jev', personas: observations })
-  })
-
-  it('keeps the timeout fallback decision, its observation and the seeded winner', async () => {
-    freezeClock()
-    const result = await runJevRoutingReplay(
-      tieContext,
-      'persona_requests',
-      {
-        async judgeCentral() {
-          throw new Error('unexpected')
-        },
-        async judgePersona() {
-          await new Promise(() => {})
-          throw new Error('unreachable')
-        },
-      },
-      { seed: 1, deadlineMs: 5 },
-    )
-    expect(result.ok).toBe(true)
-    if (!result.ok) return
-    expect(result.policyLatencyMs).toBe(0)
-    expect(result.decision).toMatchObject({
-      topology: 'persona_requests',
-      judgmentSource: 'deterministic',
-      policyVersion: DETERMINISTIC_POLICY_VERSION,
-      fallback: { kind: 'deterministic', cause: 'timeout' },
-    })
-    expect(result.decision.outcome).toMatchObject({ kind: 'speak', personaId: 'manager' })
-    expect(result.observation).toStrictEqual({ kind: 'timeout' })
-  })
-
-  it('keeps the persona-arm decision and observation when every judgment settles', async () => {
-    freezeClock()
-    const observations = {
-      manager: personaObservation(personaJudgments()),
-      peer: personaObservation(
-        personaJudgments({
-          directlyAddressed: 1,
-          hasRelevantContribution: 1,
-          pauseWouldBenefitUser: 0,
-        }),
-      ),
-      client: personaObservation(personaJudgments()),
+      manager: personaObservation(),
+      peer: personaObservation({ directlyAddressed: 1 }),
+      client: personaObservation(),
     }
     const result = await runJevRoutingReplay(
       context,
@@ -887,6 +875,10 @@ describe('runJevRoutingReplay exact records', () => {
       fallback: { kind: 'none' },
     })
     expect(result.decision.outcome).toMatchObject({ kind: 'speak', personaId: 'peer' })
+    expect(result.decision.moveJudgments).toMatchObject({
+      scope: 'persona',
+      byPersona: { peer: { directlyAddressed: 1 } },
+    })
     expect(result.observation).toStrictEqual({ kind: 'jev', personas: observations })
   })
 
@@ -898,7 +890,7 @@ describe('runJevRoutingReplay exact records', () => {
         'central_selection',
         {
           async judgeCentral() {
-            return { ok: true as const, observation: central(0.9) }
+            return { ok: true as const, observation: central() }
           },
           async judgePersona() {
             throw new Error('unexpected')

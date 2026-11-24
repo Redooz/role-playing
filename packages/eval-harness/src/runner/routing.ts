@@ -7,23 +7,20 @@ import {
   assembleRoutingDecision,
   decideDeterministicCentral,
   decideDeterministicPersonaRequests,
-  deriveRequests,
-  deriveTurnRequest,
-  deterministicJudgmentsByPersona,
-  NOUL_NO,
+  deriveMoveDecision,
   NOUL_YES,
-  rankTurnRequests,
   type RoutingContext,
   type RoutingDecision,
-  type RoutingJudgments,
+  type RoutingMoveJudgments,
+  type RoutingPersonaMoveJudgments,
   type RoutingTopology,
 } from '@rp/routing-policy'
 import { z } from 'zod'
 
 /** Policy identifiers written into every routing artifact. */
 export const DETERMINISTIC_POLICY_VERSION = 'm3a-routing-policy-v1'
-export const JEV_CENTRAL_POLICY_VERSION = 'm3a-jev-central-v1'
-export const JEV_PERSONA_POLICY_VERSION = 'm3a-jev-persona-v1'
+export const JEV_CENTRAL_POLICY_VERSION = 'm3d-jev-central-v2'
+export const JEV_PERSONA_POLICY_VERSION = 'm3d-jev-persona-v2'
 export const ROUTING_ARTIFACT_SCHEMA_VERSION = '1.0.0'
 
 export interface RoutingArm {
@@ -63,29 +60,11 @@ function nowMs(): number {
   return performance.now()
 }
 
-function fallbackDecision(
-  context: RoutingContext,
-  topology: RoutingTopology,
-  seed: number,
-  cause: 'timeout' | 'unsettled',
-): RoutingDecision {
-  const deterministic =
-    topology === 'central_selection'
-      ? decideDeterministicCentral(context, { seed })
-      : decideDeterministicPersonaRequests(context, { seed })
-  const decision = deterministic.decision
-  return assembleRoutingDecision({
-    context,
-    topology,
-    judgmentSource: 'deterministic',
-    policyVersion: DETERMINISTIC_POLICY_VERSION,
-    judgments: decision.judgments,
-    requests: decision.requests,
-    declines: decision.declines,
-    unsettledPersonas: decision.unsettledPersonas,
-    ...(decision.outcome.kind === 'speak' ? { selectedPersonaId: decision.outcome.personaId } : {}),
-    fallback: { kind: 'deterministic', cause },
-  })
+function featureJudgmentsOf(decision: RoutingDecision): NonNullable<RoutingDecision['judgments']> {
+  if (decision.judgments === undefined) {
+    throw new Error('a deterministic decision must carry feature judgments')
+  }
+  return decision.judgments
 }
 
 function deadlineFailure(error: unknown): RoutingReplayFailure['error'] {
@@ -110,7 +89,7 @@ export function runDeterministicRoutingReplay(
       topology,
       judgmentSource: 'deterministic',
       policyVersion: DETERMINISTIC_POLICY_VERSION,
-      judgments: run.decision.judgments,
+      judgments: featureJudgmentsOf(run.decision),
       requests: run.decision.requests,
       declines: run.decision.declines,
       unsettledPersonas: run.decision.unsettledPersonas,
@@ -141,9 +120,29 @@ async function withinDeadline<T>(
   }
 }
 
-function allJudgments(
+function aggregateMoves(
   observations: Readonly<Record<string, RoutingPersonaObservation>>,
-): Record<string, RoutingJudgments> {
+): RoutingMoveJudgments {
+  const values = Object.values(observations)
+  return {
+    closingMove: Math.max(...values.map((value) => value.judgments.closingMove)),
+    selfAnswer: Math.max(...values.map((value) => value.judgments.selfAnswer)),
+    thinkingAloud: Math.max(...values.map((value) => value.judgments.thinkingAloud)),
+    sideComment: Math.max(...values.map((value) => value.judgments.sideComment)),
+  }
+}
+
+function addressedPersonaIds(
+  observations: Readonly<Record<string, RoutingPersonaObservation>>,
+): readonly string[] {
+  return Object.entries(observations)
+    .filter(([, observation]) => observation.judgments.directlyAddressed >= NOUL_YES)
+    .map(([personaId]) => personaId)
+}
+
+function personaMoveRecord(
+  observations: Readonly<Record<string, RoutingPersonaObservation>>,
+): Readonly<Record<string, RoutingPersonaMoveJudgments>> {
   return Object.fromEntries(
     Object.entries(observations).map(([personaId, observation]) => [
       personaId,
@@ -152,18 +151,18 @@ function allJudgments(
   )
 }
 
-function rankWinner(
-  context: RoutingContext,
-  requests: readonly ReturnType<typeof deriveTurnRequest>[],
-  seed: number,
-): string | undefined {
-  return rankTurnRequests(context, requests, seed)[0]?.personaId
+function fallbackOf(derived: ReturnType<typeof deriveMoveDecision>) {
+  return derived.fallbackCause === null
+    ? ({ kind: 'none' } as const)
+    : ({ kind: 'deterministic', cause: derived.fallbackCause } as const)
 }
 
 /**
- * Jev arm with the declared fallback. A deadline or unsettled result reruns the
- * same topology with deterministic rules. Any transport/schema failure is
- * infrastructure-incomplete and never a routing outcome.
+ * Jev arm under the ownership-first move contract (M3d D2).
+ *
+ * A timeout, transport error or invalid/missing answer is
+ * infrastructure-incomplete, never a yield. An answered but unsettled move uses
+ * the owner rule; code selects the speaker, never the model.
  */
 export async function runJevRoutingReplay(
   context: RoutingContext,
@@ -208,10 +207,11 @@ export async function runJevRoutingReplay(
   const raced = await withinDeadline<WorkResult>(work, options.deadlineMs)
   if (raced.kind === 'timeout') {
     return {
-      ok: true,
-      decision: fallbackDecision(context, topology, options.seed, 'timeout'),
+      ok: false,
+      kind: 'infrastructure_incomplete',
+      error: `routing policy timed out after ${options.deadlineMs} ms; a failed model call is incomplete`,
+      questionIds: [],
       policyLatencyMs: nowMs() - start,
-      observation: { kind: 'timeout' },
     }
   }
 
@@ -238,48 +238,15 @@ export async function runJevRoutingReplay(
     }
 
     const central = result.observation
-    if (central.judgment.anyoneWarranted > NOUL_NO && central.judgment.anyoneWarranted < NOUL_YES) {
-      return {
-        ok: true,
-        decision: fallbackDecision(context, topology, options.seed, 'unsettled'),
-        policyLatencyMs: nowMs() - start,
-        observation: { kind: 'jev', central },
-      }
-    }
-
-    const deterministic = deterministicJudgmentsByPersona(context)
-    const judgments = Object.fromEntries(deterministic)
-    const derived = deriveRequests(context, deterministic)
-    let selectedPersonaId: string | undefined
-    let requests = derived.requests
-    let declines: typeof derived.declines
-
-    if (central.judgment.anyoneWarranted >= NOUL_YES) {
-      selectedPersonaId = central.judgment.selectedPersonaId
-      const selected = context.personas.find((persona) => persona.id === selectedPersonaId)
-      if (selected === undefined) {
-        return {
-          ok: false,
-          kind: 'infrastructure_incomplete',
-          error: 'Jev selected a persona that is not eligible.',
-          questionIds: central.exact.questionIds,
-          policyLatencyMs: nowMs() - start,
-        }
-      }
-      const request =
-        requests.find((entry) => entry.personaId === selectedPersonaId) ??
-        deriveTurnRequest(context, selected, deterministic.get(selectedPersonaId)!)
-      requests = [request]
-      declines = context.personas
-        .filter((persona) => persona.id !== selectedPersonaId)
-        .map((persona) => ({ personaId: persona.id, reason: 'no_contribution' as const }))
-    } else {
-      requests = []
-      declines = context.personas.map((persona) => ({
-        personaId: persona.id,
-        reason: 'no_contribution' as const,
-      }))
-    }
+    const derived = deriveMoveDecision({
+      context,
+      moves: central.judgment.move,
+      topology,
+      seed: options.seed,
+      ...(central.judgment.selectedPersonaId === undefined
+        ? {}
+        : { selectedPersonaId: central.judgment.selectedPersonaId }),
+    })
 
     return {
       ok: true,
@@ -288,12 +255,14 @@ export async function runJevRoutingReplay(
         topology,
         judgmentSource: 'jev',
         policyVersion: JEV_CENTRAL_POLICY_VERSION,
-        judgments,
-        requests,
-        declines,
+        moveJudgments: { scope: 'central', move: central.judgment.move },
+        requests: derived.requests,
+        declines: derived.declines,
         unsettledPersonas: [],
-        ...(selectedPersonaId === undefined ? {} : { selectedPersonaId }),
-        fallback: { kind: 'none' },
+        ...(derived.kind === 'speak' && derived.personaId !== undefined
+          ? { selectedPersonaId: derived.personaId }
+          : {}),
+        fallback: fallbackOf(derived),
       }),
       policyLatencyMs: nowMs() - start,
       observation: { kind: 'jev', central },
@@ -314,18 +283,14 @@ export async function runJevRoutingReplay(
     observations[entry.personaId] = entry.result.observation
   }
 
-  const judgments = allJudgments(observations)
-  const derived = deriveRequests(context, new Map(Object.entries(judgments)))
-  if (derived.unsettled.length > 0) {
-    return {
-      ok: true,
-      decision: fallbackDecision(context, topology, options.seed, 'unsettled'),
-      policyLatencyMs: nowMs() - start,
-      observation: { kind: 'jev', personas: observations },
-    }
-  }
+  const derived = deriveMoveDecision({
+    context,
+    moves: aggregateMoves(observations),
+    topology,
+    seed: options.seed,
+    addressedPersonaIds: addressedPersonaIds(observations),
+  })
 
-  const winner = rankWinner(context, derived.requests, options.seed)
   return {
     ok: true,
     decision: assembleRoutingDecision({
@@ -333,12 +298,14 @@ export async function runJevRoutingReplay(
       topology,
       judgmentSource: 'jev',
       policyVersion: JEV_PERSONA_POLICY_VERSION,
-      judgments,
+      moveJudgments: { scope: 'persona', byPersona: personaMoveRecord(observations) },
       requests: derived.requests,
       declines: derived.declines,
       unsettledPersonas: [],
-      ...(winner === undefined ? {} : { selectedPersonaId: winner }),
-      fallback: { kind: 'none' },
+      ...(derived.kind === 'speak' && derived.personaId !== undefined
+        ? { selectedPersonaId: derived.personaId }
+        : {}),
+      fallback: fallbackOf(derived),
     }),
     policyLatencyMs: nowMs() - start,
     observation: { kind: 'jev', personas: observations },

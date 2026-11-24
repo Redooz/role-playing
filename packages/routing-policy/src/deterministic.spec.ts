@@ -63,7 +63,11 @@ describe('decideDeterministicCentral', () => {
 
   it('returns one judgment entry per eligible persona', () => {
     const result = decideDeterministicCentral(makeContext(), options)
-    expect(Object.keys(result.decision.judgments).sort()).toEqual(['client', 'manager', 'peer'])
+    expect(Object.keys(result.decision.judgments ?? {}).sort()).toEqual([
+      'client',
+      'manager',
+      'peer',
+    ])
     expect(result.judged).toHaveLength(3)
   })
 

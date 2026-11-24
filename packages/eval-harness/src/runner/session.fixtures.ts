@@ -125,7 +125,10 @@ export function shadowJudge(): JevRoutingJudge {
       return {
         ok: true as const,
         observation: {
-          judgment: { anyoneWarranted: 0.9, selectedPersonaId: 'manager' },
+          judgment: {
+            move: { closingMove: 0.1, selfAnswer: 0.1, thinkingAloud: 0.1, sideComment: 0.1 },
+            selectedPersonaId: 'manager',
+          },
           exact,
         },
       }
@@ -135,11 +138,11 @@ export function shadowJudge(): JevRoutingJudge {
         ok: true as const,
         observation: {
           judgments: {
+            closingMove: 0.1,
+            selfAnswer: 0.1,
+            thinkingAloud: 0.1,
+            sideComment: 0.1,
             directlyAddressed: 0,
-            hasRelevantContribution: 0,
-            addsUncoveredInformation: 0,
-            hasUnmetRelevantObjective: 0,
-            pauseWouldBenefitUser: 1,
           },
           exact,
         },

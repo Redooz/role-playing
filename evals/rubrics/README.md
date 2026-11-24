@@ -27,6 +27,7 @@ Rules from the M0 plan (D4, D5, D6):
 | `m3b-speaker-label-guideline-v2.md` | M3b speaker ownership, next-step and mixed tests, `m3b-v2` and later                |
 | `m3a-routing-label-v2.md`           | M3a routing ownership and visible coverage, before the mixed test; kept for history |
 | `m3a-routing-label-v3.md`           | M3a routing ownership, visible coverage and the mixed test, `1.1.0` and later       |
+| `m3d-routing-rubric-v2.md`          | M3d Jev move Nouls, owner-restricted Choice and the owner fallback                  |
 
 Older versions stay in place for history and for the runs that reference them.
 `m3b-v1` and `synthetic-routing/1.0.0` are frozen on their original rules.

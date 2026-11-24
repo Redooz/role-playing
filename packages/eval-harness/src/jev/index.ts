@@ -58,11 +58,11 @@ export type {
 export {
   buildCentralRoutingJudgment,
   buildPersonaRoutingJudgment,
-  CENTRAL_CONTRIBUTION_QUESTION_ID,
   CENTRAL_SPEAKER_QUESTION_ID,
   createJevRoutingJudge,
-  M3A_ROUTING_RUBRIC_VERSION,
-  PERSONA_JUDGMENT_QUESTION_IDS,
+  DIRECTLY_ADDRESSED_QUESTION_ID,
+  M3D_ROUTING_RUBRIC_VERSION,
+  MOVE_QUESTION_IDS,
 } from './routing.js'
 export type {
   JevRoutingJudge,
