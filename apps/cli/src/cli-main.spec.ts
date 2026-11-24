@@ -1117,10 +1117,10 @@ describe('routing label', () => {
       io: io.io,
       driver: driverWith(scriptedModel(['unused'])),
       provider: { kind: 'canned', label: 'canned/demo' },
-      routingLabel: 'jev-central (English, det-persona fallback)',
+      routingLabel: 'jev-central (English)',
       selection,
     })
-    expect(io.text()).toContain('routing: jev-central (English, det-persona fallback)')
+    expect(io.text()).toContain('routing: jev-central (English)')
   })
 
   it('prints no routing line in single-persona mode', async () => {

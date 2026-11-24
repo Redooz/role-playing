@@ -10,11 +10,12 @@ import { routingChoiceFor, type RoutingChoice, type RoutingRequest } from './rou
 /**
  * Build the session's routing policy, its header label and its choice (M3d D6).
  *
- * `det-persona` is the deterministic incumbent and the fallback. `jev-central`
- * wraps it: one central Jev batch per turn, answered by the move contract, with
- * the incumbent answering any turn the model call cannot serve. The judge
- * factory runs only for `jev-central`, so a canned or French session never
- * opens a Jev client.
+ * `det-persona` is the deterministic incumbent. `jev-central` wraps it: one
+ * central Jev batch per turn, answered by the move contract, with the incumbent
+ * owning interjections. A failed model call is never answered by the incumbent;
+ * the policy rejects and the driver records the failure. The judge factory runs
+ * only for `jev-central`, so a canned or French session never opens a Jev
+ * client.
  */
 export interface SessionRoutingOptions {
   readonly requested: RoutingRequest
@@ -35,7 +36,7 @@ export interface SessionRouting {
   readonly policy: PersonaTurnPolicy<RoutingContext>
 }
 
-const JEV_LABEL = 'jev-central (English, det-persona fallback)'
+const JEV_LABEL = 'jev-central (English)'
 const DET_LABEL = 'det-persona'
 const NO_KEY_LABEL = 'det-persona (OPENROUTER_API_KEY missing: Jev routing off)'
 

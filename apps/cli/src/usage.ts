@@ -24,6 +24,7 @@ Live mode requires LIVEKIT_API_KEY and LIVEKIT_API_SECRET in the environment
 credentials are never printed. The model is fixed to google/gemma-4-31b-it.
 
 English live two-persona sessions route with jev-central (OpenRouter, pinned
-typesafe/jev-1.14) when OPENROUTER_API_KEY is set. A Jev timeout or error falls
-back to the deterministic det-persona policy for that turn and is reported on
-stderr. Canned mode and French keep det-persona.`
+typesafe/jev-1.14) when OPENROUTER_API_KEY is set. A Jev timeout or error is
+reported on stderr and recorded as a failed policy call, so the turn stays
+incomplete rather than becoming a decline. Canned mode and French keep
+det-persona.`

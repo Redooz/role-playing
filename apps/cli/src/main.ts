@@ -331,7 +331,7 @@ export async function main(argv: readonly string[]): Promise<number> {
     createJudge: (apiKey) => createJevRoutingJudge(createJevClient({ apiKey })),
     onFallback: (failure) =>
       io.err(
-        `[routing] jev-central fell back to det-persona (${failure.cause}) on ${failure.turnId}`,
+        `[routing] jev-central failed (${failure.cause}) on ${failure.turnId}; the turn is incomplete`,
       ),
   })
   if (routing.note !== undefined) io.err(`note: ${routing.note}`)
