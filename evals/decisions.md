@@ -376,3 +376,51 @@ failed attempts are not evidence.
 Silence is reported, not registered as a guardrail: its baseline is 0, so a
 baseline-relative guardrail could never fail. It improves by +0.667 in both
 languages, above the 0.25 silence-required MDE registered in the M3c plan.
+
+## M3d implementation
+
+D0 records the P6 finding and pre-registers the repair. The row below is a
+diagnostic finding, not a capability verdict; no M3d run exists yet.
+
+| Date       | Gate                            | Run ID                               | Verdict                                 | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ---------- | ------------------------------- | ------------------------------------ | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-11-23 | M3d D0 routing-contract finding | `m3c-p6-routing-arm-findings` (note) | recorded; no P6 verdict or gate changed | A read-only analysis of the P6 artifacts and the code found that the runtime contract did not carry scenario ownership and classified turns by keyword relevance rather than by the required response. Verified in code: ownership is absent from `RoutingContext` (`packages/routing-policy/src/schemas.ts`, `packages/persona-kit/src/routing-context.ts`); direct address is an automatic request and the first rank key (`derive.ts`, `rank.ts`); the Jev questions ask for a relevant contribution (`packages/eval-harness/src/jev/routing.ts`); matching is whole-term exact (`features.ts`); equal matches fall back to recency (`rank.ts`); `coveredObjectiveIds` is never populated. Recorded shadow data shows `jev-persona` fell back on 26/48 English and 30/48 French contexts. P6 verdicts stand: English inconclusive, French inconclusive, no policy adopted; the post-hoc Jev tables are diagnostic and not a selection. |
+
+### D0 pre-registration (2026-11-23)
+
+The M3d contract is frozen before any code or run:
+
+- **Named non-owner.** The owner answers; the named persona is a distractor.
+  Architecture Plan v5 §3.3 puts ownership fit first. `m3b-v2` goldens and
+  guideline v2 are unchanged.
+- **Arms.** `jev-central` and `jev-persona` only, with fixed rotation as the
+  reference reading. No deterministic candidate or diagnostic run.
+- **Metrics.** Speak MDE stays 0.15 over fixed rotation (`>= 0.826` English,
+  `>= 0.768` French over three rounds). Silence has an absolute floor of 0.75,
+  because its baseline is a structural zero. The incumbent `det-persona`
+  readings (0.765 EN / 0.647 FR speak, 0.667 silence) are a second floor.
+- **Move contract.** Atomic Jev Nouls for closing, self-answer, thinking aloud
+  and side comment. No broad "should this persona speak" question and no model
+  ownership judgment.
+- **Fallback.** Unsettled answers use the owner rule only: speak only when one
+  owner is resolved and the settled move answers do not name a self-directed
+  move; otherwise yield. An unsettled answer is a decision, not a failure. Any
+  failed Jev call — timeout, transport error, or an invalid or missing
+  Noul/Choice answer — is `infrastructure_incomplete`, never a decline, a pass
+  or a zero.
+- **Selection.** Both languages must clear every floor. If both arms pass, rank
+  by speak, silence, cost, p95 latency, then fallback rate. If neither passes,
+  no arm is adopted and no arm is called the winner.
+- **Product.** The shipping `det-persona` path is unchanged in M3d. Product
+  wiring is a separate layer and needs its own approval.
+- **Versions.** Routing context and decision schemas move to `1.1.0` for the
+  additive ownership field; rubric `m3d-routing-rubric-v2`. `coveredObjectiveIds`
+  stays in the schema and in the live context so the frozen
+  `synthetic-routing/1.0.0` and `1.1.0` tasks keep parsing; rubric v2 drops the
+  coverage question, and removing the field is a future major-version job. The
+  turn-taking grader stays `1.1.0`, so the P6 manifests remain valid and are not
+  re-run.
+
+The plan is [M3d Plan: Routing Contract Repair and Jev Arm Comparison](https://app.notion.com/p/42283d257ddf811f909fd96e21494c30)
+in Notion, with a local copy at `docs/plans/m3d-plan-routing-contract.md`. Stack
+base is `feat/m3c-p6-rebaseline` at `bf60013`; D0 is docs only.
