@@ -38,6 +38,15 @@ const context = parseRoutingContext({
   turnId: 'turn-1',
   lang: 'en',
   coveredObjectiveIds: [],
+  owners: [
+    {
+      topic: 'the handoff',
+      keywords: ['handoff'],
+      personaIds: ['peer'],
+      source: 'objective',
+      objectiveId: 'handoff',
+    },
+  ],
   personas: [
     {
       id: 'manager',
@@ -88,23 +97,39 @@ function success(
 }
 
 function central(
-  value: number,
-  selectedPersonaId = 'peer',
+  closingMove = 0.1,
+  selectedPersonaId?: string,
   cost: number | null = 0.0002,
   usage?: JevBatchSuccess['usage'],
 ): RoutingCentralObservation {
+  const move = {
+    closingMove,
+    selfAnswer: 0.1,
+    thinkingAloud: 0.1,
+    sideComment: 0.1,
+  }
   return {
-    judgment: { anyoneWarranted: value, selectedPersonaId },
+    judgment: {
+      move,
+      ...(selectedPersonaId === undefined ? {} : { selectedPersonaId }),
+    },
     exact: success(
       {
-        anyone_should_contribute: { type: 'noul', noul: value },
-        best_next_speaker: {
-          type: 'choice',
-          choice: selectedPersonaId,
-          probabilities: { manager: 0.1, peer: 0.8, client: 0.1 },
-        },
+        closing_move: { type: 'noul', noul: move.closingMove },
+        self_answer: { type: 'noul', noul: move.selfAnswer },
+        thinking_aloud: { type: 'noul', noul: move.thinkingAloud },
+        side_comment: { type: 'noul', noul: move.sideComment },
+        ...(selectedPersonaId === undefined
+          ? {}
+          : {
+              best_speaker: {
+                type: 'choice' as const,
+                choice: selectedPersonaId,
+                probabilities: { manager: 0.1, peer: 0.8, client: 0.1 },
+              },
+            }),
       },
-      ['anyone_should_contribute', 'best_next_speaker'],
+      ['closing_move', 'self_answer', 'thinking_aloud', 'side_comment'],
       usage ??
         (cost === null
           ? { input_tokens: 10, output_tokens: 2 }
@@ -118,40 +143,26 @@ function personaObservation(
   cost: number | null = 0.0001,
   peerAddressed = true,
   usage?: JevBatchSuccess['usage'],
+  selfDirected = false,
 ): RoutingPersonaObservation {
-  const judgments =
-    peerAddressed && personaId === 'peer'
-      ? {
-          directlyAddressed: 1,
-          hasRelevantContribution: 1,
-          addsUncoveredInformation: 1,
-          hasUnmetRelevantObjective: 0,
-          pauseWouldBenefitUser: 0,
-        }
-      : {
-          directlyAddressed: 0,
-          hasRelevantContribution: 0,
-          addsUncoveredInformation: 0,
-          hasUnmetRelevantObjective: 0,
-          pauseWouldBenefitUser: 1,
-        }
+  const judgments = {
+    closingMove: selfDirected ? 0.8 : 0.1,
+    selfAnswer: 0.1,
+    thinkingAloud: 0.1,
+    sideComment: 0.1,
+    directlyAddressed: peerAddressed && personaId === 'peer' ? 1 : 0,
+  }
   return {
     judgments,
     exact: success(
       {
+        closing_move: { type: 'noul', noul: judgments.closingMove },
+        self_answer: { type: 'noul', noul: judgments.selfAnswer },
+        thinking_aloud: { type: 'noul', noul: judgments.thinkingAloud },
+        side_comment: { type: 'noul', noul: judgments.sideComment },
         directly_addressed: { type: 'noul', noul: judgments.directlyAddressed },
-        has_relevant_contribution: { type: 'noul', noul: judgments.hasRelevantContribution },
-        adds_uncovered_information: { type: 'noul', noul: judgments.addsUncoveredInformation },
-        has_unmet_relevant_objective: { type: 'noul', noul: judgments.hasUnmetRelevantObjective },
-        pause_would_benefit_user: { type: 'noul', noul: judgments.pauseWouldBenefitUser },
       },
-      [
-        'directly_addressed',
-        'has_relevant_contribution',
-        'adds_uncovered_information',
-        'has_unmet_relevant_objective',
-        'pause_would_benefit_user',
-      ],
+      ['closing_move', 'self_answer', 'thinking_aloud', 'side_comment', 'directly_addressed'],
       usage ??
         (cost === null
           ? { input_tokens: 10, output_tokens: 2 }
@@ -183,12 +194,12 @@ function fakeJudge(options: JudgeOptions = {}): JevRoutingJudge {
         return {
           ok: false,
           error: new JevUnavailableError('central unavailable', { reason: 'network' }),
-          questionIds: ['anyone_should_contribute'],
+          questionIds: ['closing_move'],
         }
       }
       const observation = central(
-        options.centralWarranted ?? 0.9,
-        options.centralSelected ?? 'peer',
+        options.centralWarranted ?? 0.1,
+        options.centralSelected,
         options.omitCost === true ? null : 0.0002,
       )
       return { ok: true, observation }
@@ -207,7 +218,9 @@ function fakeJudge(options: JudgeOptions = {}): JevRoutingJudge {
         observation: personaObservation(
           persona.id,
           options.omitCost === true ? null : 0.0001,
-          options.personaAllPause !== true,
+          true,
+          undefined,
+          options.personaAllPause === true,
         ),
       }
     },
@@ -223,7 +236,7 @@ interface UsageJudgeOptions {
 function usageJudge(options: UsageJudgeOptions = {}): JevRoutingJudge {
   return {
     async judgeCentral() {
-      return { ok: true, observation: central(0.9, 'peer', 0.0002, options.centralUsage) }
+      return { ok: true, observation: central(0.1, undefined, 0.0002, options.centralUsage) }
     },
     async judgePersona(_context, persona) {
       return {
@@ -336,7 +349,7 @@ describe('runShadowArms', () => {
   it('records the three non-live arms and their agreement with the live decision', async () => {
     const result = await runShadowArms(
       { taskId: 'task-1', context, liveDecision, seed: 1 },
-      fakeJudge({ centralSelected: 'client' }),
+      fakeJudge(),
     )
 
     expect(result.records.map((record) => record.arm)).toEqual([
@@ -362,8 +375,8 @@ describe('runShadowArms', () => {
     expect(byArm.get('jev-persona')?.usage?.costUsd).toBeCloseTo(0.0003, 12)
     expect(byArm.get('jev-central')).toMatchObject({
       policyVersion: JEV_CENTRAL_POLICY_VERSION,
-      outcome: { kind: 'speak', personaId: 'client' },
-      agreement: false,
+      outcome: { kind: 'speak', personaId: 'peer' },
+      agreement: true,
       usage: { inputTokens: 10, outputTokens: 2, costUsd: 0.0002 },
     })
   })
@@ -400,28 +413,28 @@ describe('runShadowArms', () => {
     expect(summary).toMatchObject({ completed: 0, incomplete: 1, agreementRate: null })
   })
 
-  it('records a Jev timeout as a deterministic fallback, not as an incomplete', async () => {
+  it('records a Jev timeout as incomplete, never as a fallback decision', async () => {
     const result = await runShadowArms(
       { taskId: 'task-1', context, liveDecision, seed: 1, deadlineMs: 5 },
-      fakeJudge({ centralSelected: 'client', delayMs: 25 }),
+      fakeJudge({ delayMs: 25 }),
     )
     const central = result.records.find((record) => record.arm === 'jev-central')
     expect(central).toMatchObject({
       policyVersion: JEV_CENTRAL_POLICY_VERSION,
-      decision: expect.anything(),
-      outcome: { kind: 'speak', personaId: 'peer' },
-      fallbackCause: 'timeout',
+      decision: null,
+      outcome: { kind: 'infrastructure_incomplete' },
+      fallbackCause: null,
       agreement: null,
       usage: null,
-      observation: { kind: 'timeout' },
+      observation: { kind: 'none' },
     })
     expect(central?.error).toContain('timed out')
 
     const summary = result.summary.arms.find((arm) => arm.arm === 'jev-central')
     expect(summary).toMatchObject({
-      completed: 1,
-      incomplete: 0,
-      timeoutFallbacks: 1,
+      completed: 0,
+      incomplete: 1,
+      timeoutFallbacks: 0,
       agreementRate: null,
     })
   })
@@ -549,10 +562,11 @@ describe('shadow summary', () => {
   it('keeps a timeout out of the agreement denominator', async () => {
     const result = await runShadowArms(
       { taskId: 'task-1', context, liveDecision, seed: 1, deadlineMs: 5 },
-      fakeJudge({ centralSelected: 'client', delayMs: 25 }),
+      fakeJudge({ delayMs: 25 }),
     )
     const arm = result.summary.arms.find((entry) => entry.arm === 'jev-central')!
-    expect(arm.timeoutFallbacks).toBe(1)
+    expect(arm.timeoutFallbacks).toBe(0)
+    expect(arm.completed).toBe(0)
     expect(arm.agreements + arm.disagreements).toBe(arm.completed - arm.timeoutFallbacks)
     expect(() => shadowArmSummarySchema.parse({ ...arm, agreements: arm.agreements + 1 })).toThrow(
       /agreement denominator/u,
@@ -909,7 +923,7 @@ describe('runShadowArms record shape', () => {
   it('writes every field of a completed record', async () => {
     const result = await runShadowArms(
       { taskId: 'task-1', context, liveDecision, seed: 1 },
-      fakeJudge({ centralSelected: 'client' }),
+      fakeJudge(),
     )
     const [persona, deterministic, centralArm] = result.records
 
@@ -971,20 +985,20 @@ describe('runShadowArms record shape', () => {
         topology: 'central_selection',
         fallback: { kind: 'none' },
       }),
-      outcome: { kind: 'speak', personaId: 'client' },
+      outcome: { kind: 'speak', personaId: 'peer' },
       fallbackCause: null,
       unsettled: false,
       latencyMs: expect.any(Number),
       usage: { inputTokens: 10, outputTokens: 2, costUsd: 0.0002 },
-      agreement: false,
+      agreement: true,
       observation: expect.objectContaining({ kind: 'jev' }),
     })
   })
 
-  it('writes every field of a timeout record', async () => {
+  it('writes every field of an incomplete timeout record', async () => {
     const result = await runShadowArms(
       { taskId: 'task-1', context, liveDecision, seed: 1, deadlineMs: 5 },
-      fakeJudge({ centralSelected: 'client', delayMs: 25 }),
+      fakeJudge({ delayMs: 25 }),
     )
     const centralArm = result.records.find((record) => record.arm === 'jev-central')
 
@@ -996,17 +1010,15 @@ describe('runShadowArms record shape', () => {
       lang: 'en',
       arm: 'jev-central',
       policyVersion: JEV_CENTRAL_POLICY_VERSION,
-      decision: expect.objectContaining({
-        fallback: { kind: 'deterministic', cause: 'timeout' },
-      }),
-      outcome: { kind: 'speak', personaId: 'peer' },
-      fallbackCause: 'timeout',
+      decision: null,
+      outcome: { kind: 'infrastructure_incomplete' },
+      fallbackCause: null,
       unsettled: false,
       latencyMs: expect.any(Number),
       usage: null,
       agreement: null,
-      observation: { kind: 'timeout' },
-      error: 'shadow policy timed out; deterministic fallback recorded for audit only',
+      observation: { kind: 'none' },
+      error: 'routing policy timed out after 5 ms; a failed model call is incomplete',
     })
   })
 
@@ -1064,7 +1076,7 @@ describe('runShadowArms record shape', () => {
   it('treats a different outcome kind as disagreement', async () => {
     const result = await runShadowArms(
       { taskId: 'task-1', context, liveDecision, seed: 1 },
-      fakeJudge({ centralWarranted: 0.1 }),
+      fakeJudge({ centralWarranted: 0.8 }),
     )
     const centralArm = result.records.find((record) => record.arm === 'jev-central')!
 

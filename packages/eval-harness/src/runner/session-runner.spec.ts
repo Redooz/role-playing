@@ -435,17 +435,15 @@ describe('session shadow wiring', () => {
     expect(jevRecords.length).toBeGreaterThan(0)
     expect(
       jevRecords.every(
-        (record) => (record.observation as { readonly kind?: unknown }).kind === 'timeout',
+        (record) => (record.observation as { readonly kind?: unknown }).kind === 'none',
       ),
     ).toBe(true)
+    expect(jevRecords.every((record) => record.decision === null)).toBe(true)
+    expect(jevRecords.every((record) => record.outcome.kind === 'infrastructure_incomplete')).toBe(
+      true,
+    )
     expect(jevRecords.every((record) => record.agreement === null)).toBe(true)
-    expect(
-      jevRecords.every(
-        (record) =>
-          record.error ===
-          'shadow policy timed out; deterministic fallback recorded for audit only',
-      ),
-    ).toBe(true)
+    expect(jevRecords.every((record) => record.error?.includes('timed out') === true)).toBe(true)
   })
 })
 

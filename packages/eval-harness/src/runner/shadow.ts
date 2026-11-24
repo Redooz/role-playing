@@ -243,17 +243,10 @@ function recordFor(
     unsettled: decision.unsettledPersonas.length > 0 || fallbackCauseOf(decision) === 'unsettled',
     latencyMs: result.policyLatencyMs,
     usage: usageFromObservation(result.observation),
-    // A timeout is a failed model call with a deterministic fallback. Keep the
-    // decision for audit but never count it as agreement with the live control.
-    // An unsettled answer is a model decision and stays comparable.
-    agreement:
-      result.observation.kind === 'timeout'
-        ? null
-        : sameOutcome(outcomeOf(input.liveDecision), outcome),
+    // A failed model call is incomplete and never enters the agreement
+    // denominator. An unsettled answer is a model decision and stays comparable.
+    agreement: sameOutcome(outcomeOf(input.liveDecision), outcome),
     observation: result.observation,
-    ...(result.observation.kind === 'timeout'
-      ? { error: 'shadow policy timed out; deterministic fallback recorded for audit only' }
-      : {}),
   })
 }
 

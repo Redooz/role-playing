@@ -6,6 +6,7 @@ import type {
   RoutingFallback,
   RoutingJudgmentSource,
   RoutingJudgments,
+  RoutingMoveJudgmentsRecord,
   RoutingTopology,
 } from './schemas.js'
 import { ROUTING_DECISION_SCHEMA_VERSION, routingDecisionSchema } from './schemas.js'
@@ -26,7 +27,9 @@ export interface AssembleRoutingDecisionInput {
   readonly topology: RoutingTopology
   readonly judgmentSource: RoutingJudgmentSource
   readonly policyVersion: string
-  readonly judgments: Readonly<Record<string, RoutingJudgments>>
+  readonly judgments?: Readonly<Record<string, RoutingJudgments>>
+  /** Rubric v2 move judgments; used instead of `judgments` for a Jev arm. */
+  readonly moveJudgments?: RoutingMoveJudgmentsRecord
   readonly requests: readonly TurnRequest[]
   readonly declines: readonly RoutingDecline[]
   readonly unsettledPersonas: readonly string[]
@@ -59,7 +62,8 @@ export function assembleRoutingDecision(input: AssembleRoutingDecisionInput): Ro
     requests,
     declines,
     unsettledPersonas: [...input.unsettledPersonas],
-    judgments: input.judgments,
+    ...(input.judgments === undefined ? {} : { judgments: input.judgments }),
+    ...(input.moveJudgments === undefined ? {} : { moveJudgments: input.moveJudgments }),
     fallback: input.fallback,
   }
 
