@@ -43,6 +43,7 @@ function options(overrides: Partial<SessionRoutingOptions> = {}): SessionRouting
     provider: 'live',
     lang: 'en',
     personaCount: 2,
+    requestWindowMs: 1500,
     env: { OPENROUTER_API_KEY: 'router-key' },
     createJudge: () => ({
       async judgeCentral() {
@@ -73,6 +74,7 @@ describe('createSessionRouting', () => {
     expect(routing.choice).toBe('jev-central')
     expect(routing.label).toBe('jev-central (English)')
     expect(routing.note).toBeUndefined()
+    expect(routing.requestWindowMs).toBe(2000)
     await expect(routing.policy.decide(input('peer'))).rejects.toThrow(/jev-central failed/u)
     expect(failures).toEqual([{ turnId: 'turn-1', cause: 'error' }])
   })
@@ -108,8 +110,13 @@ describe('createSessionRouting', () => {
 
     expect(routing.choice).toBe('det-persona')
     expect(routing.label).toBe('det-persona')
+    expect(routing.requestWindowMs).toBe(1500)
     expect(await routing.policy.decide(input('peer'))).toEqual({ kind: 'decline' })
     expect(built).toBe(0)
+  })
+
+  it('keeps a configured window wider than the Jev minimum', () => {
+    expect(createSessionRouting(options({ requestWindowMs: 2500 })).requestWindowMs).toBe(2500)
   })
 
   it('reports a missing key instead of failing the session', () => {

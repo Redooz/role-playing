@@ -30,8 +30,23 @@ import { JEV_CENTRAL_POLICY_VERSION, runJevRoutingReplay } from './routing.js'
 export const JEV_CENTRAL_LIVE_POLICY_ID = 'jev-central'
 /** The evaluated arm's version, stamped on every assembled decision. */
 export const JEV_CENTRAL_LIVE_POLICY_VERSION = JEV_CENTRAL_POLICY_VERSION
-/** Below the driver's 1,500 ms request window, so the failure is still recorded. */
-export const JEV_LIVE_DEFAULT_DEADLINE_MS = 1_200
+/**
+ * The Jev path needs a wider request window than the deterministic one.
+ *
+ * The D4 English holdout measured 206 ms p50, 525 ms p95, 915 ms p99 and
+ * 1,225 ms max for `jev-central`. A 1,200 ms deadline sits inside that tail, so
+ * a normal slow turn was recorded as incomplete. The window is the maximum of
+ * the configured base and this value; a fast turn still answers at once.
+ */
+export const JEV_LIVE_REQUEST_WINDOW_MS = 2_000
+/** Space between the policy deadline and the window, for the failure report. */
+export const JEV_LIVE_DEADLINE_MARGIN_MS = 300
+/** The deadline for a given request window; always inside it. */
+export function jevLiveDeadlineMs(requestWindowMs: number): number {
+  return Math.max(1, requestWindowMs - JEV_LIVE_DEADLINE_MARGIN_MS)
+}
+/** Below the default request window, so the failure is still recorded. */
+export const JEV_LIVE_DEFAULT_DEADLINE_MS = jevLiveDeadlineMs(JEV_LIVE_REQUEST_WINDOW_MS)
 
 export type JevLiveFailureCause = 'timeout' | 'error'
 

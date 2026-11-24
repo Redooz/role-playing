@@ -730,3 +730,38 @@ the Jev judge from `packages/eval-harness`, and the policy calls the evaluated
 eval code on the product path. The natural home is a pure live policy in
 `packages/routing-policy` plus a Jev adapter in the pipeline boundary; moving it
 is a separate change and is recorded here rather than done inside D6.
+
+### D6.2 Jev latency window (2026-11-24)
+
+A live English session (`sessions/887b1911-e027-4dba-9d9a-8ddf593d4ab6.jsonl`)
+yielded a turn 1,201 ms after it opened: the 1,200 ms policy deadline expired
+before Jev answered, both persona calls shared that rejection, and the arbiter
+recorded `policy_timeout`. The cause was latency, not a bad answer or a transport
+error; the session log keeps only the reason, and the cause was on stderr.
+
+The D4 English `jev-central` artifact shows why 1,200 ms was too tight:
+
+|    p50 |    p90 |    p95 |    p99 |      max |
+| -----: | -----: | -----: | -----: | -------: |
+| 206 ms | 275 ms | 525 ms | 915 ms | 1,225 ms |
+
+The maximum already exceeds the old deadline. A live sample of 12 cold
+`jev-central` calls measured p50 216 ms, p95 754 ms and max 754 ms, so the tail
+varies by connection. Every turn is a cold call because the cache key includes
+the transcript.
+
+**Rule now.** `jev-central` uses a request window of at least 2,000 ms (the
+configured window if it is larger) and a deadline 300 ms below that window, so
+1,700 ms by default. `det-persona`, canned and French sessions keep the
+configured window (1,500 ms by default). The deadline stays inside the window, so
+a failure is still reported before the window closes.
+
+Median latency does not change: a fast decision grants at once. Only a slow tail
+waits longer instead of becoming an incomplete turn. No floor, threshold,
+baseline, manifest or task changes.
+
+**Open diagnostic gap.** The session log records `turn.user_yielded
+{ reason: 'policy_timeout' }` and drops the cause, so a reader cannot separate a
+deadline from a provider error after the fact. Adding the cause to the event
+payload is a shared event-schema change and is left for its own branch rather
+than folded into this latency fix.

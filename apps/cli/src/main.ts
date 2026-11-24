@@ -327,6 +327,7 @@ export async function main(argv: readonly string[]): Promise<number> {
     provider: provider.kind,
     lang,
     personaCount: personaSpecs.length,
+    requestWindowMs: arbiterConfig.requestWindowMs,
     env: process.env,
     createJudge: (apiKey) => createJevRoutingJudge(createJevClient({ apiKey })),
     onFallback: (failure) =>
@@ -335,6 +336,10 @@ export async function main(argv: readonly string[]): Promise<number> {
       ),
   })
   if (routing.note !== undefined) io.err(`note: ${routing.note}`)
+  const effectiveArbiterConfig = {
+    ...arbiterConfig,
+    requestWindowMs: routing.requestWindowMs,
+  }
 
   const driver = multiPersona
     ? createTextSessionDriver({
@@ -351,7 +356,7 @@ export async function main(argv: readonly string[]): Promise<number> {
         })),
         arbiter: {
           initialState: INITIAL_ARBITER_STATE,
-          reduce: (state, input) => reduce(state, input, arbiterConfig),
+          reduce: (state, input) => reduce(state, input, effectiveArbiterConfig),
         },
         policy: routing.policy,
         buildContext: ({ turnId, messages }) =>
@@ -369,7 +374,7 @@ export async function main(argv: readonly string[]): Promise<number> {
               })),
           }),
         seedSource: () => random.int(2_147_483_647),
-        requestWindowMs: arbiterConfig.requestWindowMs,
+        requestWindowMs: effectiveArbiterConfig.requestWindowMs,
         ...taskOptions,
       })
     : createTextSessionDriver({
