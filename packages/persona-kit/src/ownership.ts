@@ -86,7 +86,7 @@ const OWNERSHIP_MARKER = /\b(?:owns|responsible|responsable)\b|\ben charge\b/iu
 const EN_OWNERSHIP = /^(?<name>.+?) (?:owns|is responsible for) (?<topic>.+)$/iu
 
 const FR_OWNERSHIP =
-  /^(?<name>.+?) (?:est responsable|est en charge) (?:de la|des|du|de l[’']|de) (?<topic>.+)$/iu
+  /^(?<name>.+?) (?:est responsable|est en charge) (?:de la |des |du |de l[’']|de )(?<topic>.+)$/iu
 
 function normalizeName(name: string, lang: 'en' | 'fr'): string {
   return normalizeKeywordText(name.trim(), lang).replace(/\s+/gu, ' ')
