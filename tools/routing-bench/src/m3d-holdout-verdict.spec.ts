@@ -73,16 +73,21 @@ describe('armVerdict', () => {
     const verdict = armVerdict(arm(), targets)
     expect(verdict.adoptable).toBe(true)
     expect(verdict.reasons).toEqual([])
-    expect(verdict.checks.map((check) => [check.id, check.ok])).toEqual([
-      ['complete', true],
-      ['speak', true],
-      ['silence', true],
-      ['incumbent_speak', true],
-      ['incumbent_silence', true],
+    expect(verdict.checks).toEqual([
+      { id: 'complete', ok: true, actual: 144, required: 144 },
+      { id: 'speak', ok: true, actual: 90 / 102, required: 0.826 },
+      { id: 'silence', ok: true, actual: 30 / 36, required: 0.75 },
+      { id: 'incumbent_speak', ok: true, actual: 90 / 102, required: 13 / 17 },
+      { id: 'incumbent_silence', ok: true, actual: 30 / 36, required: 8 / 12 },
     ])
     expect(verdict.costPerDecision).toBeCloseTo(0.0001, 6)
     expect(verdict.p95Ms).toBe(400)
     expect(verdict.fallbackRate).toBeCloseTo(2 / 144, 6)
+  })
+
+  it('treats a reading exactly at the floor as passing', () => {
+    const verdict = armVerdict(withRates(0.826, 0.75), targets)
+    expect(verdict.adoptable).toBe(true)
   })
 
   it('fails the speak floor while still clearing the incumbent', () => {
@@ -98,21 +103,17 @@ describe('armVerdict', () => {
     expect(verdict.reasons).toEqual(['speak rate 0.800 is below 0.826'])
   })
 
-  it('keeps the incumbent check even though the real floors dominate it', () => {
-    // Both pre-registered speak floors sit above the recorded incumbent, so a
-    // met floor implies a met incumbent. The check stays explicit so a future
-    // floor change cannot silently drop it.
-    const met = armVerdict(withRates(0.83, 0.9), targets)
-    expect(met.adoptable).toBe(true)
-    expect(met.checks[3]).toMatchObject({ id: 'incumbent_speak', ok: true })
-
-    const strict = armVerdict(withRates(0.83, 0.9), {
+  it('reports the incumbent floor when the target floor passed', () => {
+    // Both real floors sit above the incumbent, so this branch needs a target
+    // whose floor is lower than its incumbent reading.
+    const verdict = armVerdict(withRates(0.83, 0.9), {
       ...targets,
       speakFloor: 0.7,
       incumbentSpeakRate: 0.9,
     })
-    expect(strict.adoptable).toBe(false)
-    expect(strict.reasons).toEqual(['speak rate 0.830 is below the incumbent 0.900'])
+    expect(verdict.adoptable).toBe(false)
+    expect(verdict.checks[3]).toMatchObject({ id: 'incumbent_speak', ok: false })
+    expect(verdict.reasons).toEqual(['speak rate 0.830 is below the incumbent 0.900'])
   })
 
   it('fails the silence floor and reports it once', () => {
@@ -121,7 +122,7 @@ describe('armVerdict', () => {
     expect(verdict.reasons).toEqual(['silence rate 0.600 is below 0.750'])
   })
 
-  it('keeps the incumbent silence check reachable', () => {
+  it('reports the incumbent silence floor when the target floor passed', () => {
     const verdict = armVerdict(withRates(0.9, 0.9), {
       ...targets,
       silenceFloor: 0.5,
@@ -140,12 +141,25 @@ describe('armVerdict', () => {
     )
   })
 
-  it('treats a missing rate as unreadable, not as zero', () => {
+  it('treats a missing speak rate as unreadable, not as zero', () => {
     const verdict = armVerdict(withRates(null, 0.9), targets)
     expect(verdict.adoptable).toBe(false)
     expect(verdict.speakRate).toBeNull()
+    expect(verdict.reasons).toEqual(['no completed speak decision, so its rate cannot be read'])
+  })
+
+  it('treats a missing silence rate as unreadable, not as zero', () => {
+    const verdict = armVerdict(withRates(0.9, null), targets)
+    expect(verdict.adoptable).toBe(false)
+    expect(verdict.silenceRate).toBeNull()
+    expect(verdict.reasons).toEqual(['no completed silence decision, so its rate cannot be read'])
+  })
+
+  it('reports both unreadable rates in metric order', () => {
+    const verdict = armVerdict(withRates(null, null), targets)
     expect(verdict.reasons).toEqual([
-      'no completed speak decision, so the speak rate cannot be read',
+      'no completed speak decision, so its rate cannot be read',
+      'no completed silence decision, so its rate cannot be read',
     ])
   })
 
@@ -156,18 +170,32 @@ describe('armVerdict', () => {
     )
     expect(verdict.costPerDecision).toBeNull()
   })
+
+  it('leaves cost per decision null when nothing completed', () => {
+    const verdict = armVerdict(
+      arm({
+        completed: 0,
+        incomplete: 144,
+        usage: { inputTokens: 10, outputTokens: 10, costUsd: 0.02 },
+      }),
+      targets,
+    )
+    expect(verdict.costPerDecision).toBeNull()
+  })
 })
 
 describe('selectHoldoutArm', () => {
-  const en = (overrides: Partial<RoutingArmLanguageReport> = {}) =>
-    armVerdict(arm({ lang: 'en', ...overrides }), HOLDOUT_TARGETS.en)
-  const fr = (overrides: Partial<RoutingArmLanguageReport> = {}) =>
-    armVerdict(arm({ lang: 'fr', ...overrides }), HOLDOUT_TARGETS.fr)
+  /** Two identical, adoptable arms for one language. */
+  const pair = (
+    armId: string,
+    lang: 'en' | 'fr',
+    overrides: Partial<RoutingArmLanguageReport> = {},
+  ) => armVerdict(arm({ armId, lang, ...overrides }), HOLDOUT_TARGETS[lang])
 
   it('adopts nothing when no arm clears both languages', () => {
     const selection = selectHoldoutArm([
-      en({ armId: 'jev-central' }),
-      fr({ armId: 'jev-central', incomplete: 2, completed: 142 }),
+      pair('jev-central', 'en'),
+      pair('jev-central', 'fr', { incomplete: 2, completed: 142 }),
     ])
     expect(selection.adoptableArmIds).toEqual([])
     expect(selection.adoptedArmId).toBeNull()
@@ -177,59 +205,119 @@ describe('selectHoldoutArm', () => {
 
   it('excludes an arm that clears one language only', () => {
     const selection = selectHoldoutArm([
-      en({ armId: 'jev-central' }),
-      fr({ armId: 'jev-central' }),
-      en({ armId: 'jev-persona' }),
-      fr({
-        armId: 'jev-persona',
+      pair('jev-persona', 'en'),
+      pair('jev-persona', 'fr', {
         classes: { ...arm().classes, silence: { ...arm().classes.silence, rate: 0.5 } },
       }),
+      pair('jev-central', 'en'),
+      pair('jev-central', 'fr'),
     ])
     expect(selection.adoptableArmIds).toEqual(['jev-central'])
     expect(selection.adoptedArmId).toBe('jev-central')
-    expect(selection.ranking).toHaveLength(1)
+    expect(selection.ranking.map((entry) => entry.armId)).toEqual(['jev-central'])
   })
 
-  it('ranks by the worse language on each rate, then cost, p95 and fallback rate', () => {
-    const cheap = [
-      en({ armId: 'jev-central', usage: { inputTokens: 1, outputTokens: 1, costUsd: 0.01 } }),
-      fr({
-        armId: 'jev-central',
-        usage: { inputTokens: 1, outputTokens: 1, costUsd: 0.01 },
-        classes: { ...arm().classes, speak: { ...arm().classes.speak, rate: 0.9 } },
+  it('ranks by the worse language speak rate first', () => {
+    const selection = selectHoldoutArm([
+      pair('jev-central', 'en', {
+        classes: { ...arm().classes, speak: { ...arm().classes.speak, rate: 0.84 } },
       }),
-    ]
-    const dear = [
-      en({
-        armId: 'jev-persona',
-        usage: { inputTokens: 1, outputTokens: 1, costUsd: 0.02 },
+      pair('jev-central', 'fr', {
         classes: { ...arm().classes, speak: { ...arm().classes.speak, rate: 0.95 } },
       }),
-      fr({
-        armId: 'jev-persona',
-        usage: { inputTokens: 1, outputTokens: 1, costUsd: 0.02 },
-        classes: { ...arm().classes, speak: { ...arm().classes.speak, rate: 0.88 } },
+      pair('jev-persona', 'en', {
+        classes: { ...arm().classes, speak: { ...arm().classes.speak, rate: 0.9 } },
       }),
-    ]
-    const selection = selectHoldoutArm([...cheap, ...dear])
-    // Persona has the better EN speak rate but the worse FR one; the minimum decides.
-    expect(selection.ranking.map((entry) => entry.armId)).toEqual(['jev-central', 'jev-persona'])
+      pair('jev-persona', 'fr', {
+        classes: { ...arm().classes, speak: { ...arm().classes.speak, rate: 0.87 } },
+      }),
+    ])
+    expect(selection.ranking.map((entry) => entry.armId)).toEqual(['jev-persona', 'jev-central'])
     expect(selection.ranking[0]).toMatchObject({
-      worstSpeakRate: 90 / 102,
+      worstSpeakRate: 0.87,
       worstSilenceRate: 30 / 36,
-      costPerDecision: 0.01 / 144,
+      costPerDecision: 0.0144 / 144,
       worstP95Ms: 400,
       worstFallbackRate: 2 / 144,
     })
-    expect(selection.adoptedArmId).toBe('jev-central')
+    expect(selection.adoptedArmId).toBe('jev-persona')
   })
 
-  it('breaks a full tie by the cheaper arm and keeps the reason explicit', () => {
+  it('ranks by the worse language silence rate when speak ties', () => {
     const selection = selectHoldoutArm([
-      en({ armId: 'jev-persona', usage: { inputTokens: 1, outputTokens: 1, costUsd: 0.0002 } }),
-      fr({ armId: 'jev-persona', usage: { inputTokens: 1, outputTokens: 1, costUsd: 0.0002 } }),
-      en({ armId: 'jev-central', usage: { inputTokens: 1, outputTokens: 1, costUsd: 0.0001 } }),
-      fr({ armId: 'jev-central', usage: { inputTokens: 1, outputTokens: 1, costUsd: 0.0001 } }),
+      pair('jev-central', 'en', {
+        classes: { ...arm().classes, silence: { ...arm().classes.silence, rate: 0.84 } },
+      }),
+      pair('jev-central', 'fr', {
+        classes: { ...arm().classes, silence: { ...arm().classes.silence, rate: 0.95 } },
+      }),
+      pair('jev-persona', 'en', {
+        classes: { ...arm().classes, silence: { ...arm().classes.silence, rate: 0.9 } },
+      }),
+      pair('jev-persona', 'fr', {
+        classes: { ...arm().classes, silence: { ...arm().classes.silence, rate: 0.87 } },
+      }),
+    ])
+    expect(selection.ranking.map((entry) => entry.armId)).toEqual(['jev-persona', 'jev-central'])
+    expect(selection.adoptedArmId).toBe('jev-persona')
+  })
+
+  it('ranks by cost per completed decision when both rates tie', () => {
+    const selection = selectHoldoutArm([
+      pair('jev-central', 'en', {
+        usage: { inputTokens: 1, outputTokens: 1, costUsd: 0.0002 },
+      }),
+      pair('jev-central', 'fr', {
+        usage: { inputTokens: 1, outputTokens: 1, costUsd: 0.0002 },
+      }),
+      pair('jev-persona', 'en', {
+        usage: { inputTokens: 1, outputTokens: 1, costUsd: 0.0001 },
+      }),
+      pair('jev-persona', 'fr', {
+        usage: { inputTokens: 1, outputTokens: 1, costUsd: 0.0001 },
+      }),
+    ])
+    expect(selection.ranking.map((entry) => entry.armId)).toEqual(['jev-persona', 'jev-central'])
+    expect(selection.ranking[0]?.costPerDecision).toBeCloseTo(0.0001 / 144, 9)
+    expect(selection.adoptedArmId).toBe('jev-persona')
+  })
+
+  it('ranks by p95 when rates and cost tie', () => {
+    const slow = { count: 144, min: 1, p50: 2, p95: 500, p99: 600, max: 700 }
+    const fast = { count: 144, min: 1, p50: 2, p95: 400, p99: 500, max: 600 }
+    const selection = selectHoldoutArm([
+      pair('jev-central', 'en', { latencyMs: slow }),
+      pair('jev-central', 'fr', { latencyMs: fast }),
+      pair('jev-persona', 'en', { latencyMs: fast }),
+      pair('jev-persona', 'fr', { latencyMs: { ...fast, p95: 350 } }),
+    ])
+    expect(selection.adoptedArmId).toBe('jev-persona')
+    expect(selection.ranking.map((entry) => [entry.armId, entry.worstP95Ms])).toEqual([
+      ['jev-persona', 400],
+      ['jev-central', 500],
+    ])
+  })
+
+  it('ranks by fallback rate when rates, cost and p95 tie', () => {
+    const selection = selectHoldoutArm([
+      pair('jev-central', 'en', { fallbackRate: 0.05 }),
+      pair('jev-central', 'fr', { fallbackRate: 0.3 }),
+      pair('jev-persona', 'en', { fallbackRate: 0.1 }),
+      pair('jev-persona', 'fr', { fallbackRate: 0.2 }),
+    ])
+    expect(selection.adoptedArmId).toBe('jev-persona')
+    expect(selection.ranking.map((entry) => [entry.armId, entry.worstFallbackRate])).toEqual([
+      ['jev-persona', 0.2],
+      ['jev-central', 0.3],
+    ])
+  })
+
+  it('breaks a full tie by arm id and states the order it used', () => {
+    const selection = selectHoldoutArm([
+      pair('jev-persona', 'en'),
+      pair('jev-persona', 'fr'),
+      pair('jev-central', 'en'),
+      pair('jev-central', 'fr'),
     ])
     expect(selection.ranking.map((entry) => entry.armId)).toEqual(['jev-central', 'jev-persona'])
     expect(selection.adoptedArmId).toBe('jev-central')
@@ -238,44 +326,33 @@ describe('selectHoldoutArm', () => {
     )
   })
 
-  it('ranks by p95 when rates and cost tie', () => {
+  it('refuses to adopt when a p95 reading is missing', () => {
     const selection = selectHoldoutArm([
-      en({
-        armId: 'jev-persona',
-        latencyMs: { count: 144, min: 1, p50: 2, p95: 500, p99: 9, max: 9 },
-      }),
-      fr({
-        armId: 'jev-persona',
-        latencyMs: { count: 144, min: 1, p50: 2, p95: 500, p99: 9, max: 9 },
-      }),
-      en({
-        armId: 'jev-central',
-        latencyMs: { count: 144, min: 1, p50: 2, p95: 300, p99: 9, max: 9 },
-      }),
-      fr({
-        armId: 'jev-central',
-        latencyMs: { count: 144, min: 1, p50: 2, p95: 300, p99: 9, max: 9 },
-      }),
-    ])
-    expect(selection.adoptedArmId).toBe('jev-central')
-  })
-
-  it('ranks by fallback rate when rates, cost and p95 tie', () => {
-    const selection = selectHoldoutArm([
-      en({ armId: 'jev-persona', fallbackRate: 0.2 }),
-      fr({ armId: 'jev-persona', fallbackRate: 0.2 }),
-      en({ armId: 'jev-central', fallbackRate: 0.05 }),
-      fr({ armId: 'jev-central', fallbackRate: 0.05 }),
-    ])
-    expect(selection.adoptedArmId).toBe('jev-central')
-  })
-
-  it('refuses to adopt an arm whose ranking key cannot be read', () => {
-    const selection = selectHoldoutArm([
-      en({ armId: 'jev-central', latencyMs: null }),
-      fr({ armId: 'jev-central', latencyMs: null }),
+      pair('jev-central', 'en', { latencyMs: null }),
+      pair('jev-central', 'fr', { latencyMs: null }),
     ])
     expect(selection.adoptableArmIds).toEqual(['jev-central'])
+    expect(selection.adoptedArmId).toBeNull()
+    expect(selection.ranking).toEqual([])
+    expect(selection.reason).toMatch(/no readable ranking key/u)
+  })
+
+  it('refuses to adopt when a cost reading is missing', () => {
+    const selection = selectHoldoutArm([
+      pair('jev-central', 'en', {
+        usage: { inputTokens: null, outputTokens: null, costUsd: null },
+      }),
+      pair('jev-central', 'fr'),
+    ])
+    expect(selection.adoptedArmId).toBeNull()
+    expect(selection.reason).toMatch(/no readable ranking key/u)
+  })
+
+  it('refuses to adopt when a fallback reading is missing', () => {
+    const selection = selectHoldoutArm([
+      pair('jev-central', 'en', { fallbackRate: null }),
+      pair('jev-central', 'fr'),
+    ])
     expect(selection.adoptedArmId).toBeNull()
     expect(selection.reason).toMatch(/no readable ranking key/u)
   })

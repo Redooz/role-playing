@@ -76,71 +76,88 @@ function check(
   return { id, ok, actual, required }
 }
 
-function speakReason(actual: number | null, required: number): string {
-  return actual === null
-    ? 'no completed speak decision, so the speak rate cannot be read'
-    : `speak rate ${actual.toFixed(3)} is below ${required.toFixed(3)}`
+type RateMetric = 'speak' | 'silence'
+
+interface Requirement {
+  readonly id: VerdictCheck['id']
+  readonly metric: RateMetric
+  readonly required: number
+  /** True for the incumbent floor, which is reported only when the target passed. */
+  readonly incumbent: boolean
 }
 
-function silenceReason(actual: number | null, required: number): string {
-  return actual === null
-    ? 'no completed silence decision, so the silence rate cannot be read'
-    : `silence rate ${actual.toFixed(3)} is below ${required.toFixed(3)}`
+function atLeast(actual: number | null, required: number): boolean {
+  return actual !== null && actual >= required
 }
 
-/** One arm's readings against the frozen holdout targets for one language. */
+function describe(metric: RateMetric, actual: number | null, required: number, incumbent: boolean) {
+  if (actual === null) return `no completed ${metric} decision, so its rate cannot be read`
+  const floor = `${incumbent ? 'the incumbent ' : ''}${required.toFixed(3)}`
+  return `${metric} rate ${actual.toFixed(3)} is below ${floor}`
+}
+
+/**
+ * One arm's readings against the frozen holdout targets for one language.
+ *
+ * The target floor is the binding adoption check. The incumbent reading is kept
+ * as its own check so a future floor change cannot silently drop it, but its
+ * reason is only reported when the target itself passed: one miss, one reason.
+ */
 export function armVerdict(arm: RoutingArmLanguageReport, targets: HoldoutTargets): ArmVerdict {
-  const speakRate = arm.classes.speak.rate
-  const silenceRate = arm.classes.silence.rate
+  const rates: Readonly<Record<RateMetric, number | null>> = {
+    speak: arm.classes.speak.rate,
+    silence: arm.classes.silence.rate,
+  }
   const costPerDecision =
-    arm.usage.costUsd === null || arm.completed === 0 ? null : arm.usage.costUsd / arm.completed
+    arm.usage.costUsd !== null && arm.completed > 0 ? arm.usage.costUsd / arm.completed : null
 
+  const requirements: readonly Requirement[] = [
+    { id: 'speak', metric: 'speak', required: targets.speakFloor, incumbent: false },
+    { id: 'silence', metric: 'silence', required: targets.silenceFloor, incumbent: false },
+    {
+      id: 'incumbent_speak',
+      metric: 'speak',
+      required: targets.incumbentSpeakRate,
+      incumbent: true,
+    },
+    {
+      id: 'incumbent_silence',
+      metric: 'silence',
+      required: targets.incumbentSilenceRate,
+      incumbent: true,
+    },
+  ]
   const checks: VerdictCheck[] = [
     check('complete', arm.incomplete === 0, arm.completed, arm.n),
-    check(
-      'speak',
-      speakRate !== null && speakRate >= targets.speakFloor,
-      speakRate,
-      targets.speakFloor,
-    ),
-    check(
-      'silence',
-      silenceRate !== null && silenceRate >= targets.silenceFloor,
-      silenceRate,
-      targets.silenceFloor,
-    ),
-    check(
-      'incumbent_speak',
-      speakRate !== null && speakRate >= targets.incumbentSpeakRate,
-      speakRate,
-      targets.incumbentSpeakRate,
-    ),
-    check(
-      'incumbent_silence',
-      silenceRate !== null && silenceRate >= targets.incumbentSilenceRate,
-      silenceRate,
-      targets.incumbentSilenceRate,
+    ...requirements.map((requirement) =>
+      check(
+        requirement.id,
+        atLeast(rates[requirement.metric], requirement.required),
+        rates[requirement.metric],
+        requirement.required,
+      ),
     ),
   ]
 
+  const floorMet: Readonly<Record<RateMetric, boolean>> = {
+    speak: atLeast(rates.speak, targets.speakFloor),
+    silence: atLeast(rates.silence, targets.silenceFloor),
+  }
   const reasons: string[] = []
   if (arm.incomplete > 0) {
     reasons.push(
       `${arm.incomplete} infrastructure-incomplete decisions; a failed call is not a 'no'`,
     )
   }
-  if (!checks[1]!.ok) reasons.push(speakReason(speakRate, targets.speakFloor))
-  if (!checks[2]!.ok) reasons.push(silenceReason(silenceRate, targets.silenceFloor))
-  if (checks[3]!.ok === false && checks[1]!.ok) {
+  for (const requirement of requirements) {
+    if (requirement.incumbent && !floorMet[requirement.metric]) continue
+    if (atLeast(rates[requirement.metric], requirement.required)) continue
     reasons.push(
-      speakReason(speakRate, targets.incumbentSpeakRate).replace('below', 'below the incumbent'),
-    )
-  }
-  if (checks[4]!.ok === false && checks[2]!.ok) {
-    reasons.push(
-      silenceReason(silenceRate, targets.incumbentSilenceRate).replace(
-        'below',
-        'below the incumbent',
+      describe(
+        requirement.metric,
+        rates[requirement.metric],
+        requirement.required,
+        requirement.incumbent,
       ),
     )
   }
@@ -152,8 +169,8 @@ export function armVerdict(arm: RoutingArmLanguageReport, targets: HoldoutTarget
     completed: arm.completed,
     incomplete: arm.incomplete,
     timeouts: arm.timeouts,
-    speakRate,
-    silenceRate,
+    speakRate: rates.speak,
+    silenceRate: rates.silence,
     costPerDecision,
     p95Ms: arm.latencyMs?.p95 ?? null,
     fallbackRate: arm.fallbackRate,
@@ -184,9 +201,11 @@ export interface HoldoutSelection {
   readonly reason: string
 }
 
+/** The frozen order: worst speak, worst silence, cost, worst p95, worst fallback. */
 function compareRanking(left: ArmRanking, right: ArmRanking): number {
-  if (left.worstSpeakRate !== right.worstSpeakRate)
+  if (left.worstSpeakRate !== right.worstSpeakRate) {
     return right.worstSpeakRate - left.worstSpeakRate
+  }
   if (left.worstSilenceRate !== right.worstSilenceRate) {
     return right.worstSilenceRate - left.worstSilenceRate
   }
@@ -200,38 +219,42 @@ function compareRanking(left: ArmRanking, right: ArmRanking): number {
   return left.armId.localeCompare(right.armId)
 }
 
+/** A list of readings, or null when any one of them cannot be read. */
+function readable(values: readonly (number | null)[]): readonly number[] | null {
+  return values.every((value): value is number => value !== null) ? values : null
+}
+
 function rankingOf(armId: string, verdicts: readonly ArmVerdict[]): ArmRanking | null {
+  const p95 = readable(verdicts.map((verdict) => verdict.p95Ms))
+  const fallback = readable(verdicts.map((verdict) => verdict.fallbackRate))
+  const costs = readable(verdicts.map((verdict) => verdict.costPerDecision))
+  if (p95 === null || fallback === null || costs === null) return null
+
   const completed = verdicts.reduce((total, verdict) => total + verdict.completed, 0)
-  const cost = verdicts.every((verdict) => verdict.costPerDecision !== null)
-    ? verdicts.reduce(
-        (total, verdict) => total + (verdict.costPerDecision ?? 0) * verdict.completed,
-        0,
-      )
-    : null
-  const rates = verdicts.flatMap((verdict) =>
-    verdict.speakRate === null || verdict.silenceRate === null || verdict.p95Ms === null
-      ? []
-      : [{ speak: verdict.speakRate, silence: verdict.silenceRate, p95: verdict.p95Ms }],
+  const spend = verdicts.reduce(
+    (total, verdict, index) => total + (costs[index] ?? 0) * verdict.completed,
+    0,
   )
-  const fallbacks = verdicts.flatMap((verdict) =>
-    verdict.fallbackRate === null ? [] : [verdict.fallbackRate],
-  )
-  if (
-    cost === null ||
-    completed === 0 ||
-    rates.length !== verdicts.length ||
-    fallbacks.length !== verdicts.length
-  ) {
-    return null
-  }
   return {
     armId,
-    worstSpeakRate: Math.min(...rates.map((rate) => rate.speak)),
-    worstSilenceRate: Math.min(...rates.map((rate) => rate.silence)),
-    costPerDecision: cost / completed,
-    worstP95Ms: Math.max(...rates.map((rate) => rate.p95)),
-    worstFallbackRate: Math.max(...fallbacks),
+    // `adoptable` implies both class rates are readable; `atLeast` is false for null.
+    worstSpeakRate: Math.min(...verdicts.map((verdict) => verdict.speakRate as number)),
+    worstSilenceRate: Math.min(...verdicts.map((verdict) => verdict.silenceRate as number)),
+    costPerDecision: spend / completed,
+    worstP95Ms: Math.max(...p95),
+    worstFallbackRate: Math.max(...fallback),
   }
+}
+
+/** Group verdicts by arm, in first-seen order. */
+function groupByArm(verdicts: readonly ArmVerdict[]): Map<string, ArmVerdict[]> {
+  const byArm = new Map<string, ArmVerdict[]>()
+  for (const verdict of verdicts) {
+    const list = byArm.get(verdict.armId)
+    if (list === undefined) byArm.set(verdict.armId, [verdict])
+    else list.push(verdict)
+  }
+  return byArm
 }
 
 /**
@@ -242,16 +265,14 @@ function rankingOf(armId: string, verdicts: readonly ArmVerdict[]): ArmRanking |
  * rate. With no adoptable arm, nothing is adopted and no arm is called a winner.
  */
 export function selectHoldoutArm(verdicts: readonly ArmVerdict[]): HoldoutSelection {
-  const armIds = [...new Set(verdicts.map((verdict) => verdict.armId))]
-  const adoptableArmIds = armIds
-    .filter((armId) => verdicts.filter((v) => v.armId === armId).every((v) => v.adoptable))
-    .sort()
-  const ranking = adoptableArmIds
-    .flatMap((armId) => {
-      const ranked = rankingOf(
-        armId,
-        verdicts.filter((verdict) => verdict.armId === armId),
-      )
+  const adoptable: [string, ArmVerdict[]][] = []
+  for (const [armId, list] of groupByArm(verdicts)) {
+    if (list.every((verdict) => verdict.adoptable)) adoptable.push([armId, list])
+  }
+  const adoptableArmIds = adoptable.map(([armId]) => armId)
+  const ranking = adoptable
+    .flatMap(([armId, list]) => {
+      const ranked = rankingOf(armId, list)
       return ranked === null ? [] : [ranked]
     })
     .sort(compareRanking)
