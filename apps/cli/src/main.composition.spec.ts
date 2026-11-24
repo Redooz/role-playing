@@ -817,7 +817,7 @@ describe('main composition root', () => {
       expect(state.createJevRoutingJudge).toHaveBeenCalledTimes(1)
       expect(state.runCli).toHaveBeenCalledWith(
         expect.objectContaining({
-          routingLabel: 'jev-central (English, det-persona fallback)',
+          routingLabel: 'jev-central (English)',
         }),
       )
       expect(io.err()).toBe('')
@@ -826,7 +826,7 @@ describe('main composition root', () => {
     }
   })
 
-  it('reports a Jev fallback once on stderr and keeps det-persona answering', async () => {
+  it('reports a Jev failure once on stderr and rejects the turn', async () => {
     configureMocks()
     setLiveCredentials()
     process.env['OPENROUTER_API_KEY'] = 'router-key'
@@ -855,17 +855,20 @@ describe('main composition root', () => {
         }
       }
       const context = state.lastContext
-      const decision = await driverOptions.policy.decide({
-        personaId: 'manager',
-        turnId: 'turn-1',
-        action: 'speak',
-        messages: [],
-        lang: 'en',
-        context,
-      })
-      expect(decision).toEqual({ kind: 'decline' })
-      expect(io.err()).toContain('[routing] jev-central fell back to det-persona (error) on turn-1')
-      expect(io.err().match(/fell back/g)).toHaveLength(1)
+      await expect(
+        driverOptions.policy.decide({
+          personaId: 'manager',
+          turnId: 'turn-1',
+          action: 'speak',
+          messages: [],
+          lang: 'en',
+          context,
+        }),
+      ).rejects.toThrow(/jev-central failed on turn-1/u)
+      expect(io.err()).toContain(
+        '[routing] jev-central failed (error) on turn-1; the turn is incomplete',
+      )
+      expect(io.err().match(/jev-central failed/g)).toHaveLength(1)
     } finally {
       io.restore()
     }

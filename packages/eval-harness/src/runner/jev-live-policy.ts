@@ -17,18 +17,20 @@ import { JEV_CENTRAL_POLICY_VERSION, runJevRoutingReplay } from './routing.js'
  *
  * The decision itself is the evaluated central arm, unchanged: the same judge,
  * move contract and assembly as `runJevRoutingReplay`. Only the live wrapper is
- * new — the memo across persona calls, the deadline and the fallback.
+ * new — the memo across persona calls, the deadline and the failure rule.
  *
  * A timeout, transport error or invalid answer is never a decline and never a
- * fabricated speaker: the policy answers from the injected deterministic
- * fallback and reports the cause once per turn. The driver's own request window
- * stays the outer bound; this deadline is the inner one.
+ * fabricated speaker: the policy reports the cause once per turn and rejects, so
+ * the driver records a failed policy call and the turn stays incomplete. The
+ * deterministic fallback answers interjections, which the move contract does not
+ * model, and never a failed call. The driver's own request window stays the
+ * outer bound; this deadline is the inner one.
  */
 
 export const JEV_CENTRAL_LIVE_POLICY_ID = 'jev-central'
 /** The evaluated arm's version, stamped on every assembled decision. */
 export const JEV_CENTRAL_LIVE_POLICY_VERSION = JEV_CENTRAL_POLICY_VERSION
-/** Below the driver's 1,500 ms request window, so the fallback still answers. */
+/** Below the driver's 1,500 ms request window, so the failure is still recorded. */
 export const JEV_LIVE_DEFAULT_DEADLINE_MS = 1_200
 
 export type JevLiveFailureCause = 'timeout' | 'error'
@@ -40,7 +42,7 @@ export interface JevLiveFailure {
 
 export interface JevCentralLivePolicyOptions {
   readonly judge: JevRoutingJudge
-  /** Deterministic policy used when the model call fails or cannot decide. */
+  /** Deterministic policy; it owns interjections, not failed calls. */
   readonly fallback: PersonaTurnPolicy<RoutingContext>
   readonly deadlineMs?: number
   /** Called once per failed turn, never once per persona. */
@@ -56,15 +58,9 @@ const DECLINE: PersonaPolicyDecision = { kind: 'decline' }
 /** One turn's central outcome, memoised so both persona calls share one batch. */
 interface TurnCache {
   readonly turnId: string
-  readonly outcome: Promise<CentralOutcome | null>
+  readonly outcome: Promise<CentralOutcome>
 }
 
-/**
- * Create the live central policy.
- *
- * `fallback` is a policy, not a decision, because an interjection or a failed
- * call must be answered per persona exactly as the fallback would answer it.
- */
 export function createJevCentralLivePolicy(
   options: JevCentralLivePolicyOptions,
 ): PersonaTurnPolicy<RoutingContext> {
@@ -73,7 +69,7 @@ export function createJevCentralLivePolicy(
 
   async function decideFromModel(
     input: PersonaPolicyInput<RoutingContext>,
-  ): Promise<CentralOutcome | null> {
+  ): Promise<CentralOutcome> {
     const result = await runJevRoutingReplay(input.context, 'central_selection', options.judge, {
       // The central path takes its speaker from the Choice, never the seed.
       seed: 0,
@@ -81,7 +77,10 @@ export function createJevCentralLivePolicy(
     })
     if (!result.ok) {
       options.onFailure?.({ turnId: input.turnId, cause: result.cause })
-      return null
+      // A failed call is incomplete, never a decline: the fallback would publish
+      // a deterministic answer the model never gave. Reject instead so the
+      // driver records `policy_failed` and the turn stays visibly incomplete.
+      throw new Error(`jev-central failed on ${input.turnId}: ${result.error}`)
     }
     const { outcome } = result.decision
     return outcome.kind === 'speak'
@@ -89,7 +88,7 @@ export function createJevCentralLivePolicy(
       : { kind: 'yield' }
   }
 
-  function outcomeFor(input: PersonaPolicyInput<RoutingContext>): Promise<CentralOutcome | null> {
+  function outcomeFor(input: PersonaPolicyInput<RoutingContext>): Promise<CentralOutcome> {
     // Turns are sequential, so keeping only the current turn is enough to share
     // one batch between its persona calls and to bound memory.
     if (cache?.turnId !== input.turnId) {
@@ -103,7 +102,6 @@ export function createJevCentralLivePolicy(
       // Interjection has no move-contract semantics; the fallback owns it.
       if (input.action !== 'speak') return options.fallback.decide(input)
       const outcome = await outcomeFor(input)
-      if (outcome === null) return options.fallback.decide(input)
       if (outcome.kind === 'yield') return DECLINE
       if (outcome.personaId !== input.personaId) return DECLINE
       return { kind: 'request', request: outcome.request }

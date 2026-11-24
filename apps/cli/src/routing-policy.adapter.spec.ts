@@ -71,9 +71,9 @@ describe('createSessionRouting', () => {
     )
 
     expect(routing.choice).toBe('jev-central')
-    expect(routing.label).toBe('jev-central (English, det-persona fallback)')
+    expect(routing.label).toBe('jev-central (English)')
     expect(routing.note).toBeUndefined()
-    expect(await routing.policy.decide(input('peer'))).toEqual({ kind: 'decline' })
+    await expect(routing.policy.decide(input('peer'))).rejects.toThrow(/jev-central failed/u)
     expect(failures).toEqual([{ turnId: 'turn-1', cause: 'error' }])
   })
 

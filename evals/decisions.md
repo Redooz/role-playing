@@ -688,3 +688,45 @@ adopted path and the evaluated path cannot drift. Session
 `m3d-d6-smoke-en-4`, same scenario and utterance: header unchanged, `manager`
 declined, `peer` requested and answered, no fallback line. Spend is again
 unmeasured.
+
+### D6.1 Failure rule and record correction (2026-11-24)
+
+PR #43's review found that D6's live failure rule contradicted the project rule
+"a failed model call is not a 'no'". A read-only validator confirmed the trace:
+the wrapper returned `null` on a failed call, `det-persona` answered, and a
+declining fallback was recorded in the session log as a normal `persona.declined`
+with only a stderr line. This row corrects the rule. It is appended; the D6 row
+is not edited.
+
+**Failure rule now.** A timeout, transport error, invalid answer, a Choice outside
+the declared owners, or an assembly contradiction rejects. The cause is reported
+once per turn and the driver records `policy_failed`, so the turn stays visibly
+incomplete. The deterministic fallback owns interjections only and never answers
+a failed call. Consequence: on a failed call the learner may get no reply; that is
+the honest outcome, not a fabricated decline. The session header now reads
+`routing: jev-central (English)` because the old `det-persona fallback` label
+described behaviour that no longer exists.
+
+**Record correction for D6.** D6 quoted D5 loosely and should have named two
+rules it set aside: D5's "Only a new pre-registered run can change that"
+(`evals/decisions.md:587-590`) and the plan handoff rule
+(`docs/plans/m3d-plan-routing-contract.md:372-375`). This row states plainly that
+**no run overturned D4**: D4's selection artifact still records
+`adoptedArmId: null`. The English column of `m3d-holdout-offline` clears every
+floor D4 pre-registered with zero incomplete decisions, but it is the run the
+both-language decision rested on, not a run that tested an English-only rule.
+
+**Pre-registered English-only rule for confirmation.** A confirmation run must use
+English contexts not used to choose the English scope, and adopt only if, for the
+chosen arm: speak rate is at least 0.826, silence rate is at least 0.75, both are
+at least the incumbent's readings, and there are zero incomplete decisions. The
+current adoption is provisional until that run exists. It is not overturned here:
+the owner narrowed the product scope to English, no floor, threshold, baseline,
+golden, manifest or task was changed, and the wiring is the thing under test.
+
+**Boundary note.** The product composition root now imports the live policy and
+the Jev judge from `packages/eval-harness`, and the policy calls the evaluated
+`runJevRoutingReplay` every turn. That keeps one rubric-v2 implementation but puts
+eval code on the product path. The natural home is a pure live policy in
+`packages/routing-policy` plus a Jev adapter in the pipeline boundary; moving it
+is a separate change and is recorded here rather than done inside D6.

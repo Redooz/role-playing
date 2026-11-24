@@ -267,34 +267,43 @@ describe('createJevCentralLivePolicy', () => {
     expect(peer).toEqual({ kind: 'decline' })
   })
 
-  it('falls back on a failed judge and reports once', async () => {
+  it('rejects a failed judge once and never invents a decision', async () => {
     const judge = failingJudge()
     const failures: JevLiveFailure[] = []
+    const asked: string[] = []
     const policy = createJevCentralLivePolicy({
       judge,
-      fallback: { decide: fallbackRequest },
+      fallback: {
+        decide: (fallbackInput) => {
+          asked.push(fallbackInput.personaId)
+          return fallbackRequest(fallbackInput)
+        },
+      },
       onFailure: (failure) => failures.push(failure),
     })
     const routingContext = context()
 
-    const decisions = await Promise.all([
+    const decisions = await Promise.allSettled([
       policy.decide(input('manager', 'turn-1', routingContext)),
       policy.decide(input('peer', 'turn-1', routingContext)),
     ])
     expect(failures).toEqual([{ turnId: 'turn-1', cause: 'error' }])
-    expect(decisions).toEqual([
-      {
-        kind: 'request',
-        request: fallbackRequestOf(input('manager', 'turn-1', routingContext)),
-      },
-      {
-        kind: 'request',
-        request: fallbackRequestOf(input('peer', 'turn-1', routingContext)),
-      },
-    ])
+    expect(asked).toEqual([])
+    expect(decisions.map((entry) => entry.status)).toEqual(['rejected', 'rejected'])
   })
 
-  it('falls back on a timeout and reports it', async () => {
+  it('rejects a failed call without a failure callback', async () => {
+    const policy = createJevCentralLivePolicy({
+      judge: failingJudge(),
+      fallback: { decide: fallbackRequest },
+    })
+
+    await expect(policy.decide(input('peer', 'turn-1', context()))).rejects.toThrow(
+      /jev-central failed on turn-1/u,
+    )
+  })
+
+  it('rejects on a timeout and reports it', async () => {
     const failures: JevLiveFailure[] = []
     const policy = createJevCentralLivePolicy({
       judge: {
@@ -309,12 +318,13 @@ describe('createJevCentralLivePolicy', () => {
       onFailure: (failure) => failures.push(failure),
     })
 
-    const decision = await policy.decide(input('peer', 'turn-1', context()))
+    await expect(policy.decide(input('peer', 'turn-1', context()))).rejects.toThrow(
+      /jev-central failed on turn-1/u,
+    )
     expect(failures).toEqual([{ turnId: 'turn-1', cause: 'timeout' }])
-    expect(decision).toMatchObject({ kind: 'request' })
   })
 
-  it('falls back when the judge throws', async () => {
+  it('rejects when the judge throws', async () => {
     const failures: JevLiveFailure[] = []
     const policy = createJevCentralLivePolicy({
       judge: {
@@ -327,26 +337,10 @@ describe('createJevCentralLivePolicy', () => {
       onFailure: (failure) => failures.push(failure),
     })
 
-    const decision = await policy.decide(input('peer', 'turn-1', context()))
+    await expect(policy.decide(input('peer', 'turn-1', context()))).rejects.toThrow(
+      /jev-central failed on turn-1/u,
+    )
     expect(failures).toEqual([{ turnId: 'turn-1', cause: 'error' }])
-    expect(decision).toMatchObject({ kind: 'request' })
-  })
-
-  it('does not pass the failure to the fallback as a decline', async () => {
-    const judge = failingJudge()
-    const answered: string[] = []
-    const policy = createJevCentralLivePolicy({
-      judge,
-      fallback: {
-        decide: (fallbackInput) => {
-          answered.push(fallbackInput.personaId)
-          return { kind: 'decline' }
-        },
-      },
-    })
-
-    expect(await policy.decide(input('peer', 'turn-1', context()))).toEqual({ kind: 'decline' })
-    expect(answered).toEqual(['peer'])
   })
 
   it('delegates an interjection to the fallback without calling the model', async () => {
